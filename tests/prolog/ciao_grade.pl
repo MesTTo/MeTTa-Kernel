@@ -25,13 +25,18 @@
 :- set_prolog_flag(runtime_checks, yes).
 :- set_prolog_flag(rtchecks_check, yes).
 
-% The engine's own metta_boolean/1 (engine/metta/operators.pl) IS this type, and
-% ciao_grade.plt loads the engine before it consults this file. Defining a second
-% copy here is not a duplicate but a REDEFINITION: both files load into `user`,
-% so SWI warns "Redefined static procedure metta_boolean/1" and DISCARDS the
-% engine's clauses, which would silently unhook same_intrinsic_kind/2; the lane
-% runs under --on-warning=status, so the warning also fails the gate.
+% The type the contracts below are written against. It USED to be the engine's
+% own metta_boolean/1, and this file deliberately did not define one, because
+% both files load into `user` and a second copy is a REDEFINITION rather than a
+% duplicate: SWI warns "Redefined static procedure metta_boolean/1" and
+% DISCARDS the engine's clauses, and the lane runs under --on-warning=status.
+% The engine's copy went on 2026-08-30 with the comparable_operands/2 guard it
+% was the only caller of, so the two clauses live here now and the redefinition
+% hazard is gone with the thing that could be redefined.
 :- type metta_boolean/1.
+
+metta_boolean(true).
+metta_boolean(false).
 
 :- pred metta_remove_atom(Space, _, Removed)
    : atm(Space) => metta_boolean(Removed) + semidet.

@@ -282,8 +282,8 @@ bench_work(evaluate, Space, Result) :-
 bench_check(boot, booted) :-
     metta_host_set_silent(true),
     process_metta_string("!(+ 1 2)", [3], '&self').
-bench_check(parse, Forms) :- length(Forms, 117).
-bench_check('parse-prolog', Forms) :- length(Forms, 117).
+bench_check(parse, Forms) :- length(Forms, 118).
+bench_check('parse-prolog', Forms) :- length(Forms, 118).
 % Forcing drove the 49 names read from the source. The deferred register is
 % the engine's own account of what is left, and it has to be empty.
 bench_check(translate, forced) :-

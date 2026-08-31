@@ -60,28 +60,32 @@
 ;The library evaluated the arguments applicatively and asserted once per
 ;combination, so a nondeterministic side asserted pairwise instead of
 ;set-wise; the two spellings agreed only on deterministic arguments.
-;collapse owns the full evaluation.  Wrapping its operand in eval would add a
-;minimal one-step frame, so `(collapse (eval 2))` correctly retains `(eval 2)`
-;instead of producing the singleton value set this assertion needs.
+;collapse owns the full evaluation, so its operand is not wrapped in eval.
 ;The return type stays %Undefined% for the reason type-cast's note
 ;records: an Atom RESULT type would leave the body untranslated.
 (: assertEqual (-> Atom Atom %Undefined%))
 (= (assertEqual $A $B)
    (assert (== (collapse $A) (collapse $B))))
 
-;=alpha holds both operands as written, so a caller that wants the RESULT
-;sets compared has to collapse them into variables first and hand those
-;over. The arbiter's own stdlib writes the same sequence with chain
-;[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean:2891-2895,
-;(= (assertAlphaEqual $actual $expected) (chain (context-space) $space
-;(chain (metta (collapse $actual) ...) $actual-results ...)))]. The == forms
-;need no such step because (: == (-> $a $a Bool)) is a type variable and a
-;type variable evaluates.
+;The operands are collapsed into ANSWER SETS first, so a nondeterministic
+;side is compared set-wise rather than pairwise, which is the same reason
+;assertEqual collapses.
+;
+;The VERDICT is what crosses to assert, never the comparison, and that is the
+;rule assertEqualToResult and assertIncludes below already follow. A collapsed
+;tuple is an APPLICATION whose head is its first answer, so evaluating one
+;again under assert applies that answer to the rest:
+;(assertAlphaEqual (quote (+ $x $y)) (quote (+ $a $b))) aborted the runnable
+;with `+ ran backwards with more than one unknown` where upstream answers True
+;[measured 2026-08-30 against PeTTa@ae66fa8 examples/he_assert.metta:5]. The
+;comparison used to be safe here only because =alpha held both operands as
+;written; it evaluates them now, as upstream's does.
 (: assertAlphaEqual (-> Atom Atom %Undefined%))
 (= (assertAlphaEqual $A $B)
    (let $Actual (collapse $A)
      (let $Expected (collapse $B)
-       (assert (=alpha $Actual $Expected)))))
+       (let $Same (=alpha $Actual $Expected)
+         (assert $Same)))))
 
 ;The ToResult forms do not evaluate their second argument: it is the set
 ;of expected results, written as a tuple. Both parameters are Atom so
@@ -120,7 +124,8 @@
 (: assertAlphaEqualToResult (-> Atom Atom %Undefined%))
 (= (assertAlphaEqualToResult $A $B)
    (let $Actual (collapse $A)
-     (assert (=alpha $Actual $B))))
+     (let $Same (=alpha $Actual $B)
+       (assert $Same))))
 
 ;Every expected result must appear among the results produced.
 ;Subtracting the produced set from the expected one leaves nothing when
@@ -151,7 +156,8 @@
 (= (assertAlphaEqualMsg $A $B $M)
    (let $Actual (collapse $A)
      (let $Expected (collapse $B)
-       (assert (=alpha $Actual $Expected)))))
+       (let $Same (=alpha $Actual $Expected)
+         (assert $Same)))))
 
 (: assertEqualToResultMsg (-> Atom Atom Atom %Undefined%))
 (= (assertEqualToResultMsg $A $B $M)
@@ -337,16 +343,24 @@
 ;MEASURED [Atom] from the mechanised interpreter and from hyperon
 ;0.2.10 alike].
 ;
-;Both arrows are upstream's, written exactly as upstream writes them:
-;get-type is (-> Atom %Undefined%) and get-type-space is
-;(-> SpaceType Atom Atom) at pinned stdlib.md:849-868. The first parameter
-;said Symbol here while a space handle answered Symbol, and had to move with
-;the handle's own type [tested: spaces:space_handle_type]. Either return spelling behaves identically in
-;this engine, measured 2026-08-19 over an effectful call, a declared
-;return, a value and a builtin application, so upstream's is kept because
-;matching it costs nothing.
+;get-type's arrow is upstream's. The first parameter of get-type-space said
+;Symbol here while a space handle answered Symbol, and had to move with the
+;handle's own type [tested: spaces:space_handle_type].
+;
+;get-type-space RETURNS %Undefined% and not Atom, and the difference only
+;shows for a name a PROGRAM defines. The two spellings were measured identical
+;on 2026-08-19 over an effectful call, a declared return, a value and a
+;builtin application -- all of them the engine's own native path, where an
+;Atom result decides nothing because there is no equation body to hold back.
+;A program's equation is the case that was not measured: PeTTa ships
+;get-type-space only as a lib_he equation, `(= (get-type-space &self $x)
+;(get-type $x))`, with no declaration at all, and under an Atom RESULT this
+;engine answered that body's `(get-type a)` as produced instead of evaluating
+;it [measured 2026-08-30: `(A)` upstream against `((get-type a))` here;
+;tested: examples/he_atomspace.metta]. The Atom spelling came from Hyperon's
+;stdlib.md:849-868 through the previous arbiter, not from PeTTa.
 (: get-type (-> Atom %Undefined%))
-(: get-type-space (-> SpaceType Atom Atom))
+(: get-type-space (-> SpaceType Atom %Undefined%))
 
 ;match-types is UNIFICATION with wildcards, not equality: %Undefined%
 ;and Atom on either side match anything, and otherwise the two types unify,

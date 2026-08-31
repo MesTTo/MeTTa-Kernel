@@ -239,60 +239,53 @@ test(an_effectful_operation_answers_true,
     assertion(Meta == 'Expression'),
     assertion([] \== true).
 
-test(spaces_removal_answers_unit_for_success_and_an_error_for_absence,
+test(spaces_removal_answers_true_and_drains_every_occurrence,
      [ setup(cleanup_arbitrary_space), cleanup(cleanup_arbitrary_space) ]) :-
     arbitrary_space(Space),
     add_sexp(Space, [pair, 1, 2]),
     add_sexp(Space, lonely),
-    % `true` for a removal that happened and an error for one that found
-    % nothing. The success answer is the effect answer every operation of that
-    % family gives (see the note above 'println!'/2 in
-    % engine/metta/runtime.pl).
-    %
-    % TODO(petta-alignment): upstream answers `true` for the ABSENT case too,
-    % and its remove_sexp is retractall/1, so it also removes EVERY matching
-    % occurrence where this removes one
-    % [source: PeTTa@ae66fa8 src/spaces.pl:6-7,44; measured 2026-08-29,
-    % ai-tmp/petta-align/absent.metta and multi.metta]. Both halves are
-    % divergences rather than supersets and are due to change, in their own
-    % commit: the one-occurrence law is also written into
-    % website/live/remote-protocol.md and eight removal tests, so it moves as
-    % one piece rather than piecemeal here.
+    % `true` whether or not the space held the atom, which is upstream's own
+    % answer and this engine's since 2026-08-30. It answered an error for the
+    % absent case until then, on LeaTTa's ruling; PeTTa is the arbiter now and
+    % a different ANSWER to the same call is not a superset
+    % [source: PeTTa@ae66fa8 src/spaces.pl:43-44].
     'remove-atom'(Space, [pair, 1, 2], Present),
     assertion(Present == true),
     'remove-atom'(Space, [pair, 1, 2], Repeated),
-    assertion(Repeated = ['Error', ['remove-atom', Space, [pair, 1, 2]], _]),
+    assertion(Repeated == true),
     'remove-atom'(Space, [never, there], Absent),
-    assertion(Absent = ['Error', ['remove-atom', Space, [never, there]],
-                        "remove-atom: atom is not in the space"]),
+    assertion(Absent == true),
     % The information is not lost, it moved to where the ENGINE uses it:
     % metta_remove_atom/3 still answers whether anything was there, which is
-    % what the loader's rollback and the storage modules read.
+    % what the loader's rollback, the storage modules and the Python
+    % `space.remove(atom)` door read.
     metta_remove_atom(Space, lonely, Removed),
     assertion(Removed == true),
     metta_remove_atom(Space, nonesuch, Missing),
     assertion(Missing == false),
-    % Removal takes ONE occurrence, because a space is a multiset and
-    % subtracting from a multiset takes one. This used to assert that two
-    % adds and one removal left NOTHING, on the reasoning that "a MeTTa space
-    % is a multiset unless something forbids it, so removal takes EVERY
-    % occurrence", which argues for the opposite of what it concludes. The
-    % arbiter agrees with the premise: MettaHyperonFullTests/Properties.lean
-    % requires multiset subtraction on the reader-visible view of &self.
+    % ONE removal drains every atom that unifies, which is upstream's
+    % retractall/1 under a comment reading "Remove all same atoms"
+    % [source: PeTTa@ae66fa8 src/spaces.pl:5-7]. It took one occurrence here
+    % until 2026-08-30, as multiset subtraction on LeaTTa's Properties.lean.
     add_sexp(Space, [twice, x]),
     add_sexp(Space, [twice, x]),
-    'remove-atom'(Space, [twice, x], One),
-    assertion(One == true),
-    findall(A, get_native_atom(Space, A), Half),
-    assertion(Half == [[twice, x]]),
-    'remove-atom'(Space, [twice, x], Other),
-    assertion(Other == true),
-    findall(B, get_native_atom(Space, B), Left),
+    'remove-atom'(Space, [twice, x], Both),
+    assertion(Both == true),
+    findall(A, get_native_atom(Space, A), Left),
     assertion(Left == []),
-    % And the two rulings compose: once the copies are gone the next removal
-    % is an absence rather than a third silent unit.
+    % Draining is idempotent, which is the whole content of answering true
+    % either way: a further removal changes nothing and says the same thing.
     'remove-atom'(Space, [twice, x], Gone),
-    assertion(Gone = ['Error', ['remove-atom', Space, [twice, x]], _]).
+    assertion(Gone == true),
+    % A PATTERN drains what it unifies with, and leaves the caller's variables
+    % as they were, which is why the same call can be written twice.
+    add_sexp(Space, [edge, a, b]),
+    add_sexp(Space, [edge, a, c]),
+    add_sexp(Space, [edge, b, c]),
+    'remove-atom'(Space, [edge, a, _Any], Pattern),
+    assertion(Pattern == true),
+    findall(B, get_native_atom(Space, B), Rest),
+    assertion(Rest == [[edge, b, c]]).
 
 setup_arbitrary_space :-
     cleanup_arbitrary_space,
@@ -582,6 +575,36 @@ forget_late_name(Name) :-
 % silent: an equation compiled into the module the engine resolves in
 % REPLACES a predicate of that name instead of shadowing it.
 :- begin_tests(spaces_execution_modules).
+
+%A READ is not a use. space_module/2 ENSURES a module for whoever asks, so
+%asking which module a space uses created one, and the refusal below read that
+%as "this space has been used" and retired the name for good: a tool that
+%listed what a dropped space's module owned stopped its name ever coming back.
+%What use means is CONTENT the space's own program put there, and an empty
+%module is rebuilt on the base the declaration names.
+test(a_read_of_a_module_does_not_retire_its_space_name,
+     [cleanup(( catch(metta_release_space('&plunit_read_only'), _, true),
+                catch(metta_release_space('&plunit_read_owner'), _, true) ))]) :-
+    space_module('&plunit_read_only', _),
+    assertion(metta_exec_module_known('&plunit_read_only', _)),
+    assertion(\+ spaces:space_parent_child_used('&plunit_read_only')),
+    metta_declare_space_parent('&plunit_read_only', '&self'),
+    assertion(space_parent('&plunit_read_only', '&self')),
+    space_module('&plunit_read_only', Rebased),
+    space_module('&self', Self),
+    assertion(import_module(Rebased, Self)).
+
+%The other half: a space whose program compiled a clause into its module IS
+%used, and the declaration still refuses rather than rebasing under it.
+test(a_space_that_compiled_a_clause_still_refuses_a_late_parent,
+     [cleanup(catch(metta_release_space('&plunit_read_owner'), _, true))]) :-
+    metta_host_run_source("(= (plunit-read-owned $x) $x)",
+                          '&plunit_read_owner', [], _),
+    assertion(spaces:space_parent_child_used('&plunit_read_owner')),
+    catch(metta_declare_space_parent('&plunit_read_owner', '&self'),
+          error(Formal, _),
+          true),
+    assertion(Formal == metta_space_parent_after_use('&plunit_read_owner')).
 
 test(every_space_compiles_into_a_module_of_its_own) :-
     space_module('&self', Self),
@@ -1439,20 +1462,21 @@ test(the_shipped_backend_claims_its_namespace_exactly_when_it_loads) :-
 
 :- begin_tests(spaces_native_shape).
 
-test(a_rational_tree_candidate_is_never_a_match_answer,
+test(a_cyclic_binding_is_refused_only_when_the_template_carries_it,
      [ setup(add_sexp('&plunit_rational', [rt, [f, X], X])),
        cleanup(( retractall(native_storage_module_cache('&plunit_rational', _)),
                  clear_native_atoms('&plunit_rational') )) ]) :-
-    % The arbiter's matcher occurs-checks its variable cases, so
-    % (rt $y $y) against a stored (rt (f $x) $x) has no answer, whatever
-    % the out template mentions. Before the guard in native_expression,
-    % the ground template answered while the pattern-as-template failed:
-    % one match, two answers.
-    \+ match('&plunit_rational', [rt, Y, Y], hit, _),
+    % Upstream PeTTa's law, measured on PeTTa-base@43705f5: matching binds
+    % raw and the ONE cycle test sits on the answer template. (rt $y $y)
+    % against a stored (rt (f $x) $x) makes a rational-tree binding; with
+    % template `hit` the answer flows, and with the pattern itself as the
+    % template the cyclic answer is refused. The LeaTTa-era occurs
+    % discipline that refused both is withdrawn by the petta alignment.
+    findall(R0, match('&plunit_rational', [rt, Y, Y], hit, R0), [hit]),
     \+ match('&plunit_rational', [rt, Y2, Y2], [rt, Y2, Y2], _),
-    % The acyclic twin still answers through the same clause.
+    % The acyclic twin answers beside it: one hit per matching row.
     add_sexp('&plunit_rational', [rt, ok, ok]),
-    findall(R, match('&plunit_rational', [rt, Z, Z], hit, R), [hit]).
+    findall(R, match('&plunit_rational', [rt, Z, Z], hit, R), [hit, hit]).
 
 % spaces:add_sexp_in/4 writes the two clause bodies out rather than calling
 % native_atom_clause/3, because calling it cost one goal per write, +2 on a
@@ -2257,7 +2281,9 @@ test(ground_difference, [fail]) :- metta_match_atoms(a, b).
 test(numeric_promotion) :- metta_match_atoms(1, 1.0).
 test(string_equality) :- metta_match_atoms("x", "x").
 test(string_difference, [fail]) :- metta_match_atoms("x", "y").
-test(occurs_check_rejects, [fail]) :-
+%Raw binding under the petta alignment: a self-match makes a rational tree
+%and SUCCEEDS, the same one binding law the matcher and let follow.
+test(a_self_match_binds_a_rational_tree, [true(cyclic_term(X))]) :-
     metta_match_atoms(X, [f, X]).
 test(a_variable_binds, [true(X == [f, a])]) :-
     metta_match_atoms(X, [f, a]).
@@ -2463,38 +2489,56 @@ test(an_unbound_operand_fails_without_enumerating) :-
 % comparison drops quotes on both sides and says so at
 % tests/conformance/leatta.py, so the two records differ only in that.
 %
-% A space here is a NAME, so what is refused is a name that is not one: the
-% rule is is-space/2's, an atom beginning with `&`, which evalc/3 has enforced
-% at its own door since it was written and which extensions/python/metta/space.py enforces
-% at the library's. The three doors below were the ones that did not, so
-% `(add-atom not-a-space (bad add))` silently made a space called
-% `not-a-space` while `(is-space not-a-space)` answered False in the same
-% program.
+% A SYMBOL IS ALWAYS A SPACE, so what is refused is an operand that is not a
+% symbol at all. Upstream's space IS a Prolog predicate name -- `match/4` and
+% `add_sexp/2` both build `Term =.. [Space, Rel|Args]` -- so any atom works
+% and a non-atom raises `=../2: Type error: atom expected` UNCAUGHT, killing
+% the run [measured 2026-08-30: upstream dies on `(add-atom 42 (bad add))`
+% before its next form; source: PeTTa@ae66fa8 src/spaces.pl:1-6,52-62].
+% Answering instead is this engine's superset over that, on the same ground as
+% every other place upstream aborts where this engine answers.
+%
+% These rows required a leading `&` until 2026-08-30, on LeaTTa's spaceName
+% rule; the positive half is now tested by
+% a_bare_symbol_is_a_space_the_moment_it_is_written_to below.
 :- begin_tests(space_argument_refusals).
 
-refused_space_call("!(collapse (add-atom not-a-space (bad add)))",
-                   "((Error (add-atom not-a-space (bad add)) \"add-atom expects a space as the first argument\"))").
-refused_space_call("!(collapse (add-atoms not-a-space (bad batch)))",
-                   "((Error (add-atom not-a-space bad) \"add-atom expects a space as the first argument\"))").
-refused_space_call("!(collapse (get-atoms not-a-space))",
-                   "((Error (get-atoms not-a-space) \"get-atoms expects a space as its argument\"))").
-refused_space_call("!(collapse (match not-a-space (q a) a))",
-                   "((Error (match not-a-space (q a) a) \"match expects a space as the first argument\"))").
+refused_space_call("!(collapse (add-atom 42 (bad add)))",
+                   "((Error (add-atom 42 (bad add)) \"add-atom expects a space as the first argument\"))").
+refused_space_call("!(collapse (get-atoms 42))",
+                   "((Error (get-atoms 42) \"get-atoms expects a space as its argument\"))").
+refused_space_call("!(collapse (match 42 (q a) a))",
+                   "((Error (match 42 (q a) a) \"match expects a space as the first argument\"))").
 %The reducing forms delegate the check to add-atom, so the error names add-atom
 %and the REDUCED atom, which is where the write would have happened.
-refused_space_call("!(collapse (add-reduct not-a-space (+ 7000 1)))",
-                   "((Error (add-atom not-a-space 7001) \"add-atom expects a space as the first argument\"))").
+refused_space_call("!(collapse (add-reduct 42 (+ 7000 1)))",
+                   "((Error (add-atom 42 7001) \"add-atom expects a space as the first argument\"))").
 %The scoped type lookup is a space door too, and the arbiter refuses it in the
 %same shape [source: LeaTTa tests/semantics/spaces/get_type_space.metta and the
 %four get_doc files, whose last line is this refusal reached through it].
 refused_space_call("!(collapse (get-type-space not-a-space scoped-atom))",
                    "((Error (get-type-space not-a-space scoped-atom) \"get-type-space expects a space as the first argument\"))").
 
-test(a_name_that_is_not_a_space_is_refused_by_name,
+test(an_operand_that_is_not_a_symbol_is_refused_by_name,
      [forall(refused_space_call(Source, Expected))]) :-
     process_metta_string(Source, [Answer]),
     swrite(Answer, Text),
     assertion(Text == Expected).
+
+%The other half of the same rule, byte-checked against upstream: a bare symbol
+%is a space, and is-space/2 still calls it False. That pair is upstream's own
+%split rather than a contradiction here -- its is-space tests the `&` prefix in
+%the same file as the match/4 that accepts any atom
+%[source: PeTTa@ae66fa8 src/metta.pl:208 against src/spaces.pl:52-62;
+%measured 2026-08-30, both engines answer true, false, (bad add), (true)].
+test(a_bare_symbol_is_a_space_the_moment_it_is_written_to,
+     [cleanup(clear_native_atoms('plunit-bare-space'))]) :-
+    process_metta_string("!(add-atom plunit-bare-space (canary 1))", Added),
+    assertion(Added == [true]),
+    process_metta_string("!(match plunit-bare-space (canary $x) $x)", Found),
+    assertion(Found == [1]),
+    process_metta_string("!(is-space plunit-bare-space)", IsSpace),
+    assertion(IsSpace == [false]).
 
 % The other half, and the reason the rule is the prefix rather than the
 % registry: a space is still CREATED by writing to it, so a name nothing has
@@ -3468,3 +3512,48 @@ one_function_batch_cost(Count, Micros) :-
     Micros is (T1 - T0) * 1000000 / Count.
 
 :- end_tests(spaces_deferred_translation).
+
+:- begin_tests(space_worlds).
+
+%A context home declares itself onto '&self' when it is minted, and a space
+%the PROGRAM mints inside that world (new-space, not the host door) joins
+%it: the world row lands and the mint reads the home's equations exactly as
+%every default-world space reads &self's. In the default world new-space
+%declares nothing, which the last assertion pins on a bystander.
+test(a_program_minted_space_reads_its_worlds_equations,
+     [ cleanup(( catch(spaces:metta_release_space('&plunit_world'), _, true),
+                 retractall(spaces:space_equation_home('&plunit_world', _)) )) ]) :-
+    metta_declare_space_equation_home('&plunit_world', '&self'),
+    process_metta_string("(= (plunit-w-store $x) (kept $x))", _, '&plunit_world'),
+    process_metta_string("!(bind! &plunit-w-child (new-space))", _, '&plunit_world'),
+    assertion(spaces:space_equation_home(Child, '&plunit_world')),
+    spaces:space_equation_home(Child, '&plunit_world'),
+    assertion(Child \== '&plunit_world'),
+    process_metta_string("!(evalc (plunit-w-store a) &plunit-w-child)", R,
+                         '&plunit_world'),
+    assertion(R == [[kept, a]]),
+    process_metta_string("!(bind! &plunit-bystander (new-space))", _, '&self'),
+    assertion(\+ ( spaces:space_equation_home(B, '&self'),
+                   B \== '&plunit_world',
+                   \+ sub_atom(B, 0, _, _, '&pyspace') )).
+
+%Releasing a world releases the spaces minted inside it first, and the
+%removal funnel's super-user recompilation is muted while it happens: the
+%child's own override USES super, which is exactly the shape that resolved
+%super inside a half-dead world and threw before the mute existed.
+test(a_context_close_takes_its_world_with_it) :-
+    metta_declare_space_equation_home('&plunit_world2', '&self'),
+    process_metta_string("(= (plunit-w2-store $x) (held $x))", _,
+                         '&plunit_world2'),
+    process_metta_string("!(bind! &plunit-w2-child (new-space))", _,
+                         '&plunit_world2'),
+    process_metta_string(
+        "!(add-atom &plunit-w2-child (= (plunit-w2-store $a) (super (plunit-w2-store $a))))",
+        _, '&plunit_world2'),
+    spaces:space_equation_home(Child, '&plunit_world2'),
+    spaces:metta_release_space('&plunit_world2'),
+    assertion(\+ spaces:space_equation_home(_, '&plunit_world2')),
+    assertion(\+ spaces:space_equation_home('&plunit_world2', _)),
+    assertion(\+ spaces:native_storage_module_cache(Child, _)).
+
+:- end_tests(space_worlds).

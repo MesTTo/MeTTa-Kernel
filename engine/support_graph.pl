@@ -144,6 +144,19 @@ support_edge_retractall(Support, Derived) :-
 :- dynamic support_dirty_node/2.
 :- dynamic support_value/3.
 :- dynamic support_memo_rule/4.
+%The graph NODE for a compiled clause carries a sequence number, never the
+%clause reference itself. A reference is a blob whose variant_hash is its
+%address, and the visited set behind support_invalidate_many/1 is a hash set:
+%with the blob in the node, a collision-probe chain's length changed with the
+%allocator's layout, and the same file load retired a different inference
+%count on every run -- 16,346/16,362/16,370 on one example, which the parity
+%lane's three-agreeing-runs rule read as nondeterministic and refused to
+%measure [measured 2026-08-30: variant_hash of the visited node differed
+%across two otherwise identical runs, ai-tmp trace over
+%examples/ch05-equations-and-evaluation/05-01-an-equation-is-a-rewrite/02-twostage.metta].
+%The reference stays the key of support_memo_rule/4, which is first-argument
+%indexed and never hashed; this mapping is how the two meet.
+:- dynamic support_translated_form_id/3.
 :- dynamic support_memo_changed/2.
 :- thread_local support_graph_locked/0.
 :- thread_local support_repairs_deferred/0.
@@ -381,7 +394,7 @@ support_publish_locked(Derived, Supports, Edges) :-
 % fresh clause reference. Keeping its hot publication path here avoids
 % re-validating four engine-built nodes for every source form.
 support_publish_compiled_form(Module, G, Ref, Supports, Body) :-
-    Form = translated_form(Module, Ref),
+    support_translated_form_node(Module, Ref, Form),
     Compiled = compiled_function(Module, G),
     Function = function(Module, G),
     View = function_view(Module, G),
@@ -394,6 +407,12 @@ support_publish_compiled_form(Module, G, Ref, Supports, Body) :-
 %Most definitions mention only builtins. Probe for one possible source-call
 %head before allocating an occurrence list; only a body that can participate
 %in a source SCC pays the complete walk.
+%The comment above support_publish_compiled_form/5 owns the reason this
+%allocates unconditionally: the caller always holds a FRESH reference.
+support_translated_form_node(Module, Ref, translated_form(Module, N)) :-
+    flag('$metta_translated_form_node_seq', N, N + 1),
+    assertz(support_translated_form_id(Ref, Module, N)).
+
 support_memo_body_calls(Module, Fun, Body, Calls) :-
     once(( support_memo_call_head(Body, Candidate),
            support_memo_potential_callee(Module, Fun, Candidate) )),
@@ -535,10 +554,14 @@ support_forget_locked(Node) :-
     support_value_retractall(Node),
     support_unindex_node_locked(Node).
 
-support_forget_memo_rule(translated_form(Module, Ref)) :-
+support_forget_memo_rule(translated_form(Module, N)) :-
     !,
-    findall(Fun, retract(support_memo_rule(Module, Ref, Fun, _)), Funs),
-    forall(member(Fun, Funs), support_memo_mark_changed(Module, Fun)).
+    (   support_translated_form_id(Ref, Module, N)
+    ->  retractall(support_translated_form_id(Ref, Module, N)),
+        findall(Fun, retract(support_memo_rule(Module, Ref, Fun, _)), Funs),
+        forall(member(Fun, Funs), support_memo_mark_changed(Module, Fun))
+    ;   true
+    ).
 support_forget_memo_rule(_).
 
 support_unindex_node_locked(function(Module, Name)) :-
@@ -568,6 +591,10 @@ support_forget_module_locked(Module) :-
     retractall(support_view_module(_, Module)),
     retractall(support_memo_rule(Module, _, _, _)),
     retractall(support_memo_changed(Module, _)),
+    %The node-id rows hold clause references, which pin their clauses; the
+    %module sweep releases this module's exactly as support_reset/0 releases
+    %them all.
+    retractall(support_translated_form_id(_, Module, _)),
     forall(member(SymbolNode, Adjacent),
            support_prune_symbol_index_locked(SymbolNode)).
 
@@ -753,4 +780,8 @@ support_reset :-
           retractall(support_dirty_node(_, _)),
           retractall(support_value(_, _, _)),
           retractall(support_memo_rule(_, _, _, _)),
-          retractall(support_memo_changed(_, _)) )).
+          retractall(support_memo_changed(_, _)),
+          %The node-id mapping holds clause REFERENCES, and a retained
+          %reference keeps its clause alive, so a reset that left these rows
+          %pinned every clause the graph had ever published.
+          retractall(support_translated_form_id(_, _, _)) )).

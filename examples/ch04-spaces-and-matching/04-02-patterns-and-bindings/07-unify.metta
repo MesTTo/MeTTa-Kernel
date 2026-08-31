@@ -14,8 +14,11 @@
 ;Bindings flow from the match into the branch, both directions at once.
 !(test (unify (f $x b) (f a $y) (pair $x $y) nope) (pair a b))
 
-;The occurs check rejects a cyclic binding.
-!(test (unify $x (f $x) cyclic sound) sound)
+;Bindings are raw, upstream PeTTa's own law: a variable may bind to a term
+;that contains it, which makes a rational tree rather than a failure, so
+;the then-branch runs. Printing such a value is what refuses, since no
+;finite S-expression reads back as one.
+!(test (unify $x (f $x) cyclic sound) cyclic)
 
 ;Only the selected branch evaluates: each probe leaves a marker, and
 ;exactly one marker lands per query.

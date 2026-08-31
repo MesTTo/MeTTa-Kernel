@@ -37,7 +37,34 @@
 %ones, merely visited in another order: `(, (edge $x $y) (edge $x $y))` over a
 %space holding `(edge a b)` twice answers four rows here as it did before.
 %Answer ORDER is not preserved, and is not specified.
+%Adopted from upstream PeTTa's matcher, whose whole cycle discipline is ONE
+%test per answer on the OUT template: unification binds raw, so
+%first-argument indexing dispatches and rational trees are legal bindings,
+%and an answer whose template carries a cyclic binding is refused. A cyclic
+%binding the template does not mention FLOWS, which is upstream's measured
+%law: against a stored (rt (f $x) $x), the pattern (rt $y $y) with template
+%`hit` answers hit, with the pattern itself as template answers nothing, and
+%with an acyclic (rt ok ok) twin beside it answers hit twice
+%[measured 2026-08-30 on PeTTa-base@43705f5, src/spaces.pl match/4; tested:
+%spaces:a_cyclic_binding_is_refused_only_when_the_template_carries_it].
+%One refinement past upstream's spelling: upstream re-tests the template
+%after EVERY conjunct step as an artifact of its recursive clause, but a
+%cyclic mid-join binding either reaches the terminal clause, which tests it,
+%or backtracks away untested, so the test here sits ONLY at answer sites --
+%the terminal conjunct clause and the leaf clauses; a skew join pays zero
+%per-step inferences.
+%The entry scan, its C twin and the per-candidate acyclic_term(PatArgs) that
+%this replaces moved the same growing-term walk between spellings without
+%removing it -- the walk count per answer is identical -- and added a
+%per-call classification the walk never needed; the test is spelled
+%acyclic_term/1 because it is upstream's \+ cyclic_term/1 at half the
+%inference price (1 against 2, which the skew bench prices at 5,000
+%answers per query), walking at the same speed (0.063s against 0.061s per
+%200 walks of a 200k-node term), so the adoption deletes apparatus, not
+%protection [measured 2026-08-30; command=swipl one-shot forall/between
+%timing; commit=WORKTREE].
 match_native(_, _, LComma, OutPattern, Result) :- LComma == [','], !,
+                                                  acyclic_term(OutPattern),
                                                   Result = OutPattern.
 match_native(Module, Space, [Comma|Conjuncts], OutPattern, Result) :-
     Comma == ',',
@@ -45,19 +72,17 @@ match_native(Module, Space, [Comma|Conjuncts], OutPattern, Result) :-
     relational_conjuncts(Conjuncts),
     !,
     match_relational_conjuncts(Module, Space, Conjuncts, OutPattern, Result).
+
 match_native(Module, Space, [Comma|[Head|Tail]], OutPattern, Result) :- Comma == ',',
                                                                         var(Head), !,
                                                                         get_native_atom(Module, Space, Head),
-                                                                        acyclic_term(OutPattern),
                                                                         match_native(Module, Space, [','|Tail], OutPattern, Result).
 match_native(Module, Space, [Comma|[Head|Tail]], OutPattern, Result) :- Comma == ',',
                                                                         ( Head == [] ; \+ is_list(Head) ), !,
                                                                         get_native_scalar_atom_in(Module, Head),
-                                                                        acyclic_term(OutPattern),
                                                                         match_native(Module, Space, [','|Tail], OutPattern, Result).
 match_native(Module, Space, [Comma|[[Rel|PatArgs]|Tail]], OutPattern, Result) :- Comma == ',', !,
                                                                                 native_expression(Module, Space, Rel, PatArgs),
-                                                                                acyclic_term(OutPattern),
                                                                                 match_native(Module, Space, [','|Tail], OutPattern, Result).
 
 %When the native pattern itself is a variable, enumerate all atoms.
@@ -83,7 +108,6 @@ match_native(Module, Space, [Rel|PatArgs], OutPattern, Result) :- native_express
 match_relational_conjuncts(Module, Space, Conjuncts, OutPattern, Result) :-
     cheapest_conjunct(Module, Space, Conjuncts, Goal, Rest),
     call(Goal),
-    acyclic_term(OutPattern),
     (   Rest = [_, _|_]
     ->  match_relational_conjuncts(Module, Space, Rest, OutPattern, Result)
     ;   match_native(Module, Space, [','|Rest], OutPattern, Result)
@@ -93,13 +117,12 @@ match_relational_conjuncts(Module, Space, Conjuncts, OutPattern, Result) :-
 %flag is fail, so a virgin arity fails directly and this indexed path needs no
 %exception handler.
 %The storage call unifies raw, so first-argument indexing dispatches, and
-%the occurs check runs once on the answer instead: a cyclic binding fails
-%THIS candidate and enumeration continues. Without it, a repeated-variable
-%pattern like (f $y $y) against a stored (f (g $x) $x) "matched" whenever
-%the out template did not mention $y, while the same pattern failed when it
-%did, one match with two answers. The arbiter's matcher occurs-checks its
-%variable cases (LeaTTa MettaHyperonFull/Core/Matching.lean matchAtomsWith),
-%so a rational-tree instantiation is never a MeTTa answer.
+%rational-tree bindings are legal: the ONE cycle test lives on the answer
+%template at every match_native/5 answer site, upstream PeTTa's own
+%placement. The LeaTTa-era occurs discipline (a rational-tree instantiation
+%is never an answer, whatever the template) is withdrawn by the alignment:
+%a cyclic binding the template does not carry now answers, as upstream
+%measures [source: PeTTa-base@43705f5 src/spaces.pl match/4].
 %Every remaining conjunct is an expression whose head is settled, which is the
 %shape the reordering understands. Anything else keeps source order.
 relational_conjuncts([]).
@@ -179,12 +202,10 @@ native_expression(Module, [Family|Parameters], Rel, PatArgs) :-
     space_parametric(Space),
     !,
     Term =.. ['$metta_parametric_atom', Rel|PatArgs],
-    call(Module:Term),
-    acyclic_term(PatArgs).
+    call(Module:Term).
 native_expression(Module, Space, Rel, PatArgs) :-
     Term =.. [Space, Rel | PatArgs],
-    call(Module:Term),
-    acyclic_term(PatArgs).
+    call(Module:Term).
 
 'get-atoms'(Space, Pattern) :- nonvar(Space),
                                seam:foreign_space(Space), !,
@@ -561,8 +582,10 @@ metta_refuse_module_for_space(Space, Door) :-
 %cost 2,055 inferences at 2,000 held atoms and 21,055 at 10,000,
 %linear, against 69.01 flat through match's spelling of the same
 %question; through this clause the same probe reads 57.01 at 2,000 and
-%57.00 at 10,000]. The occurs check mirrors native_expression/4's: a cyclic
-%binding is never a MeTTa answer. A partial list keeps the enumerating
+%57.00 at 10,000]. Reads bind raw, as
+%native_expression/4's do under the petta alignment: the one cycle test
+%sits on the match answer template, and the enumeration doors carry none,
+%exactly as upstream's get-atoms carries none. A partial list keeps the enumerating
 %clause below, and a bound SCALAR skips both, because =../2 on it threw
 %where the store owed a clean miss and the scalar shelf is that atom's
 %own clause anyway [tested: spaces_contains].
@@ -575,8 +598,7 @@ get_native_atom(Module, [Family|Parameters], Pattern) :-
     length(Pattern, Arity),
     functor(Head, '$metta_parametric_atom', Arity),
     Head =.. ['$metta_parametric_atom'|Pattern],
-    call(Module:Head),
-    acyclic_term(Pattern).
+    call(Module:Head).
 get_native_atom(Module, Space, Pattern) :-
     is_list(Pattern),
     Pattern = [_|_],
@@ -584,8 +606,7 @@ get_native_atom(Module, Space, Pattern) :-
     length(Pattern, Arity),
     functor(Head, Space, Arity),
     Head =.. [Space | Pattern],
-    call(Module:Head),
-    acyclic_term(Pattern).
+    call(Module:Head).
 %A PARTIAL list with a bound head keeps the head's index too: the arity is
 %open, so one storage head cannot be built, but the held arities are a small
 %enumerable set and within each the first argument dispatches exactly as
@@ -619,8 +640,7 @@ get_native_atom(Module, [Family|Parameters], Pattern) :-
     arg(1, Head, Rel),
     call(Module:Head),
     Head =.. [_|Args],
-    Args = Pattern,
-    acyclic_term(Pattern).
+    Args = Pattern.
 get_native_atom(Module, Space, Pattern) :-
     nonvar(Pattern),
     Pattern = [Rel|_],
@@ -633,8 +653,7 @@ get_native_atom(Module, Space, Pattern) :-
     arg(1, Head, Rel),
     call(Module:Head),
     Head =.. [_|Args],
-    Args = Pattern,
-    acyclic_term(Pattern).
+    Args = Pattern.
 get_native_atom(Module, [Family|Parameters], Pattern) :-
     \+ atomic(Pattern),
     Space = [Family|Parameters],

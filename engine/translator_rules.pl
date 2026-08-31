@@ -96,6 +96,8 @@
             translator_rule_override/2,
             translator_rule_refusal/3,
             translator_rule_orients/4,
+            translator_rule_dispatch_orients/3,
+            cost_ordered_translator_rule/1,
             protected_core_head/1,
             note_translator_rule_refusal/3
           ]).
@@ -326,8 +328,10 @@ register_translator_rule(Name, Declarations) :-
                                 'a rule name identifies one declaration')))
         )
     ;   note_translator_rule_override(Name),
-        assertz(translator_rule(Name, Declarations))
+        assertz(translator_rule(Name, Declarations)),
+        note_cost_ordered_rule(Name, Declarations)
     ).
+
 
 'remove-translator-rule!'(HV, _) :- var(HV), !,
                                     refuse_unbound_input('remove-translator-rule!', 1).
@@ -344,7 +348,9 @@ withdraw_derived_equation(Space, Equation) :-
 
 forget_translator_rule(Name) :-
     retractall(translator_rule(Name, _)),
-    retractall(translator_rule_override(Name, _)).
+    retractall(translator_rule_override(Name, _)),
+    retractall(cost_ordered_translator_rule(Name)),
+    translator:metta_rule_gates_refresh.
 
 %%%% The conjunctive left side %%%%
 %
@@ -486,14 +492,20 @@ require_variables_covered(Name, Needed, Available) :-
 %beside every other rule.
 install_inverse_equation(Source, Space, Equation) :-
     Equation = [=, [InvHead|_], _],
-    'add-atom'(Space, Equation, _),
-    assertz(translator_rule_derived(Source, Space, Equation)),
+    %The REGISTRATION goes in before the atom. A cost-ordered name compiles
+    %the measure into its own clauses, and the equation compiles when the atom
+    %arrives, so registering afterwards left the derived inverse as an
+    %unguarded clause of the produced head: `(eval (twin 1 1))` answered
+    %`(unpack (wrap (box 1)))` where the same call written in source answered
+    %itself [measured 2026-08-30; fixture=ai-tmp/petta-align/tr9.py].
     %An inverse rooted at the rule's own head is a second equation for a name
     %that is already registered, not a second registration.
     (   InvHead == Source
     ->  true
     ;   register_translator_rule(InvHead, [direction(inverse(Source))])
-    ).
+    ),
+    'add-atom'(Space, Equation, _),
+    assertz(translator_rule_derived(Source, Space, Equation)).
 
 %%%% Refusal %%%%
 %
@@ -560,6 +572,56 @@ translator_rule_orients(Name, Declarations, Args, Expansion) :-
 
 cost_ordered_direction(bidirectional).
 cost_ordered_direction(inverse(_)).
+
+%THE SAME GATE AT THE RUNTIME BOUNDARY. A cost-ordered rule's equation IS the
+%rewrite, and a call that arrives as DATA rather than as written source
+%reaches that equation directly: through eval, through reduce, through a host
+%eval door, through a match answer. Only the compile-time path asked, so the
+%inverse a bidirectional declaration derives rewrote UP there --
+%`(collapse (eval (twin 1 1)))` answered `(unpack (wrap (box 1)))` while the
+%same call written in source answered `(twin 1 1)`
+%[measured 2026-08-30; fixture=ai-tmp/petta-align/tr7.py]. The orientation is
+%a property of the rewrite RELATION, so a door that applies it has to ask.
+%
+%ONE door does, engine/translator/runtime.pl's metta_boundary_result/3, which
+%is what every one of those paths crosses on the way to an answer. The
+%compile-time gate compares the written call against the EXPANSION; this
+%compares it against what the equation PRODUCED, which is the same two terms
+%one step later. The boundary asks this only in its GATED body, which
+%metta_rule_gates_refresh installs while the table below is non-empty; a
+%program that registers no cost-ordered rule runs a body that never asks.
+translator_rule_dispatch_orients(Name, Args, Produced) :-
+    (   cost_ordered_translator_rule(Name)
+    ->  translator_form_cost([Name|Args], Before),
+        translator_form_cost(Produced, After),
+        After < Before
+    ;   true
+    ).
+
+%Whether a name's equations ARE a cost-ordered rewrite, as a TABLE rather
+%than as a question asked of the declarations.
+%
+%The distinction is the reason it exists. Every evaluated call crosses
+%metta_boundary_result/3, whose gated body asks this, so the answer for a
+%name that is not a rule has to cost about as little as a predicate call
+%can. Read off translator_rule/2 it would cost the indexed lookup plus a
+%memberchk over the declarations; asserted here it is one indexed probe.
+%The program that registers NO cost-ordered rule, which is nearly all of
+%them, pays nothing at all: while this table is empty the boundary doors
+%hold bodies that never ask it, and the two writers below swap the gated
+%bodies in and out through translator:metta_rule_gates_refresh.
+:- dynamic cost_ordered_translator_rule/1.   %cost_ordered_translator_rule(Name)
+
+note_cost_ordered_rule(Name, Declarations) :-
+    (   memberchk(direction(Direction), Declarations),
+        cost_ordered_direction(Direction)
+    ->  %Gated door FIRST, then the row: a gated door over a table that does
+        %not hold the row yet answers as the fast door does, so no concurrent
+        %reader ever meets the row through an ungated door.
+        translator:metta_rule_gates_ensure(gated),
+        assertz(cost_ordered_translator_rule(Name))
+    ;   true
+    ).
 
 %A form's cost, folded over its nodes the way an e-graph extractor folds a
 %cost function over an e-node and its children. A head whose rule declared a

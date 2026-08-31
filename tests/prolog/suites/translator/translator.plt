@@ -13,7 +13,6 @@
 %   - Translator-level probes observe the shipped no-match default while calls
 %     whose heads cover their arguments retain the direct compiled path
 %     [tested: translator_derived_forms:trace_form_has_one_compilation,
-%     translator_inplace_annotations:a_non_variable_in_the_annotation_position_stays_structural;
 %     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
 %   - Equal-width depth intervals do not gain marginal translation cost, so
 %     affine growth passes without assuming a nonnegative fixed intercept
@@ -343,23 +342,24 @@ test(recording_equations_costs_no_more_than_linear_time,
 
 :- begin_tests(translator_let).
 
-test(a_data_self_reference_cannot_create_a_rational_tree,
+%Raw binding under the petta alignment: a self-reference makes a rational
+%tree, and the let ANSWERS it, exactly as upstream measures. The two shapes
+%that once pinned the refusal now pin the answer.
+test(a_data_self_reference_answers_a_rational_tree,
      [occurs_check(false), timeout(1)]) :-
-    translate_expr([let, X, [g, X], X], Goals, _),
+    translate_expr([let, X, [g, X], X], Goals, Out),
     %call_goals/1 is gone: a compiled goal resolves in the module of the space
     %that compiled it, and there is no module-blind version left.
     metta_self_module(Self),
-    \+ call_goals_in_(Self, Goals).
+    once(call_goals_in_(Self, Goals)),
+    assertion(cyclic_term(Out)).
 
-%[g, X] above is data and needs no goals, so the check sees the whole value
-%wherever it is emitted. A value that has to be computed does not: emitted
-%ahead of the goals that build it, the check ran on an unbound result, could
-%not fail, and the binding became a rational tree.
-test(a_computed_self_reference_cannot_create_a_rational_tree,
+test(a_computed_self_reference_answers_a_rational_tree,
      [occurs_check(false), timeout(1)]) :-
-    translate_expr([let, X, ['cons-atom', X, []], X], Goals, _),
+    translate_expr([let, X, ['cons-atom', X, []], X], Goals, Out),
     metta_self_module(Self),
-    \+ call_goals_in_(Self, Goals).
+    once(call_goals_in_(Self, Goals)),
+    assertion(cyclic_term(Out)).
 
 %The value translator's output is fresh at this site. Binding it to a pattern
 %cannot create a cycle, even when that pattern is already a large bound term,
@@ -377,9 +377,12 @@ test(test_let_of_a_fresh_variable_does_not_walk_the_term) :-
     \+ ( member(Goal, Goals), nonvar(Goal),
          functor(Goal, unify_with_occurs_check, 2) ).
 
-test(a_shared_value_moves_its_check_behind_the_value_goals) :-
+%A shared value still binds AFTER the goals that build it, so the pattern
+%meets the built value rather than an unbound result; the binding itself is
+%the plain unification the alignment emits everywhere.
+test(a_shared_value_binds_behind_the_value_goals) :-
     translate_expr([let, X, ['cons-atom', X, []], done], Goals, _),
-    last(Goals, unify_with_occurs_check(_, _)).
+    last(Goals, (_ = _)).
 
 test(acyclic_binding_keeps_let_semantics,
      [occurs_check(false)]) :-
@@ -1386,15 +1389,20 @@ test(written_out_bindings_cost_the_same_per_call_however_many_there_are) :-
 
 :- end_tests(translator_letstar_computed_bindings).
 
-% An equation HEAD is a pattern, matched at every depth, and until this it was
-% the one site that turned a pattern position into a CALL. A head argument
-% whose label happened to have equations became Curry's functional pattern:
-% (= (f (g $x)) $x) compiled to f(A, B) :- g(B, A) and ran g backwards. The
-% mechanised semantics has one matching relation and no case in it consults
-% whether a label is defined [source 2026-08-19:
-% LeaTTa/MeTTaIL/Semantics/Reduce.lean:30-46, AST.matchPat; and
-% MettaHyperonFull/Operational/Properties.lean:48-50, firedReducts, which
-% applies an equation by matching its whole left-hand side].
+% WHICH head arguments are patterns, and which are calls. The evaluation mask
+% decides, one argument at a time. A MASKED position receives its argument as
+% written, so it is matched structurally at every depth; an UNMASKED position
+% receives a value the caller computed, so a call there is Curry's functional
+% pattern and runs backwards, `(= (f (g $x)) $x)` compiling to
+% `f(A, B) :- g(B, A)`
+% [source: PeTTa@ae66fa8 src/translator.pl:9-12, constrain_args/3].
+%
+% Between 2026-08-19 and 2026-08-30 neither was a call: the whole head was
+% structural, because LeaTTa's matching relation has one case and no case in
+% it consults whether a label is defined [source 2026-08-19:
+% LeaTTa/MeTTaIL/Semantics/Reduce.lean:30-46, AST.matchPat]. The two masked
+% tests below are unchanged by the restoration and are what the gate protects;
+% the unmasked one changed and is measured against upstream.
 :- begin_tests(translator_head_is_a_pattern,
                [ setup(setup_head_pattern), cleanup(cleanup_head_pattern) ]).
 
@@ -1443,12 +1451,20 @@ test(an_equation_head_and_a_match_of_the_same_shape_agree) :-
                           (plunit-hp-top 1 (plunit-hp-src 5)))", Called),
     assertion(Called == [matched]).
 
-%A nullary call in a head is a pattern too, which is the arbiter's own case:
-%the argument evaluates to pa3, so only the equation written against pa3
-%fires. The call-shaped head used to fire as well and answered both.
-test(a_nullary_call_in_a_head_is_a_pattern) :-
+%plunit-hp-nested is UNTYPED, so neither argument position is masked and the
+%call-shaped head runs backwards: `(plunit-hp-produce)` yields pa3, which is
+%also what the caller's argument evaluates to, so BOTH equations fire. LeaTTa
+%answers only `evaluated` here, which is what this asserted until 2026-08-30
+%[measured 2026-08-30: both engines answer (evaluated held), byte-identical,
+%for `(plunit-hp-nested (plunit-hp-produce))` and for `(plunit-hp-nested pa3)`;
+%fixture=ai-tmp/petta-align/nullary.metta].
+test(a_nullary_call_in_a_head_runs_backwards_when_unmasked) :-
     process_metta_string("!(plunit-hp-nested (plunit-hp-produce))", Answers),
-    assertion(Answers == [evaluated]).
+    assertion(Answers == [evaluated, held]),
+    %The same two answers whether the caller writes the call or its value,
+    %which is what "runs backwards" means: the constraint is on the VALUE.
+    process_metta_string("!(plunit-hp-nested pa3)", Direct),
+    assertion(Direct == [evaluated, held]).
 
 %The in-place annotation is the one head argument that is still a constraint
 %rather than structure, so it still compiles to a goal.
@@ -1643,9 +1659,13 @@ test(a_singleton_type_variable_generates_no_check) :-
     findall(Type, ( sub_term(S, Goal), nonvar(S),
                     S = check_argument_type(_, Type, _) ),
             Checked),
-    %A result annotation decides re-evaluation rather than filtering the value,
-    %and singleton input variables do not constrain either argument.
-    Checked == [].
+    %Singleton input variables constrain neither argument, so neither is
+    %checked. The RESULT is, because it is concrete: upstream emits a result
+    %check beside every typed call whose output is not %Undefined%, _ or Atom
+    %[source: PeTTa@ae66fa8 src/translator.pl:382-383]. This asserted `[]`
+    %until 2026-08-30, while a declared result decided re-evaluation rather
+    %than filtering the value, which is LeaTTa's reading and not upstream's.
+    Checked == ['Bool'].
 
 test(a_repeated_type_variable_keeps_its_checks) :-
     typed_call_goal([->, A, A, 'Bool'], Goal),
@@ -1657,8 +1677,12 @@ test(a_repeated_type_variable_keeps_its_checks) :-
 
 test(concrete_literals_discharge_their_argument_checks) :-
     typed_call_goal([->, 'Number', 'Number', 'Bool'], Goal),
-    \+ ( sub_term(S, Goal), nonvar(S),
-         S = check_argument_type(_, _, _) ).
+    findall(Type, ( sub_term(S, Goal), nonvar(S),
+                    S = check_argument_type(_, Type, _) ),
+            Checked),
+    %Both ARGUMENT checks are discharged at compile time by the literals
+    %themselves; the one that remains is the result's.
+    Checked == ['Bool'].
 
 %A variable nested inside a structured type is not a bare singleton argument
 %type, so its check stays.
@@ -1837,8 +1861,7 @@ empty_form_translation(['let*', [], 42], [], 42).
 empty_form_translation([case, 1, []], [fail], _).
 empty_form_translation(
     [reduce, []],
-    [reduce([], Reduced, Status),
-     metta_reduce_result([], Reduced, Status, Out)],
+    [reduce([], Reduced, _Status), Out = Reduced],
     Out).
 empty_form_translation([progn], [], []).
 
@@ -1876,7 +1899,7 @@ compiled_answers(Expression, Answers) :-
 test(dynamic_and_compiled_calls_answer_the_same_refusal) :-
     findall(A, dynamic_arithmetic_refusal(A), Dynamic),
     findall(A, compiled_arithmetic_refusal(A), Compiled),
-    Dynamic == [['+', 1, undefined_sym]],
+    Dynamic == [['Error', ['+', 1, undefined_sym], "+ expects two numbers"]],
     Compiled == Dynamic.
 
 test(a_refusal_is_an_answer_and_not_a_failure) :-
@@ -1915,13 +1938,18 @@ test(builtin_type_import_keeps_runtime_refusals_visible) :-
     setup_call_cleanup(
         once(load_metta_file(Path, _)),
         once(( findall(A, compiled_arithmetic_refusal(A), Arithmetic),
-               Arithmetic == [['+', 1, undefined_sym]],
+               Arithmetic == [['Error', ['+', 1, undefined_sym],
+                               "+ expects two numbers"]],
                compiled_answers([and, true, 5], Boolean),
                Boolean == [['Error', [and, true, 5],
                             ['BadArgType', 2, 'Bool', 'Number']]],
+               %A non-list operand answers the empty expression, which is
+               %upstream's own first clause for min-atom
+               %[source: PeTTa@ae66fa8 src/metta.pl:86-89]. The row is still
+               %here because what it checks is that the imported declarations
+               %do not SWALLOW the runtime answer, whatever that answer is.
                compiled_answers(['min-atom', 5], Minimum),
-               Minimum == [['Error', ['min-atom', 5],
-                            "Atom is not an ExpressionAtom"]] )),
+               Minimum == [[]] )),
         cleanup_builtin_type_declarations(Path, ParsedForms)).
 
 :- end_tests(translator_evaluation_errors).
@@ -1947,12 +1975,21 @@ test(one_empty_expression_answer_is_a_value) :-
     Out == true,
     Output == "is (), should (). ✅ \n".
 
-test(no_answer_is_not_an_empty_expression,
-     [throws(error(metta_test_no_answer, _))]) :-
-    translate_expr([test, [empty], []], Goals, _),
+%test/3 CONFLATES the two, which is upstream's shape: its findall's `[]` is
+%compared as the empty expression [source: PeTTa@ae66fa8
+%src/translator.pl:146-152]. This threw metta_test_no_answer until 2026-08-30,
+%which made upstream's own examples/types_nondet.metta unwritable -- its
+%`!(test (f T3in) ())` asserts that a type mismatch answers nothing.
+test(no_answer_compares_as_the_empty_expression) :-
+    translate_expr([test, [empty], []], Goals, Out),
     translator:goals_list_to_conj(Goals, Goal),
-    call(Goal).
+    with_output_to(string(Output), call(Goal)),
+    Out == true,
+    Output == "is (), should (). ✅ \n".
 
+%test-no-answer/2 is the form that does NOT conflate them: it compares the raw
+%answer list, so it separates zero answers from one answer that is itself the
+%empty expression. That is why it survives test/3 losing the distinction.
 test(explicit_no_answer_assertion_keeps_the_existing_output) :-
     translate_expr(['test-no-answer', [empty]], Goals, Out),
     translator:goals_list_to_conj(Goals, Goal),
@@ -2027,21 +2064,18 @@ test(each_application_gets_its_own_sealed_variable) :-
 
 :- begin_tests(translator_occurs_checks).
 
-% A let unifies under an occurs check so a binding cannot build a term
-% containing itself. The check is only capable of firing when the pattern
-% variable could already be inside the value, and it walks the WHOLE value, so
-% where it is left standing naming a term costs time proportional to that
-% term's size. These tests pin which ones are demoted to =/2 and which stay.
+% A let binds RAW under the petta alignment: a self-containing binding is a
+% legal rational tree, upstream's own measured law (`!(let $x (f $x) worked)`
+% answers [worked] there), so no emission carries an occurs check any more,
+% for head variables and fresh ones alike. The demoted-=/2 speedup the old
+% unit measured (0.8730s to 0.0026s over a 2000-element list, 2026-08-15) is
+% now the only emission there is.
 
 body_of(Source, Body) :-
     sread(Source, Term),
     translate_clause(Term, (_ :- Body)).
 
-% The pattern variable is fresh here, so it cannot be inside the value and the
-% check cannot fail. Measured 2026-08-15: a let* chain of four bindings over a
-% 2000 element list, 20,000 times, went from 0.8730s to 0.0026s, and became
-% flat in the list's size rather than linear in it.
-test(a_fresh_pattern_variable_is_demoted) :-
+test(a_fresh_pattern_variable_binds_plainly) :-
     body_of("(= (plunit-uwoc-fresh $l) (let $y $l (car-atom $y)))", Body),
     %The result-mode guard now precedes the source body so a supplied result
     %can constrain a relational RHS before it runs. The let binding remains
@@ -2049,17 +2083,19 @@ test(a_fresh_pattern_variable_is_demoted) :-
     Body = (_, Bind, _),
     Bind = (_ = _).
 
-% The pattern variable comes from the HEAD, so the caller may already have put
-% it inside the value: (f $z (g $z)) makes the binding cyclic. The check stays.
-test(a_head_variable_keeps_its_check) :-
+% The pattern variable comes from the HEAD, so the caller may already have
+% put it inside the value; the binding then simply IS a rational tree.
+test(a_head_variable_binds_plainly_too) :-
     body_of("(= (plunit-uwoc-head $y $l) (let $y $l (car-atom $y)))", Body),
-    once(( sub_term(Goal, Body), nonvar(Goal),
-           Goal = unify_with_occurs_check(_, _) )).
+    \+ ( sub_term(Goal, Body), nonvar(Goal),
+          Goal = unify_with_occurs_check(_, _) ).
 
-% The end to end behaviour the check exists for. This must have no answers.
-test(a_self_referential_binding_is_still_refused) :-
+% The end-to-end law: a self-referential binding ANSWERS, and the answer is
+% the rational tree itself.
+test(a_self_referential_binding_answers_a_rational_tree) :-
     findall(X, eval([let, X, ['cons-atom', X, []], X], _), Answers),
-    Answers == [].
+    Answers = [Tree],
+    assertion(cyclic_term(Tree)).
 
 test(an_ordinary_binding_still_works) :-
     findall(V, eval([let, V, 5, V], _), Answers),
@@ -2140,13 +2176,15 @@ merge_cost(Depth, Inferences) :-
             Samples),
     min_list(Samples, Inferences).
 
-% The merge carries its candidate returns in an assoc, an AVL tree, so a body
-% nested n deep costs about n log n [source 2026-08-14:
-% https://www.swi-prolog.org/pldoc/doc/_SWI_/library/assoc.pl]. Held against
-% quadratic rather than against linear, because linear is not what an assoc
-% gives and asserting it would be a test that has to be relaxed the first time
-% someone reads it. A list-backed store, which is the regression the assoc
-% exists to prevent, costs 4x per doubling and fails this.
+% The Prolog pass keeps each candidate's statistics on its variable as an
+% attribute, so every update and lookup is O(1) [source:
+% engine/translator/runtime.pl:mbr_collect_stats/3; commit=WORKTREE]. The C
+% twin uses its bounded identity table [source: engine/mbr.c:lookup_var;
+% commit=WORKTREE] and falls back to that Prolog pass past the cap. Held against
+% quadratic rather than exact linear growth so the same gate covers both
+% dispatch paths and their allocation constants. A list-backed rescan, the
+% regression this representation prevents, costs 4x per doubling and fails
+% this.
 %
 % Measured 2026-08-18, min of three: 14,938 inferences at depth 50, 31,909 at
 % 100, 67,844 at 200 and 143,715 at 400. Each doubling costs 2.11x to 2.14x,
@@ -2647,122 +2685,6 @@ test(only_the_compiled_arity_stays_registered,
 
 :- end_tests(translator_capturing_lambda_curries).
 
-:- begin_tests(translator_inplace_annotations).
-
-%hyperon-experimental issue #177's dynamic half: a type where it can PRUNE, in
-%a head or a match query rather than only in a top-level declaration. The
-%spelling is `:` and not `:`, and the corpus is what decides that: see the
-%collision test at the end.
-annotation_source("
-(: ann-Ann Person)
-(: ann-Ann Employee)
-(: ann-Bob Person)
-(: ann-Rex Dog)
-(= (ann-only-person (: $x Person)) $x)
-(= (ann-type-of (: $x $t)) $t)
-(= (ann-same-kind (: $x $t) (: $y $t)) ($x $y))
-(= (ann-fmap $f (: $c Symbol)) ($f $c))").
-
-setup_annotations :-
-    retractall(silent(_)), assertz(silent(true)),
-    annotation_source(Source),
-    process_metta_string(Source, _).
-
-cleanup_annotations :-
-    forall(member(F, ['ann-only-person', 'ann-type-of', 'ann-same-kind',
-                      'ann-fmap']),
-           ( 'remove-atom'('&self', [=, [F|_], _], _),
-             forget_test_function(F) )),
-    forall(( 'get-atoms'('&self', Atom), Atom = [':', N, _],
-             atom(N), sub_atom(N, 0, 4, _, 'ann-') ),
-           'remove-atom'('&self', Atom, _)),
-    retractall(silent(_)), assertz(silent(false)).
-
-%Issue #177's own fixtures, each measured before it was written here.
-annotation_case("(ann-only-person ann-Ann)",           ['ann-Ann']).
-annotation_case("(ann-only-person ann-Rex)",           []).
-annotation_case("(ann-type-of ann-Ann)",               ['Person', 'Employee']).
-annotation_case("(ann-type-of ann-Rex)",               ['Dog']).
-annotation_case("(ann-same-kind ann-Ann ann-Bob)",     [['ann-Ann', 'ann-Bob']]).
-annotation_case("(ann-same-kind ann-Ann ann-Rex)",     []).
-annotation_case("(ann-fmap g sym)",                    [[g, sym]]).
-annotation_case("(ann-fmap g 42)",                     []).
-
-test(an_annotated_head_parameter_restricts_and_binds,
-     [ forall(annotation_case(Call, Expected)),
-       setup(setup_annotations), cleanup(cleanup_annotations) ]) :-
-    format(atom(Source), "!(collapse ~w)", [Call]),
-    process_metta_string(Source, Results),
-    Results == [Expected].
-
-%The same in a match query, issue #177's third fixture, including the
-%shared-type-variable form that constrains two positions to agree.
-test(a_match_pattern_restricts_by_type,
-     [ setup(( setup_annotations,
-               'add-atom'('&self', ['ann-knows', 'ann-Ann', 'ann-Bob'], _),
-               'add-atom'('&self', ['ann-knows', 'ann-Ann', 'ann-Rex'], _) )),
-       cleanup(( forall(( 'get-atoms'('&self', A), A = ['ann-knows'|_] ),
-                        'remove-atom'('&self', A, _)),
-                 cleanup_annotations )) ]) :-
-    process_metta_string(
-        "!(collapse (match &self (ann-knows (: $x Person) (: $y Person)) \c
-                      ($x $y)))", Restricted),
-    Restricted == [[['ann-Ann', 'ann-Bob']]],
-    process_metta_string(
-        "!(collapse (match &self (ann-knows (: $x $t) (: $y $t)) ($x $y $t)))",
-        Shared),
-    Shared == [[['ann-Ann', 'ann-Bob', 'Person']]].
-
-%THE COLLISION, and the reason the spelling is `:`. Reinterpreting `(: ...)`
-%would break a program whose subject matter IS type judgements, and this tree
-%has one: examples/ch22-a-reasoner-you-can-serve/22-01-logic-programs/04-nilbc.metta is a backward-chaining proof search
-%using `(: $proof $theorem)` in exactly the nested head and match positions a
-%position gate would reinterpret. `(: ...)` still retrieves stored type atoms.
-%THE SECOND COLLISION, found by the gate catching it: an annotation annotates
-%a VARIABLE, so anything else in that position stays structural.
-%tests/prolog/duals.plt writes `(= (pat-starts-a (: a $rest)) True)` as an
-%ordinary cons-shaped pattern, and without the var/1 gate `:` would collide
-%in this repository exactly as `:` does.
-test(a_non_variable_in_the_annotation_position_stays_structural,
-     [ setup(( retractall(silent(_)), assertz(silent(true)),
-               process_metta_string(
-                   "(= (ann-shape (: a $rest)) $rest)", _) )),
-       cleanup(( 'remove-atom'('&self', [=, ['ann-shape'|_], _], _),
-                 forget_test_function('ann-shape'),
-                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
-    process_metta_string("!(collapse (ann-shape (: a tail)))", Matched),
-    Matched == [[tail]],
-    process_metta_string("!(collapse (ann-shape (: z tail)))", Unmatched),
-    Unmatched == [[['ann-shape', [':', z, tail]]]].
-
-test(a_colon_pattern_still_matches_stored_type_atoms,
-     [setup(setup_annotations), cleanup(cleanup_annotations)]) :-
-    process_metta_string("!(collapse (match &self (: ann-Rex $t) $t))", Results),
-    Results == [['Dog']].
-
-%THE THIRD COLLISION, and the reason the spelling is `:` rather than `::`.
-%`::` is what metta-lang.dev's tutorials use as an ordinary cons constructor,
-%in (= (length (:: $x $xs)) (+ 1 (length $xs))) and every list example after
-%it. While `::` was the annotation, a reader following those against MeTTa got
-%$xs bound to the value's TYPE and a recursion that did not terminate: the
-%annotation quietly reinterpreted their data constructor.
-%
-%A spelling the language's own teaching material uses for something else is
-%the wrong spelling however good the argument for it was. This is the
-%tutorial's program, run verbatim [source: metta-lang.dev/docs/learn, Recursion
-%and control].
-test(a_cons_list_is_ordinary_structure,
-     [ setup(( retractall(silent(_)), assertz(silent(true)),
-               process_metta_string("(= (ann-length ()) 0)", _),
-               process_metta_string(
-                   "(= (ann-length (:: $x $xs)) (+ 1 (ann-length $xs)))", _) )),
-       cleanup(( 'remove-atom'('&self', [=, ['ann-length'|_], _], _),
-                 forget_test_function('ann-length'),
-                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
-    process_metta_string("!(ann-length (:: A (:: B (:: C ()))))", Length),
-    assertion(Length == [3]).
-
-:- end_tests(translator_inplace_annotations).
 
 :- begin_tests(translator_quote_scope).
 
@@ -2819,11 +2741,13 @@ test(a_quoted_body_answers_its_payload_and_a_quoted_head_holds_the_wrapper,
 
 %The scope is one argument wide on both sides. `translator:translate_special_dl/5` gives
 %`quote` meaning at arity one only, so `(quote a b)` is ordinary data in a body
-%and must stay ordinary structure in a pattern, walked like anything else.
+%and must stay ordinary structure in a pattern, walked like anything else. The
+%colon inside it is structure too, as every colon pattern has been since
+%2026-08-30, so the walk reaches it and leaves it alone.
 test(a_two_argument_quote_is_not_the_scope_form) :-
     constrain_args([quote, [':', X, 'Number'], second], Out, Goals),
-    assertion(Out == [quote, X, second]),
-    assertion(Goals \== []).
+    assertion(Out == [quote, [':', X, 'Number'], second]),
+    assertion(Goals == []).
 
 :- end_tests(translator_quote_scope).
 
@@ -2886,7 +2810,6 @@ test(a_planted_guard_that_binds_a_pattern_variable_cannot_create_a_match,
 %where structural matching is exactly what the caller hands over, and an
 %ordinary constructor, whose label means nothing anywhere.
 head_note_source("(= (hpn-g $x) (inner $x))
-(= (hpn-goal (: $x Number)) $x)
 (= (hpn-label (hpn-g $x)) $x)
 (= (hpn-special (if True 1 2)) hit)
 (= (hpn-deep (hpn-h (hpn-g $x))) $x)
@@ -2896,7 +2819,6 @@ head_note_source("(= (hpn-g $x) (inner $x))
 (: hpn-shadow-mask (-> Atom Result))").
 
 head_note_function('hpn-g').
-head_note_function('hpn-goal').
 head_note_function('hpn-label').
 head_note_function('hpn-special').
 head_note_function('hpn-deep').
@@ -2927,10 +2849,16 @@ test(the_compiler_records_every_position_it_decided_about_and_no_other,
      [setup(setup_head_notes), cleanup(cleanup_head_notes)]) :-
     recorded_notes(Notes),
     msort(Notes, Sorted),
+    %hpn-g is a fun in an UNMASKED position, so both of its positions are
+    %Curry's functional pattern now: the compiler did not merely notice the
+    %label, it compiled the argument into a call run backwards. They read
+    %defined_label(function) between 2026-08-19 and 2026-08-30, while the
+    %engine matched every head argument structurally. `if` is not a fun
+    %(measured: fun(if) is false on both engines), so it stays a label note
+    %against the translated route.
     assertion(Sorted ==
-              [ 'hpn-deep'-[1, 1]-'hpn-g'-defined_label(function),
-                'hpn-goal'-[1]-(:)-type_annotation,
-                'hpn-label'-[1]-'hpn-g'-defined_label(function),
+              [ 'hpn-deep'-[1, 1]-'hpn-g'-functional_pattern,
+                'hpn-label'-[1]-'hpn-g'-functional_pattern,
                 'hpn-special'-[1]-if-defined_label(translated) ]).
 
 %BOTH questions, which is the trap this note walked into once already: asking
@@ -2938,8 +2866,11 @@ test(the_compiler_records_every_position_it_decided_about_and_no_other,
 %uses of a translated form [measured 2026-08-17].
 test(both_routes_to_a_head_meaning_are_asked,
      [setup(setup_head_notes), cleanup(cleanup_head_notes)]) :-
+    %The two routes now reach two DIFFERENT reasons, which is a sharper form
+    %of the same check: a label with equations is compiled into a call, and a
+    %label a translator rule owns is left as structure and only reported.
     assertion(head_pattern_note(_, 'hpn-label', [1], 'hpn-g',
-                                defined_label(function))),
+                                functional_pattern)),
     assertion(head_pattern_note(_, 'hpn-special', [1], if,
                                 defined_label(translated))).
 
@@ -2969,7 +2900,7 @@ test(bulk_and_single_ingestion_use_the_same_definition_local_mask,
      [setup(setup_head_notes), cleanup(cleanup_head_notes)]) :-
     shadow_note_through_door(single, Single),
     shadow_note_through_door(bulk, Bulk),
-    Expected = [[1]-'hpn-g'-defined_label(function)],
+    Expected = [[1]-'hpn-g'-functional_pattern],
     assertion(Single == Expected),
     assertion(Bulk == Expected).
 
@@ -2982,10 +2913,10 @@ note_text(Term, Text) :-
     !.
 
 test(the_note_names_the_position_the_label_and_why) :-
-    note_text(metta_head_pattern_note(t, [1], ':', type_annotation), Goal),
+    note_text(metta_head_pattern_note(t, [1], g, functional_pattern), Goal),
     assertion(sub_string(Goal, _, _, _, "head argument 1")),
-    assertion(sub_string(Goal, _, _, _, "annotation on :")),
-    assertion(sub_string(Goal, _, _, _, "GOAL")),
+    assertion(sub_string(Goal, _, _, _, "holds the call (g ...)")),
+    assertion(sub_string(Goal, _, _, _, "compiled to a GOAL")),
     note_text(metta_head_pattern_note(f, [1, 2], g, defined_label(function)),
               Label),
     assertion(sub_string(Label, _, _, _, "head argument 1, subterm 2")),
@@ -3106,3 +3037,103 @@ test(a_non_masking_builtin_boundary_is_flag_guarded) :-
                    \+ sub_term(b_getval(_, _), Goal) )).
 
 :- end_tests(translator_equations).
+
+%%%% The rule-gate swap %%%%
+%
+%metta_boundary_result/3 and metta_reduce_result/5 hold ONE clause each,
+%swapped between a fast body while no cost-ordered translator rule is
+%registered and the gated body that asks the orientation, the same
+%compile-away the fuel charge uses. These tests pin the swap mechanics; the
+%direction example pins the end-to-end behaviour
+%(examples/ch20-extending-the-engine/20-01-translator-rules/02-translatorrule_direction.metta).
+
+:- begin_tests(rule_gate_swap).
+
+%The mode is DERIVED from the table, never trusted, so the pin is the
+%derivation rather than a hardcoded boot value: an earlier group that
+%registered and removed rules leaves this exactly as a fresh boot does.
+test(the_gate_mode_matches_the_rule_table) :-
+    (   translator_rules:cost_ordered_translator_rule(_)
+    ->  assertion(translator:metta_rule_gate_mode(gated))
+    ;   assertion(translator:metta_rule_gate_mode(fast))
+    ).
+
+test(each_door_holds_exactly_one_clause) :-
+    aggregate_all(count, clause(translator:metta_boundary_result(_, _, _), _), NB),
+    aggregate_all(count, clause(translator:metta_reduce_result(_, _, _, _, _), _), NR),
+    aggregate_all(count, clause(translator:metta_eval_step_orients(_, _), _), NS),
+    assertion(NB == 1),
+    assertion(NR == 1),
+    assertion(NS == 1).
+
+%The irreducible marker answers the same in BOTH modes; these hold whatever
+%an earlier group left registered.
+test(the_boundary_door_answers_the_marker_with_the_written_form) :-
+    translator:metta_boundary_result([f, 1], '$metta_not_reducible', Out),
+    assertion(Out == [f, 1]).
+
+test(the_reduce_door_answers_the_marker_not_reducible) :-
+    translator:metta_reduce_result(f, [1], '$metta_not_reducible', Out, Status),
+    assertion(Out == [f, 1]),
+    assertion(Status == 'not-reducible').
+
+gateswap_source("(: plunit-gs (-> Atom %Undefined%))
+(= (plunit-gs (gs-wrap (gs-box $x))) (noeval (gs-pair $x $x)))
+!(add-translator-rule! plunit-gs ((direction bidirectional)))").
+
+setup_gateswap :-
+    retractall(silent(_)), assertz(silent(true)),
+    gateswap_source(Source),
+    process_metta_string(Source, _).
+
+cleanup_gateswap :-
+    process_metta_string("!(remove-translator-rule! plunit-gs)", _),
+    'remove-atom'('&self', [=, ['plunit-gs'|_], _], _),
+    'remove-atom'('&self', [':', 'plunit-gs', _], _),
+    forget_test_function('plunit-gs'),
+    retractall(silent(_)), assertz(silent(false)).
+
+%Registering a bidirectional rule swaps the gated bodies in, and the gated
+%boundary refuses the UP-rewrite: (gs-pair 1 1) is three nodes against the
+%five of (plunit-gs (gs-wrap (gs-box 1))), so the inverse may not fire and
+%the written form stands.
+test(registering_a_bidirectional_rule_swaps_the_gated_bodies_in,
+     [setup(setup_gateswap), cleanup(cleanup_gateswap)]) :-
+    assertion(translator:metta_rule_gate_mode(gated)),
+    translator:metta_boundary_result(['gs-pair', 1, 1],
+                                     ['plunit-gs', ['gs-wrap', ['gs-box', 1]]], Out),
+    assertion(Out == ['gs-pair', 1, 1]),
+    translator:metta_reduce_result('gs-pair', [1, 1],
+                                   ['plunit-gs', ['gs-wrap', ['gs-box', 1]]], ROut, RStatus),
+    assertion(ROut == ['gs-pair', 1, 1]),
+    assertion(RStatus == 'not-reducible'),
+    %The step door refuses the UP-step and passes the DOWN-step.
+    assertion(\+ translator:metta_eval_step_orients(['gs-pair', 1, 1],
+                                                    ['plunit-gs', ['gs-wrap', ['gs-box', 1]]])),
+    assertion(translator:metta_eval_step_orients(['plunit-gs', ['gs-wrap', ['gs-box', 1]]],
+                                                 ['gs-pair', 1, 1])).
+
+%Self-contained: the registration AND the removal both happen inside this
+%test, so it fails on a broken removal path rather than passing on a fresh
+%boot's default state.
+test(removing_the_last_rule_swaps_the_fast_bodies_back,
+     [setup(setup_gateswap)]) :-
+    assertion(translator:metta_rule_gate_mode(gated)),
+    cleanup_gateswap,
+    assertion(translator:metta_rule_gate_mode(fast)),
+    translator:metta_boundary_result(['gs-pair', 1, 1],
+                                     ['plunit-gs', ['gs-wrap', ['gs-box', 1]]], Out),
+    assertion(Out == ['plunit-gs', ['gs-wrap', ['gs-box', 1]]]),
+    aggregate_all(count, clause(translator:metta_boundary_result(_, _, _), _), NB),
+    assertion(NB == 1).
+
+%A refresh that changes nothing must not stack clauses.
+test(the_refresh_is_idempotent) :-
+    translator:metta_rule_gates_refresh,
+    translator:metta_rule_gates_refresh,
+    aggregate_all(count, clause(translator:metta_boundary_result(_, _, _), _), NB),
+    aggregate_all(count, clause(translator:metta_reduce_result(_, _, _, _, _), _), NR),
+    assertion(NB == 1),
+    assertion(NR == 1).
+
+:- end_tests(rule_gate_swap).

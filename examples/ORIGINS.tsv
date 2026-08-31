@@ -5,7 +5,7 @@
 # Commit: 43705f5d9ff8958ffe7f0aa6777fb8477f2401f2
 # Date: 2026-07-24
 #
-# The 142 example programs listed below derive from that project's MeTTa
+# The 144 example programs listed below derive from that project's MeTTa
 # sources. The search covers every .metta file it ships, not only its examples
 # directory, because crediting too widely is the safe direction for an
 # attribution. They were reorganised into the reading order this directory uses,
@@ -16,7 +16,7 @@
 # Credited across those files, 13 authors:
 # Carlo Nucera, DagmawiKK, Leul Negash, MikeArchbold, Nil Geisweiller, Patrick Hammer, Peter Isaev, Roman Treutlein, Tewobsta Seyoum Assefa, Vitaly Bogdanov, Zar Goertzel, ermijermy, yabets.
 #
-# The other 109 examples in this directory were written here.
+# The other 106 examples in this directory were written here.
 #
 # Regenerate with: python extensions/python/tools/example_origins.py --write
 #
@@ -31,8 +31,8 @@ examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/02-spac
 examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/03-spaces3.metta	examples/spaces3.metta	1.0	Patrick Hammer
 examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/04-spaces_find.metta	examples/spaces_find.metta	0.975	Patrick Hammer
 examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/05-spaces_succeedspredicate.metta	examples/spaces_succeedspredicate.metta	1.0	Patrick Hammer
-examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/06-spaces_removeallatoms.metta	examples/spaces_removeallatoms.metta	1.0	Patrick Hammer
-examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/07-add_atom_fun_space.metta	examples/add_atom_fun_space.metta	0.995	Roman Treutlein
+examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/06-spaces_removeallatoms.metta	examples/spaces_removeallatoms.metta	0.937	Patrick Hammer
+examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/07-add_atom_fun_space.metta	examples/add_atom_fun_space.metta	0.753	Roman Treutlein
 examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/08-spacefunction.metta	examples/spacefunction.metta	1.0	Patrick Hammer
 examples/ch04-spaces-and-matching/04-01-a-space-is-where-a-program-lives/09-selfprog.metta	examples/selfprog.metta	1.0	Patrick Hammer
 examples/ch04-spaces-and-matching/04-02-patterns-and-bindings/01-matchsingle.metta	examples/matchsingle.metta	1.0	Patrick Hammer
@@ -100,6 +100,7 @@ examples/ch07-control-flow/07-05-recursion/07-invertpeanoplus.metta	examples/inv
 examples/ch08-data/08-01-atoms-lists-and-folds/01-nestedcons.metta	examples/nestedcons.metta	1.0	Patrick Hammer
 examples/ch08-data/08-01-atoms-lists-and-folds/02-holfunctions.metta	examples/holfunctions.metta	1.0	Patrick Hammer
 examples/ch08-data/08-01-atoms-lists-and-folds/03-holfunctions_intrinsicop.metta	examples/holfunctions_intrinsicop.metta	0.856	Patrick Hammer
+examples/ch08-data/08-01-atoms-lists-and-folds/04-curry.metta	examples/curry.metta	0.761	Roman Treutlein; Patrick Hammer
 examples/ch08-data/08-01-atoms-lists-and-folds/05-lambda.metta	examples/lambda.metta	1.0	Patrick Hammer; Roman Treutlein; Carlo Nucera
 examples/ch08-data/08-01-atoms-lists-and-folds/06-invertfunction.metta	examples/invertfunction.metta	1.0	Patrick Hammer; Peter Isaev
 examples/ch08-data/08-01-atoms-lists-and-folds/08-alpha_member.metta	examples/is_alpha_member_test.metta	1.0	Tewobsta Seyoum Assefa
@@ -111,12 +112,13 @@ examples/ch08-data/08-01-atoms-lists-and-folds/14-lib_roman_pair_helpers.metta	e
 examples/ch08-data/08-01-atoms-lists-and-folds/15-roman.metta	examples/roman_test.metta	0.995	Roman Treutlein; Patrick Hammer
 examples/ch08-data/08-03-the-shipped-libraries/01-library.metta	examples/library.metta	1.0	Roman Treutlein
 examples/ch09-types/01-types.metta	examples/types.metta	1.0	Patrick Hammer; Roman Treutlein
-examples/ch09-types/02-builin_types.metta	examples/builin_types.metta	0.996	Nil Geisweiller
+examples/ch09-types/02-builin_types.metta	examples/builin_types.metta	0.997	Nil Geisweiller
 examples/ch09-types/04-outputtype.metta	examples/outputtype.metta	0.883	Patrick Hammer
 examples/ch09-types/05-meta_types.metta	examples/meta_types.metta	1.0	Patrick Hammer
 examples/ch09-types/08-parametric_types.metta	examples/parametric_types.metta	1.0	Patrick Hammer
 examples/ch09-types/09-recursive_types.metta	examples/recursive_types.metta	1.0	Patrick Hammer
 examples/ch09-types/10-recursive_types2.metta	examples/recursive_types2.metta	1.0	Patrick Hammer
+examples/ch09-types/13-types_nondet.metta	examples/types_nondet.metta	0.944	Patrick Hammer
 examples/ch09-types/14-matchtypes.metta	examples/matchtypes.metta	1.0	Patrick Hammer
 examples/ch11-python-as-a-notation/01-python.metta	examples/python.metta	0.805	Patrick Hammer; Vitaly Bogdanov
 examples/ch11-python-as-a-notation/03-python_import.metta	examples/python_import.metta	0.964	Patrick Hammer
@@ -143,7 +145,7 @@ examples/ch20-extending-the-engine/20-01-translator-rules/06-translatorrule_fib.
 examples/ch20-extending-the-engine/20-02-metta-written-in-metta/02-callquoteevalreduce2.metta	examples/callquoteevalreduce2.metta	1.0	Patrick Hammer
 examples/ch20-extending-the-engine/20-02-metta-written-in-metta/03-myinterpreter.metta	examples/myinterpreter.metta	1.0	Carlo Nucera; Patrick Hammer
 examples/ch20-extending-the-engine/20-02-metta-written-in-metta/05-he_minimalmetta.metta	examples/he_minimalmetta.metta	0.895	Patrick Hammer
-examples/ch20-extending-the-engine/20-02-metta-written-in-metta/06-he_evaluation.metta	examples/he_evaluation.metta	0.862	Patrick Hammer
+examples/ch20-extending-the-engine/20-02-metta-written-in-metta/06-he_evaluation.metta	examples/he_evaluation.metta	0.966	Patrick Hammer
 examples/ch20-extending-the-engine/20-02-metta-written-in-metta/07-he_quoting.metta	examples/he_quoting.metta	0.979	Patrick Hammer
 examples/ch20-extending-the-engine/20-02-metta-written-in-metta/08-he_atomspace.metta	examples/he_atomspace.metta	0.956	Patrick Hammer
 examples/ch20-extending-the-engine/20-02-metta-written-in-metta/10-he_math.metta	examples/he_math.metta	0.905	Patrick Hammer; Leul Negash

@@ -62,10 +62,29 @@ test(a_grounded_parameter_checks_the_evaluated_argument_type) :-
                  ['BadArgType', 1, 'Grounded', 'Number']]],
     both_doors("(c2-pl-grounded (+ 1 2))", Expected).
 
-test(a_variable_result_reenters_evaluation) :-
+%A DECLARED RESULT IS CHECKED, so a body that produces `(3)` under a declared
+%`Variable` result answers nothing: `get-type` reports (Number) for it and
+%`get-metatype` reports Expression, and neither is Variable. The argument still
+%re-enters evaluation -- the `Atom` parameter holds `((+ 1 2))` as written and
+%the body's `$x` reduces it to `(3)` -- but the result no longer escapes its
+%own declaration [measured 2026-08-30: upstream answers nothing here too,
+%because src/translator.pl:382-383 emits the same result check for any output
+%type that is not %Undefined%, _ or Atom]. This asserted `[[3]]` while the
+%engine emitted no result check at all, on the arbiter's reading that a
+%declared result decides re-evaluation rather than filtering the value.
+test(a_variable_result_is_checked_like_any_other) :-
     add_form("(: c2-pl-variable-result (-> Atom Variable))"),
     add_form("(= (c2-pl-variable-result $x) $x)"),
-    both_doors("(c2-pl-variable-result ((+ 1 2)))", [[3]]).
+    both_doors("(c2-pl-variable-result ((+ 1 2)))", []),
+    %The same body under a result type that constrains nothing DOES answer,
+    %which is what separates the result check from the argument's evaluation.
+    %It answers the argument AS WRITTEN: the Atom parameter held it, the body
+    %is the identity, and a result does not re-enter evaluation
+    %[measured 2026-08-30: both engines answer `((+ 1 2))`;
+    %fixture=ai-tmp/petta-align/anyres.metta].
+    add_form("(: c2-pl-any-result (-> Atom %Undefined%))"),
+    add_form("(= (c2-pl-any-result $x) $x)"),
+    both_doors("(c2-pl-any-result ((+ 1 2)))", [[['+', 1, 2]]]).
 
 test(an_open_equation_result_is_not_the_not_reducible_marker) :-
     add_form("(= (c2-pl-open-result (: $x $t)) $t)"),
@@ -88,8 +107,11 @@ test(a_declared_wrong_arity_is_an_error) :-
                  'IncorrectNumberOfArguments']]).
 
 test(a_variable_head_applies_the_resolved_heads_mask) :-
+    %cons-atom's operands EVALUATE, so the resolved head applies the same mask
+    %an ordinary call does and 20 + 22 is 42 before the cons sees it
+    %[measured 2026-08-30, ai-tmp/tail.metta: upstream answers `(42 tail)`].
     both_doors("(let $head cons-atom ($head (+ 20 22) (tail)))",
-               [[['+', 20, 22], tail]]).
+               [[42, tail]]).
 
 test(empty_car_and_cdr_are_exact_error_atoms) :-
     both_doors("(car-atom ())",
@@ -128,15 +150,19 @@ test(the_reference_interpret_entry_runs_typed_evaluation) :-
     add_form("(= (c2-pl-interpreted $x) (+ $x 1))"),
     both_doors("(interpret (c2-pl-interpreted 41) Number &self)", [42]).
 
-test(a_bare_not_reducible_result_retains_the_call_at_the_boundary) :-
+%`NotReducible` IS AN ORDINARY SYMBOL. A body that answers it answers it, and
+%nothing in the engine reads it: the irreducibility marker is
+%`$metta_not_reducible`, which MeTTa's reader cannot produce because `$` opens
+%a variable. Both rows below are byte-identical to upstream, which has no
+%NotReducible of any kind
+%[measured 2026-08-30: `!(c2-pl-nr q)` is `NotReducible` and the chain row is
+%`(c2-pl-held NotReducible)` on both engines;
+%fixture=ai-tmp/petta-align/nr.metta]. They read `(c2-pl-nr q)` and the same
+%chain row while the marker and the symbol shared a name.
+test(a_program_symbol_named_not_reducible_is_data) :-
     add_form("(: c2-pl-nr (-> Atom Atom))"),
     add_form("(= (c2-pl-nr $x) NotReducible)"),
-    both_doors("(c2-pl-nr q)", [['c2-pl-nr', q]]),
-    %An ORDINARY expression is the observation now, not a quote. chain's
-    %%Undefined% result re-enters evaluation, so a body that answered the bare
-    %`NotReducible` would hand that marker straight back to the protocol and
-    %the call would be retained again; a head with no equations holds it where
-    %the reader can see it. The quote used to do this because it was a value.
+    both_doors("(c2-pl-nr q)", ['NotReducible']),
     both_doors("(chain (eval (c2-pl-nr q)) $r (c2-pl-held $r))",
                [['c2-pl-held', 'NotReducible']]).
 
@@ -144,7 +170,7 @@ test(the_raw_step_exposes_the_marker_only_to_control_consumers) :-
     Term = ['c2-pl-unknown-call'],
     findall(Answer, metta_eval_step(Term, Answer), Raw),
     findall(Answer, eval(Term, Answer), Ordinary),
-    assertion(Raw == ['NotReducible']),
+    assertion(Raw == ['$metta_not_reducible']),
     assertion(Ordinary == [Term]).
 
 test(a_function_returned_marker_uses_the_same_protocol) :-
@@ -152,28 +178,49 @@ test(a_function_returned_marker_uses_the_same_protocol) :-
     add_form("(= (c2-pl-frame-nr $x) (function (return NotReducible)))"),
     add_form("(= (c2-pl-frame-body-nr) NotReducible)"),
     add_form("(= (c2-pl-frame-body-call) (function (c2-pl-frame-body-nr)))"),
-    both_doors("(c2-pl-frame-nr q)", [['c2-pl-frame-nr', q]]),
-    both_doors("(c2-pl-frame-body-call)", [['c2-pl-frame-body-call']]),
+    %Each of these returns the SYMBOL NotReducible through a function frame, so
+    %each answers that symbol. Upstream answers the frame unreduced --
+    %`(function (return NotReducible))` -- because it has no function/return at
+    %all and leaves the form as data; reducing it is this engine's superset,
+    %and what the frame carries out is the program's own symbol either way
+    %[measured 2026-08-30, fixture=ai-tmp/petta-align/nr2.metta].
+    both_doors("(c2-pl-frame-nr q)", ['NotReducible']),
+    both_doors("(c2-pl-frame-body-call)", ['NotReducible']),
     dynamic_answers("(function (c2-pl-frame-body-nr))", DirectMarker),
-    assertion(DirectMarker == [[function, ['c2-pl-frame-body-nr']]]),
+    assertion(DirectMarker == ['NotReducible']),
     both_doors("(function (c2-pl-frame-no-rule))",
                [['Error', [function, ['c2-pl-frame-no-rule']], 'NoReturn']]),
     both_doors("(chain (eval (c2-pl-frame-nr q)) $r (c2-pl-held $r))",
                [['c2-pl-held', 'NotReducible']]).
 
-test(a_tail_call_retains_the_innermost_irreducible_call) :-
+%The innermost equation answers the SYMBOL and the tail hands it out, which
+%is byte-identical to upstream [measured 2026-08-30: `NotReducible` on both].
+%This read `(c2-pl-tail Z)`, the retained call, while the marker shared the
+%symbol's name.
+test(a_tail_call_hands_out_the_symbol_its_base_case_answered) :-
     add_form("(= (c2-pl-tail Z) NotReducible)"),
     add_form("(= (c2-pl-tail (S $n)) (c2-pl-tail $n))"),
-    both_doors("(c2-pl-tail (S (S Z)))", [['c2-pl-tail', 'Z']]).
+    both_doors("(c2-pl-tail (S (S Z)))", ['NotReducible']).
 
+%The empty expression is a VALUE, and an irreducible eval answers its operand,
+%so `(eval ())` is `()` rather than the retained frame or the marker. Both
+%rows are byte-identical to upstream, whose eval is
+%`translate_expr(C, Goals, Out)` and translates `()` to itself
+%[measured 2026-08-30: `()` then `(())` on both engines;
+%fixture=ai-tmp/petta-align/ev2.metta]. They read `(eval ())` and `((eval ()))`
+%while eval handed its own written call back on an irreducible operand.
 test(empty_expression_is_not_the_not_reducible_marker) :-
-    both_doors("(eval ())", [[eval, []]]),
-    both_doors("(collapse (eval ()))", [[[eval, []]]]).
+    both_doors("(eval ())", [[]]),
+    both_doors("(collapse (eval ()))", [[[]]]).
 
-test(reduce_retains_its_call_when_the_operand_is_irreducible) :-
-    both_doors("(reduce (c2-pl-reduce-unknown))",
-               [[reduce, ['c2-pl-reduce-unknown']]]),
-    both_doors("(reduce ())", [[reduce, []]]),
+%reduce ANSWERS ITS OPERAND rather than retaining its own frame, which is
+%upstream's `Out = [F|Args]` for a head it cannot call
+%[source: PeTTa@ae66fa8 src/translator.pl:84-86; measured 2026-08-30:
+%`!(reduce (nofib 5))` is `(nofib 5)` there and here]. The empty operand is
+%this engine's own: upstream aborts the run on `(reduce ())`.
+test(reduce_answers_an_irreducible_operand) :-
+    both_doors("(reduce (c2-pl-reduce-unknown))", [['c2-pl-reduce-unknown']]),
+    both_doors("(reduce ())", [[]]),
     both_doors("(reduce (+ 20 22))", [42]).
 
 test(a_deferred_library_call_keeps_empty_as_a_losing_race_branch) :-

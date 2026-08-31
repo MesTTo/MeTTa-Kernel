@@ -430,7 +430,11 @@ test(an_impure_refusal_names_the_canonical_effect_remedy) :-
         Text),
     assertion(sub_string(Text, _, _, _, "not classified pureStructural")),
     assertion(sub_string(Text, _, _, _,
-                         "(effect <operation> pureStructural)")).
+                         "(effect <operation> pureStructural)")),
+    %And the other door, named with the function's own name: the walk's
+    %judgement is advice, and a developer who means to memoize this anyway is
+    %told how rather than left with a wall.
+    assertion(sub_string(Text, _, _, _, "(cache memo_caller unchecked)")).
 
 :- end_tests(lib_memo_volatility).
 

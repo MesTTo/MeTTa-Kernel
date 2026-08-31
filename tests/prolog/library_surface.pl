@@ -98,11 +98,26 @@ library_equation(File, Form) :-
 % Qualified, because head_pattern_note/5 is engine/translator.pl's table and an
 % unqualified retractall here would make a second one in THIS module and clear
 % that instead, leaving every note standing and this check reporting clean.
+%BOTH reasons, because both say the same thing about the same head pattern:
+%the engine gives that name a meaning. `defined_label(Route)` is a label whose
+%name resolves through head_meaning_route/3; `functional_pattern` is a head
+%argument that is a CALL to a known function, which the compiler runs backwards
+%(engine/translator/analysis.pl, head_pattern_reason/7).
+%
+%Reading only defined_label/1 is what this check did until 2026-08-30, and
+%functional patterns took the planted Predicate shadow out of its reach: the
+%walk reported clean over every library while its own planted fault went
+%unnamed. The self-test below is what said so, which is the whole reason it
+%exists.
 library_shadow(File, Fun, Label, Route) :-
     library_equation(File, Form),
     retractall(translator:head_pattern_note(_, _, _, _, _)),
     catch(translate_clause(Form, _), _, true),
-    translator:head_pattern_note(_, Fun, _, Label, defined_label(Route)).
+    translator:head_pattern_note(_, Fun, _, Label, Reason),
+    engine_meaning_reason(Reason, Route).
+
+engine_meaning_reason(defined_label(Route), Route).
+engine_meaning_reason(functional_pattern, functional_pattern).
 
 no_library_shadows_an_engine_function :-
     findall(File-Fun-Label-Route, library_shadow(File, Fun, Label, Route),
@@ -146,7 +161,8 @@ planted_library_shadow_is_named :-
     retractall(translator:head_pattern_note(_, _, _, _, _)),
     catch(translate_clause(Form, _), _, true),
     translator:head_pattern_note(_, 'metta-planted-shadow', _, 'Predicate',
-                                 defined_label(_)),
+                                 Reason),
+    engine_meaning_reason(Reason, _),
     retractall(translator:head_pattern_note(_, _, _, _, _)).
 
 report([], Examined) :-

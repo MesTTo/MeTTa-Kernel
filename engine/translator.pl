@@ -2,9 +2,12 @@
 %   including dynamic dispatch, control forms, higher-order calls, and
 %   branch-return optimization.
 % Assumes:
-%   - merge_branch_returns/3 does not bind variable keys until its assoc
-%     lookups finish [source 2026-08-14:
-%     https://www.swi-prolog.org/pldoc/doc/_SWI_/library/assoc.pl].
+%   - merge_branch_returns/3 keeps its occurrence stats as `translator`
+%     attributes on the clause's own variables, strips them before its return
+%     bindings run, and relies on assertz/1 dropping attributes while
+%     copy_term/2 carries them [measured 2026-08-30: a clause asserted with an
+%     attributed variable reads back bare, and copy_term/2 of the same term
+%     copies the attribute; both probed directly].
 %   - '$skip_list'(-Length, +List, -Tail) reports the tail a list spine ends
 %     in without instantiating it, which is what separates a pair list that
 %     has not arrived from one that is no list at all
@@ -305,7 +308,12 @@
             metta_application_result/3,
             metta_application_result/4,
             metta_boundary_result/3,
-            metta_reduce_result/4,
+            metta_reduce_result/5,
+            metta_eval_step_orients/2,
+            metta_rule_gates_refresh/0,
+            self_tier_note/2,
+            self_tier_forget/1,
+            metta_rule_gates_ensure/1,
             with_not_reducible_root/2,
             metta_symbol_step/2,
             metta_eval_root_result/4,
@@ -352,6 +360,7 @@
             case_default_runtime/2,
             letstar_runtime/3,
             function_overapplication/3,
+            declared_arity_refusal/3,
             dispatch_mismatch_result/3,
             switch_runtime/3,
             dispatch_no_match_result/3,

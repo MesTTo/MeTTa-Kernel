@@ -326,12 +326,23 @@ kind(function_removed/1, event).
 kind(cache_policy_changed/1, event).
 :- multifile source_program_compiled/0.
 kind(source_program_compiled/0, event).
+%A deferred function's clauses now stand AND nothing is mid-translation.
+%function_call_graph_changed/2 above fires while the function is still inside
+%its own compilation guard, so a handler that RECOMPILES on the news cannot
+%act on it there: it would recompile the predicate its caller is in the middle
+%of building. This is the settle point after that, fired once per
+%materialisation rather than once per equation, and it is where the automatic
+%cache decides -- early enough to reach the first call, which is the whole
+%reason the decision cannot wait for the source's flush.
+:- multifile deferred_translation_settled/0.
+kind(deferred_translation_settled/0, event).
 :- dynamic function_changed/1.
 :- dynamic function_clauses_changed/1.
 :- dynamic function_call_graph_changed/2.
 :- dynamic function_removed/1.
 :- dynamic cache_policy_changed/1.
 :- dynamic source_program_compiled/0.
+:- dynamic deferred_translation_settled/0.
 
 %Automatic caching decisions are extension-owned declarations. The core's
 %explain door enumerates them, while lib_memo owns the state and reasons.
@@ -341,13 +352,16 @@ kind(automatic_cache_explanation/3, declaration).
 %Space writes: every 'add-atom'/3 and 'remove-atom'/3 runs these hooks with
 %the space and the term, after the write. A standing query, a subscription,
 %an index or a mirror hangs off them; with no handlers nothing changes.
-%A removal hook fires only when something was actually removed, and it carries
-%the term the caller ASKED to remove rather than the occurrence that left. The
-%two coincide for a ground request and diverge for a pattern: removal is
-%multiset subtraction, so (remove-atom &s (p $x)) takes one of the atoms
-%matching (p $x) and the hook cannot say which. A handler that needs the
-%occurrence re-reads the space; extensions/python/metta/structures.py's LiveView is the
-%worked instance [tested: test_liveview_mirrors_the_space].
+%A removal hook fires only when something was actually removed, once PER
+%OCCURRENCE, and it carries the occurrence that left rather than the term the
+%caller asked about. `(remove-atom &s (p $x))` drains every atom matching
+%`(p $x)` (engine/spaces/foreign.pl, remove_matching_atoms/2), and it drains
+%them by reading them first and then removing each by name, so what reaches
+%the hook is a ground atom the space held and a handler no longer has to
+%re-read the space to find out which. It carried the caller's pattern and
+%fired once until 2026-08-30, when removal stopped being multiset
+%subtraction. extensions/python/metta/structures.py's LiveView is the worked
+%instance [tested: test_liveview_mirrors_the_space].
 :- multifile atom_added/2.
 kind(atom_added/2, event).
 :- multifile atom_removed/2.
@@ -1510,6 +1524,7 @@ function_clauses_changed(_).
 function_call_graph_changed(_, _).
 function_removed(_).
 source_program_compiled.
+deferred_translation_settled.
 
 %Atom hooks wrap the write predicates only while a multifile handler exists.
 %prolog_listen/2 sees clauses loaded later, so an engine without handlers keeps

@@ -131,9 +131,20 @@ test(tabling_refuses_unresolvable_reads) :-
     catch(metta_tabled_decl(['plt-tab-foreign', _], true), Foreign, true),
     assertion(Foreign = error(metta_tabling_foreign_space(_, '&plt_tab_foreign'), _)).
 
-test(tabling_refuses_a_function_that_is_not_defined_yet,
-     [throws(error(existence_error(metta_function, _), _))]) :-
-    metta_tabled_decl(['plt-tab-absent', _], true).
+%A declaration for a name that does not exist yet is HELD, not refused: the
+%definition may be the very next form, which is the reading order upstream's
+%examples/tabling_fib.metta uses. It installs when the clauses arrive.
+test(tabling_holds_a_declaration_until_its_function_arrives,
+     [ cleanup(( catch(metta_untabled_decl(['plt-tab-late', _], true), _, true),
+                 retractall(lib_tabling:metta_tabling_held(_)),
+                 remove_sexp('&self', [=, ['plt-tab-late', 'X'], 1]) )) ]) :-
+    metta_tabled_decl(['plt-tab-late', _], true),
+    assertion(lib_tabling:metta_tabling_held(['plt-tab-late', _])),
+    assertion(\+ metta_tabling_registration('plt-tab-late', _, _)),
+    process_metta_string("(= (plt-tab-late $x) 1)", _),
+    process_metta_string("!(plt-tab-late 1)", _),
+    assertion(metta_tabling_registration('plt-tab-late', _, _)),
+    assertion(\+ lib_tabling:metta_tabling_held(['plt-tab-late', _])).
 
 % Deciding WHICH tables could have read a given equation needs a call graph
 % over compiled clauses the engine does not keep, and answering it wrongly is
@@ -296,7 +307,15 @@ test(a_pure_body_still_tables) :-
 %tabled clean and then answered one draw twice. Every body through every
 %wrapper is what says a wrapper the walk does not descend cannot pass anything
 %[measured 2026-08-17, ai-metta-python-seams.md item 1's review].
-purity_impure_body("(+ $k (py-call (builtins.abs $k)))", 'py-call').
+%py-call is the PYTHON extension's builtin, and this suite loads
+%engine/metta.pl without extensions/python/metta/shim.pl [source:
+%extensions/python/check.sh, "the plunit suites load engine/metta.pl without
+%extensions/python/metta/shim.pl"]. Where that extension is absent the term is
+%not a call at all, it is data, and a table over it is sound, so the row asks
+%the same question the classifier asks rather than demanding a refusal the
+%engine on its own cannot make. It runs wherever the extension IS loaded.
+purity_impure_body("(+ $k (py-call (builtins.abs $k)))", 'py-call') :-
+    builtin_fun('py-call').
 purity_impure_body("(+ $k (random-int 0 1000))", 'random-int').
 purity_impure_body("(+ $k (get-state purity-cell))", 'get-state').
 purity_impure_body("(let $i (add-atom &purity-log (saw $k)) $k)", 'add-atom').
@@ -365,7 +384,12 @@ test(the_refusal_names_the_goal) :-
           message_to_codes(Error, Codes)),
     string_codes(Text, Codes),
     assertion(sub_string(Text, _, _, _, "py-call/3")),
-    assertion(sub_string(Text, _, _, _, "(effect py-call pureStructural)")).
+    assertion(sub_string(Text, _, _, _, "(effect py-call pureStructural)")),
+    %Both doors, because the walk's judgement is advice and the DECLARATION
+    %decides: a developer who means to cache this anyway is told how rather
+    %than left with a wall [tested with the memo half in
+    %lib_memo_volatility:an_impure_refusal_names_the_canonical_effect_remedy].
+    assertion(sub_string(Text, _, _, _, "(cache <function> unchecked)")).
 
 message_to_codes(error(Formal, _), Codes) :-
     phrase(prolog:error_message(Formal), Lines),

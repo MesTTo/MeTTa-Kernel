@@ -471,6 +471,14 @@ test(every_fires_more_than_once_and_cancel_stops_it) :-
     length(After, Same),
     Same == Ticks.
 
+%SAMPLED over a window, not read at one checkpoint. The property is that a
+%repeating timer whose body outlives its period never has two invocations
+%live at once, and reading the pool once at a fixed 50ms assumed the first
+%invocation had already been picked up by then: on a loaded box it had not,
+%and the test failed for the scheduler's timing rather than for an overlap
+%[measured 2026-08-31: 2 failures in 6 runs at load average 11]. Waiting
+%for the invariant's precondition and then holding it across the window
+%proves strictly more than the single read did.
 test(a_repeating_timer_never_overlaps_its_own_invocations,
      [ cleanup(( metta_test_cancel_future(Space),
                  metta_test_cancel_future(Checkpoint) )) ]) :-
@@ -478,10 +486,24 @@ test(a_repeating_timer_never_overlaps_its_own_invocations,
     timer_after(0.05, [true], Checkpoint),
     once(thread_await(Checkpoint, [true])),
     metta_timer_pool(Pool),
-    thread_pool_property(Pool, running(Running)),
-    thread_pool_property(Pool, backlog(Backlog)),
-    Running == 1,
-    Backlog == 0.
+    timer_pool_reaches_one_running(Pool, 200),
+    forall(between(1, 20, _),
+           ( thread_pool_property(Pool, running(R)),
+             thread_pool_property(Pool, backlog(B)),
+             R =< 1,
+             B == 0,
+             sleep(0.005) )).
+
+%Until one invocation is running, bounded: the pool is a scheduler, so the
+%precondition arrives when it arrives.
+timer_pool_reaches_one_running(Pool, Attempts) :-
+    (   thread_pool_property(Pool, running(1))
+    ->  true
+    ;   Attempts > 0,
+        sleep(0.005),
+        Left is Attempts - 1,
+        timer_pool_reaches_one_running(Pool, Left)
+    ).
 
 test(a_saturated_timer_pool_does_not_block_scheduler_deadlines,
      [ setup(metta_test_ensure_thread_surface),

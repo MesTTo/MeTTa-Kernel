@@ -16,8 +16,11 @@
 ;; Type definitions of equality and negated equality operators
 ;ONE type variable, twice: == compares two things of one type and refuses
 ;two of different KNOWN types, which is upstream's own signature for it.
-!(test (get-type ==) (-> $a $a Bool))
-!(test (get-type !=) (-> $a $a Bool))
+;Two INDEPENDENT type variables, so a comparison across two kinds is a
+;question with an answer rather than a refusal
+;[source: PeTTa@ae66fa8 lib/lib_builtin_types.metta:17-18].
+!(test (get-type ==) (-> $a $b Bool))
+!(test (get-type !=) (-> $a $b Bool))
 
 ;; Test type definitions of common mathematical functions
 !(test (get-type pow-math) (-> Number Number Number))

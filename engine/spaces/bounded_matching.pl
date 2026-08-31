@@ -161,12 +161,16 @@ routed_selective_conjunct(Space, Conjuncts, Best, Rest) :-
     goal_matches_at_most_one(match(Space, Best, conj, conj)),
     !.
 
-%One matching step of Hyperon's unify: each solution is one binding set,
-%bindings applied by Prolog unification itself. The clause order is the
-%case order of the arbiter's matcher, LeaTTa
-%MettaHyperonFull/Core/Matching.lean matchAtomsWith (209-241): variables
-%bind before anything is consulted, with the occurs check the arbiter's
-%variable cases carry; expressions match pointwise, consistency kept by
+%One matching step of unify: each solution is one binding set, bindings
+%applied by Prolog unification itself. Upstream PeTTa has no unify form,
+%so the petta alignment leaves this surface to the engine's one binding
+%law, and that law is upstream's own: bindings are RAW, and a
+%self-containing binding is a legal rational tree, exactly as the adopted
+%matcher and let behave (upstream's let measures [worked] on
+%`!(let $x (f $x) worked)`). The occurs check that stood in the variable
+%case was the LeaTTa arbiter's law (Matching.lean matchAtomsWith 209-241)
+%and left with the arbiter; the clause order remains that historical case
+%order: variables bind first, before anything is consulted; expressions match pointwise, consistency kept by
 %the shared bindings; then a grounded operand's own matching logic runs,
 %left before right, which is how a space becomes queryable inside unify
 %(Hyperon: `impl CustomMatch for DynSpace` is query, hyperon-space
@@ -197,7 +201,7 @@ metta_match_atoms(L, R) :-
     metta_seq_unify(Plan, Parsed, R).
 metta_match_atoms(L, R) :- L == R, !.
 metta_match_atoms(L, R) :- ( var(L) ; var(R) ), !,
-                           unify_with_occurs_check(L, R).
+                           L = R.
 %A cons cell and () never match, and deciding that must not WALK the cons.
 %Every route below reaches the same failure: read as lists they differ at the
 %very first cell, and the clauses past the list branch all decide by equality,

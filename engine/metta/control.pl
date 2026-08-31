@@ -92,7 +92,11 @@ set_metta_pragma(Key, Value) :-
     ->  true
     ;   assertz(metta_pragma(Key, Value))
     ),
-    sync_metta_pragma_bounds.
+    sync_metta_pragma_bounds,
+    (   Key == 'max-stack-depth'
+    ->  metta_fuel_ensure_charges
+    ;   true
+    ).
 
 %pragma! scoped to one expression, MeTTaLog's with-pragma! adopted:
 %each (key value) pair validates exactly as pragma! validates it, the
@@ -367,24 +371,46 @@ metta_host_with_stack_limit(StackBytes, Goal) :-
 %have been enumerated, the recorded unfinished branches are replayed as
 %(Error <current-call> StackOverflow). This keeps a completed sibling instead
 %of letting an exception discard the generator's remaining choice points.
-%A positive max-stack-depth caps the same balance; zero and absence use the
-%LeaTTa runner's default 100000 fuel.
-%[tested: test_a_stack_depth_pragma_bounds_evaluation_instead_of_overflowing].
+%A positive max-stack-depth caps the same balance. ABSENCE DOES NOT CAP IT:
+%the budget is opt-in, and a program that never names one reduces until it
+%finishes or the host stack gives out, which is what upstream does. The default
+%used to be the LeaTTa runner's 100000, four per reduction, and that ceiling
+%stopped six upstream examples that upstream itself completes -- `(fib 30)`
+%among them, which answered `(Error 4 StackOverflow)` here at n=22 and answers
+%832040 with the ceiling lifted
+%[measured 2026-08-30: fib 22/25/30 under `(pragma! max-stack-depth 100000000)`
+%against the same file without it; source: PeTTa@ae66fa8 src/metta.pl has no
+%budget of any kind and loops forever on `(= (loop $n) (loop (+ $n 1)))`].
+%Absence resolves to `off` at the FIRST charge, which then latches the balance
+%so every later reduction in the runnable takes the same one-comparison path a
+%closed scope takes, rather than re-reading the pragma table per reduction.
+%[tested: test_a_stack_depth_pragma_bounds_evaluation_instead_of_overflowing,
+% fuel:an_absent_pragma_does_not_bound_evaluation].
 :- meta_predicate metta_run_with_fuel(?, ?, 0).
 
-%The test READS AND COMPARES IN ONE GOAL, b_getval/2 unifying the balance with
-%`off` rather than binding it and comparing after, which is the same inference
-%the nb_current/2 test cost and eight fewer over file-load's runnable forms than
-%the two-goal spelling. The value is always an atom or an integer, so the
-%unification cannot instantiate the variable the manual warns about.
+%SCOPE-OPENNESS IS THE ERROR LIST'S EXISTENCE, not the balance's value. The
+%balance answered both questions until the evaluation budget became opt-in,
+%and then it could not: an absent max-stack-depth resolves to `off` at the
+%first charge and LATCHES it, so mid-scope the balance reads exactly like no
+%scope at all. A nested run then opened a second scope whose close deleted
+%`$metta_fuel_errors`, and the outer replay clause read a deleted global
+%[measured 2026-08-30: charge once under no pragma, run a nested
+%metta_run_with_fuel/3, and nb_getval/2 raises
+%existence_error(variable,'$metta_fuel_errors');
+%tested: fuel:a_nested_run_inside_an_unbounded_scope_keeps_the_outer_error_list].
+%`$metta_fuel_errors` is created by metta_open_fuel_scope/0 and deleted by
+%metta_close_fuel_scope/0, so it IS the scope's lifetime. nb_current/2 is
+%nondeterministic and costs a foreign frame, which the per-reduction charge
+%could not afford; this runs once per runnable form, where the whole
+%two-versus-one-goal difference measured eight inferences over a file load.
 metta_run_with_fuel(Value, Answer, Goal) :-
-    (   b_getval('$metta_fuel_remaining', off)
-    ->  setup_call_cleanup(
+    (   nb_current('$metta_fuel_errors', _)
+    ->  call(Goal),
+        Answer = Value
+    ;   setup_call_cleanup(
             metta_open_fuel_scope,
             metta_fuel_answer(Value, Answer, Goal),
             metta_close_fuel_scope)
-    ;   call(Goal),
-        Answer = Value
     ).
 
 %ONE GLOBAL CARRIES BOTH QUESTIONS, and it always exists so that the reader is
@@ -525,10 +551,14 @@ metta_fuel_step_goal(Culprit, Cost,
                            ->  metta_evaluation_fuel(Limit)
                            ;   Limit = Current
                            ),
-                           Remaining is Limit - Cost,
-                           (   Remaining =< Cost
-                           ->  metta_fuel_exhausted(Culprit)
-                           ;   system:b_setval('$metta_fuel_remaining', Remaining)
+                           (   Limit == off
+                           ->  system:b_setval('$metta_fuel_remaining', off)
+                           ;   Remaining is Limit - Cost,
+                               (   Remaining =< Cost
+                               ->  metta_fuel_exhausted(Culprit)
+                               ;   system:b_setval('$metta_fuel_remaining',
+                                                   Remaining)
+                               )
                            )
                        ) )).
 
@@ -602,12 +632,52 @@ metta_with_seed(Seed, Written, Goal, Out) :-
     ;   metta_operation_answer('with-seed', Written, Out)
     ).
 
+%`off` rather than a large number, so the step latches instead of counting: a
+%ceiling nobody asked for is not a smaller ceiling, it is no ceiling.
 metta_evaluation_fuel(Limit) :-
     (   metta_pragma('max-stack-depth', Configured),
         integer(Configured),
         Configured > 0
     ->  Limit = Configured
-    ;   Limit = 100000
+    ;   Limit = off
+    ).
+
+%WHETHER ANY CHARGE SHOULD COMPILE AT ALL. The latched charge is cheap and it
+%is still not free: b_getval/2 plus one comparison at every entry of every
+%recursive clause, which on a tight loop is measurable against an upstream
+%clause that carries nothing. Upstream has no budget of any kind, so the
+%aligned default is NO EMITTED CHARGE, and the feature keeps its whole
+%surface through recompilation: the compiler asks this question, a clause
+%compiled while it answers no is recorded below, and the moment a
+%max-stack-depth arrives -- pragma! and with-pragma! both write through
+%set_metta_pragma/2 -- every recorded function is rebuilt through
+%recompile_function_impl/1, whose re-instrumentation then sees the pragma and
+%emits the charge. SWI's logical update view keeps activations already on the
+%stack on their own generation, and a scope opener runs before its inner goal,
+%so the first call made under the new budget already runs charged clauses.
+%Unsetting the pragma leaves charges in place, which is sound and latches
+%cheap; only absence at compile time is optimized.
+metta_fuel_budget_configured :-
+    metta_pragma('max-stack-depth', Configured),
+    integer(Configured),
+    Configured > 0.
+
+:- dynamic metta_fuel_chargeless/1.
+
+metta_fuel_note_chargeless(F) :-
+    (   metta_fuel_chargeless(F)
+    ->  true
+    ;   assertz(metta_fuel_chargeless(F))
+    ).
+
+metta_fuel_ensure_charges :-
+    (   metta_fuel_budget_configured,
+        metta_fuel_chargeless(_)
+    ->  findall(F, metta_fuel_chargeless(F), Fs),
+        retractall(metta_fuel_chargeless(_)),
+        forall(member(F, Fs),
+               transaction(recompile_function_impl(F)))
+    ;   true
     ).
 
 %%% MeTTa HE compatibility: %%%
@@ -674,7 +744,7 @@ metta_metta_thread_step(Call, Space, Call, Step, Status) :-
         metta_suspend_function_evaluation(Saved),
         metta_evalc_step(Call, Space, Step),
         metta_restore_function_evaluation(Saved)),
-    ( Step == 'NotReducible' -> Status = 'not-reducible' ; Status = reduced ).
+    ( Step == '$metta_not_reducible' -> Status = 'not-reducible' ; Status = reduced ).
 metta_metta_thread_step([Head|Args], Space, Prepared, Step, Status) :-
     atom(Head),
     !,
@@ -697,7 +767,7 @@ metta_metta_thread_step(Atom, Space, Atom, Step, Status) :-
         metta_suspend_function_evaluation(Saved),
         metta_evalc_step(Atom, Space, Step),
         metta_restore_function_evaluation(Saved)),
-    ( Step == 'NotReducible' -> Status = 'not-reducible' ; Status = reduced ).
+    ( Step == '$metta_not_reducible' -> Status = 'not-reducible' ; Status = reduced ).
 
 metta_metta_thread_arguments([], _, _, []).
 metta_metta_thread_arguments([Arg|Args], [Evaluate|Mask], Space,
@@ -762,7 +832,20 @@ metta_metta_result_is_final(Atom) :-
 %Naming a space still registers nothing, which is the property that keeps every
 %symbol in a space position from becoming one.
 'new-space'(Space) :- gensym('&metta-space-', Space),
-                      ensure_native_storage_module(Space, _).
+                      %Minted INSIDE a context's world, the space joins that
+                      %world: it reads the home's equations exactly as a
+                      %default-world space reads &self's, which is what lets
+                      %(super ...) and evalc find definitions the program
+                      %wrote at its own top level. In the default world the
+                      %walk answers '&self' and nothing extra is declared.
+                      %The declaration must come FIRST, before any use: it
+                      %creates the storage module inside its own transaction,
+                      %and a module created ahead of it reads as first use.
+                      metta_space_world_home(Home),
+                      (   Home == '&self'
+                      ->  ensure_native_storage_module(Space, _)
+                      ;   metta_declare_space_equation_home(Space, Home)
+                      ).
 %The one-input form holds its Atom argument as written. A ground expression
 %there is an entity identifier, registered before either canonical module is
 %created; later SpaceType positions recognize that exact term and no other
@@ -1012,11 +1095,15 @@ prolog:error_message(metta_state_write_fenced(Cell)) -->
 
 %%% Eval: %%%
 %metta_eval_step exposes the evaluator's three-way control result.  eval/2 is
-%the ordinary engine door and consumes NotReducible by retaining the atom it
-%was asked to evaluate.  Keeping those roles separate lets chain, function,
-%and metta-thread inspect the marker without leaking it through direct eval/2
-%callers such as unquote [tested: metatype_mask:unquote_evaluates_its_operand;
-%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+%the ordinary engine door and consumes the irreducibility marker by answering
+%the OPERAND it was asked to evaluate, not the `(eval ...)` call around it:
+%upstream's eval is `translate_expr(C, Goals, Out)`, so a symbol with no
+%equations translates to itself and `!(eval done)` is `done`
+%[source: PeTTa@ae66fa8 src/metta.pl:274-276; measured 2026-08-30, this engine
+%answered `(eval done)` and `(eval ())` until then].  Keeping the two roles
+%separate lets function and metta-thread inspect the marker without leaking it
+%through direct eval/2 callers such as unquote
+%[tested: metatype_mask:unquote_evaluates_its_operand].
 %
 %The evaluator runs its goals in the current space's module, for the same reason
 %call_goals_in/2 and current_metta_space/1 exist: call/1 resolves a goal in the
@@ -1060,6 +1147,13 @@ prolog:error_message(metta_state_write_fenced(Cell)) -->
 metta_eval_step(C0, Out) :-
     with_not_reducible_root(C0, metta_eval_core(C0, Out)).
 
+%The orientation gate on the pre-translation equation step is
+%metta_eval_step_orients/2, one of translator's three swapped rule-gate
+%doors: while no cost-ordered translator rule is registered it is a fact,
+%and registering one swaps the asking body in. When every equation fails
+%the gate the whole equation branch below fails and the translation runs,
+%which is where the blocked rewrite becomes the call as written.
+
 metta_eval_core(C0, Out) :-
     current_metta_module(Module),
     %The soft cut commits to equation reduction as a mode, while retaining
@@ -1067,21 +1161,27 @@ metta_eval_core(C0, Out) :-
     %rules before `function` and `metta-thread` could observe them.
     %[source: MettaHyperonFull/Minimal/Interpreter.lean:419-448,
     %`evalResult`; commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87]
-    (   metta_minimal_equation_step(Module, C0, Step)
+    (   metta_minimal_equation_step(Module, C0, Step),
+        metta_eval_step_orients(C0, Step)
     *-> Out = Step
     ;   atomic(C0)
     ->  (   atom(C0), metta_symbol_step(C0, Step)
         *-> Out = Step
-        ;   Out = 'NotReducible'
+        ;   Out = '$metta_not_reducible'
         )
-    ;   translate_runnable_expr(C0, Goals, Produced),
+    ;   translate_cached_expr(C0, Goals, Produced),
         call_goals_in_(Module, Goals),
         metta_eval_root_result(Module, C0, Produced, Out)
     ),
     Out \== 'Empty'.
 
+%THE TRANSLATION IS CACHED, because eval's whole job is to translate at RUN
+%time and a program that evaluates in a loop hands it the same SHAPE every
+%iteration. The cache keys on the skeleton -- literal leaves abstracted -- so
+%`(- 350000 5)` and `(- 349995 5)` are one entry
+%[see translation_template/3 in engine/translator/analysis.pl].
 eval(C0, Out) :-
-    translate_runnable_expr(C0, Goals, Produced),
+    translate_cached_expr(C0, Goals, Produced),
     current_metta_module(Module),
     call_goals_in_(Module, Goals),
     metta_boundary_result(C0, Produced, Out),

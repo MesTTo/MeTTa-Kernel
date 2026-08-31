@@ -28,9 +28,10 @@ translate_cached_expr(C, Goals, Out) :-
 
 %% translate_runnable_expr(+Expression, -Goals, -Value) is det.
 translate_runnable_expr(C, Goals, Out) :-
-    setup_call_cleanup(assertz(translating_runnable, Ref),
+    b_getval('$metta_translating_runnable', Outer),
+    setup_call_cleanup(b_setval('$metta_translating_runnable', true),
                        once(translate_expr(C, Goals, Out)),
-                       erase(Ref)),
+                       b_setval('$metta_translating_runnable', Outer)),
     (   runnable_import(_)
     ->  refuse_call_to_own_import(C)
     ;   true
@@ -64,7 +65,7 @@ translate_runnable_expr(C, Names, Goals, Out) :-
     %needs language-level work.  A helper call here added one counted Prolog
     %inference to every otherwise constant-time native operation.
     BoundaryConj = ( NamedConj,
-                     ( Value == 'NotReducible'
+                     ( Value == '$metta_not_reducible'
                      -> BoundaryValue = C
                      ;  BoundaryValue = Value ) ),
     FuelConj = metta_run_with_fuel(BoundaryValue, FuelValue, BoundaryConj),
@@ -226,7 +227,13 @@ resolve_dispatch(Fun, Args, Out, Goal) :-
     ( seam:dispatch_call(Fun, Args, Out, Goal)
     -> true
     ; append(Args, [Out], DirectArgs),
-      Goal =.. [Fun|DirectArgs]
+      %A host loader loads into the process tier rather than into the calling
+      %space's module; host_process_tier_loader/3 in interop.pl carries the
+      %reason and the measurement.
+      length(DirectArgs, Arity),
+      ( host_process_tier_loader(Fun, Arity, Funnel) -> Head = Funnel
+      ; Head = Fun ),
+      Goal =.. [Head|DirectArgs]
     ).
 
 %The effective policy is late-bound from &metta, so adding or removing an
@@ -283,6 +290,37 @@ dispatch_call_goal_for(Module, Fun, Args, Out, Goal, PolicyGoal) :-
     ->  PolicyGoal = Goal
     ;   PolicyGoal = dispatch_no_match_result(Fun, Args, Out)
     ).
+%STRAIGHT TO PROLOG when nothing can observe a missed head. This is the whole
+%point of compiling to Prolog rather than interpreting: SWI already selects a
+%clause by first-argument indexing, and `call(Module:Goal)` gets that for free.
+%
+%`dispatch_fast_goal/5` was re-deciding it instead, walking every equation head
+%with unifiable/3 BEFORE calling the predicate, so that a miss could be handed
+%to NoMatchEnum. On examples/tilepuzzle.metta that ran 362,884 times and cost
+%2,479,678 unifiable/3 calls and 25,644,480 metta_seq_surface_gap/3 calls --
+%Prolog's own clause selection, redone in Prolog, once per dispatch
+%[measured 2026-08-30, SWI profile over 181,441 states].
+%
+%With NoMatchEnum at its default `NoMatchFail` there is nothing to hand over:
+%a call whose heads all miss simply fails, which is exactly what calling the
+%predicate does. The pre-check is then pure cost and this clause skips the
+%interpreter entirely. Upstream reaches the same place by having no policy
+%layer at all -- `Goal =.. [Fun|CallArgs]` and call it
+%[source: PeTTa@ae66fa8 src/translator.pl:363-370].
+%
+%SAFE AGAINST A LATER OVERRIDE because the policy is a support-graph
+%dependency: metta_dispatch_policy_changed/2 records
+%dispatch_policy(Module, F, NoMatchEnum) against function_view(Module, F) and
+%invalidates it, so naming a NoMatchEnum for this function recompiles this
+%call site and the interpreted path comes back
+%[tested: examples/ch05-equations-and-evaluation/05-02-changing-the-equations/01-dispatch_policies.metta,
+% which sets an override, checks it, removes it and checks the default again].
+dispatch_call_goal_for(Module, Fun, _, _, Goal, Goal) :-
+    fun_meta_module(Module, Fun, _),
+    \+ dispatch_selection_override(Fun),
+    dispatch_policy_value(Fun, 'NoMatchEnum', Policy),
+    Policy == 'NoMatchFail',
+    !.
 dispatch_call_goal_for(Module, Fun, Args, Out, Goal,
                        dispatch_policy_execute(Module, Fun, Args, Goal, Out)) :-
     (   dispatch_selection_override(Fun)
@@ -487,8 +525,8 @@ dispatch_retained_clause_match(Module, Fun, Head, Body, Args, Out, Goal) :-
     (   metta_seq_present(Head)
     ->  with_metta_module(Module,
                           translator:( metta_seq_head_plan(Head, HeadPlan),
-                                       translate_segment_body_plan(Fun, Head,
-                                                                   Body, [],
+                                       translate_segment_body_plan(Fun, Body,
+                                                                   [],
                                                                    BodyPlan) )),
         metta_seq_head_match(HeadPlan, Args),
         Goal = metta_segment_body_result(Module, Fun, BodyPlan, Out)
@@ -533,7 +571,7 @@ dispatch_any_head_matches(Module, Fun, _, Goal) :-
 %than losing the completed argument step.
 dispatch_no_match('NoMatchOriginal', Fun, Args, Out) :-
     (   nb_current('$metta_not_reducible_root', _)
-    ->  Out = 'NotReducible'
+    ->  Out = '$metta_not_reducible'
     ;   Out = [Fun|Args]
     ).
 dispatch_no_match('NoMatchFail', _, _, _) :- fail.
@@ -570,30 +608,42 @@ incomplete_application_kind(Fun, Arity, partial) :-
     ; \+ arity(Fun, _) ), !.
 incomplete_application_kind(_, _, overapplied).
 
-%An overapplied call ANSWERS rather than raising, because a wrong arity is an
-%ordinary MeTTa error and the form after it still runs. WHICH answer is the
-%declaration's: a head the engine or the program TYPED is refused by name, and
-%an untyped one is left as written, which is what an expression whose head
-%means nothing here already does
-%[measured 2026-08-19 against the arbiter: `(+ 1 2 3)` and
-%`(car-atom (1 2) extra)` answer `(Error <call> IncorrectNumberOfArguments)`
-%while `(empty 1 2)`, `(match-types Number Number yes no extra)` and a user
-%function's `(f 1 2)` are left as written; source: LeaTTa
-%tests/semantics/eval-core/empty-argument-arity.metta].
-function_overapplication(Fun, Arguments, Answer) :-
-    (   metta_typed_head(Fun)
-    ->  Answer = ['Error', [Fun|Arguments], 'IncorrectNumberOfArguments']
-    ;   Answer = [Fun|Arguments]
-    ).
+%An overapplied call RAISES, and the raise names the arities the function
+%actually has beside the one the call asked for. Reaching here already means
+%the engine knows an arity for the name and every known arity is too small,
+%because incomplete_application_kind/3 above answers `partial` for a name with
+%no arity at all; that is the same discriminator upstream uses, and it is the
+%whole rule -- whether the head is TYPED does not enter into it
+%[measured 2026-08-30 against PeTTa@ae66fa8, every case through (repr (catch
+%...)): `(+ 1 2 3)`, an untyped `(uf 1 2 3)`, a typed `(tf 1 2 3)`,
+%`(car-atom (1 2) extra)`, `(and True True True)` and `(empty 1 2)` all answer
+%`(Error (domain_error (function_input_arities <fun> <known>) <asked>) none)`,
+%and only `(nosuchfn 1 2 3)`, whose head names nothing, is left as written].
+%
+%This replaces `(Error <call> IncorrectNumberOfArguments)`, which said less:
+%it named the call but neither the arities the function has nor the one that
+%was asked for, and it drew a typed/untyped line the semantics does not have,
+%so `(empty 1 2)` and an untyped function's overapplication were silently left
+%as written [tested: examples/ch08-data/08-01-atoms-lists-and-folds/04-curry.metta].
+%A DECLARED arity no equation has is a different fault, and it is this
+%engine's own. The declaration says the head takes N inputs and no equation
+%takes N, so the call site cannot be typed at all; upstream has no
+%declarations to disagree with and therefore no such fault. It stays an
+%ANSWER, and keeps the name it always answered, because a declaration that
+%contradicts its equations is a static fault the form after it survives
+%[tested: conformance2:a_declared_wrong_arity_is_an_error,
+%lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition].
+declared_arity_refusal(Fun, Arguments,
+                       ['Error', [Fun|Arguments], 'IncorrectNumberOfArguments']).
 
-metta_typed_head(Fun) :-
-    atom(Fun),
-    (   current_metta_module(Module),
-        catch_recover(governing_type_declaration_in(Module, Fun, [->|_]),
-                      fail)
-    ->  true
-    ;   seam:builtin_type_declaration(Fun, [->|_])
-    ).
+function_overapplication(Fun, Arguments, _) :-
+    length(Arguments, AskedInputArity),
+    findall(InputArity, ( arity(Fun, Arity), InputArity is Arity - 1 ),
+            InputArities),
+    sort(InputArities, KnownInputArities),
+    throw(error(domain_error(function_input_arities(Fun, KnownInputArities),
+                             AskedInputArity),
+                none)).
 
 % Runtime dispatcher: call F if it's a registered fun/1, else keep as list.
 %
@@ -677,16 +727,18 @@ reduce([F|Args], Out, Status) :- !,
             ->  call(Module:Goal)
             ;   dispatch_policy_execute(Module, F, Args, Goal, Produced)
             ),
-            (   Produced == 'NotReducible'
-            ->  Out = [F|Args], Status = 'not-reducible'
-            ;   Out = Produced, Status = reduced
-            )
+            %The orientation gate rides metta_reduce_result/5, the swapped
+            %door beside metta_boundary_result/3: while no cost-ordered rule
+            %is registered the installed body never asks the table, and
+            %registering one swaps the gated body in. reduce/3 is the one
+            %evaluation door that does not cross metta_boundary_result/3, so
+            %it asks here or nowhere
+            %[tested: examples/ch20-extending-the-engine/20-01-translator-rules/02-translatorrule_direction.metta,
+            % the (reduce (twin 1 1)) probe].
+            metta_reduce_result(F, Args, Produced, Out, Status)
         ;   metta_segment_equation_in(Module, F, _)
         ->  metta_segment_dispatch(Module, F, Args, Produced),
-            (   Produced == 'NotReducible'
-            ->  Out = [F|Args], Status = 'not-reducible'
-            ;   Out = Produced, Status = reduced
-            )
+            metta_reduce_result(F, Args, Produced, Out, Status)
         ;   incomplete_application_kind(F, Arity, partial)
         ->  Out = partial(F,Args),
             Status = reduced
@@ -743,17 +795,6 @@ reduce([F|Args], Out, Status) :- !,
     ).
 reduce(Culprit, _, _) :-
     throw_metta_type_error(reduce, list, Culprit).
-
-%`reduce` is an application boundary even though reduce/3 reports its status
-%beside the result rather than as the bare marker.  An irreducible operand
-%therefore retains the written `(reduce <operand>)`; returning the operand
-%alone silently consumed one layer of syntax and disagreed with the ordinary
-%unknown-call rule [measured 2026-08-24 against LeaTTa 9ea9f9d:
-%`!(reduce (unknown))` answers `(reduce (unknown))`; tested:
-%conformance2:reduce_retains_its_call_when_the_operand_is_irreducible;
-%commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-metta_reduce_result(Written, _, 'not-reducible', [reduce, Written]) :- !.
-metta_reduce_result(_, Reduced, _, Reduced).
 
 %ONE COMPILED PREDICATE PER WRITTEN LAMBDA, however many times it is applied.
 %Compiling on every application asserted a fresh lambda_N/2 each time: 200
@@ -1224,7 +1265,8 @@ data_head_answer_dl(HV, Written, AVs, Out, Goals0, Goals) :-
 %commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c]. Reporting remains additive, but this proof is about the
 %single declaration tier that controls dispatch.
 written_args_settled(self, HV, Written) :-
-    '$metta_atoms:&self':'&self'(':', HV, Chain),
+    current_metta_module(SelfTierModule),
+    self_tier_clause(SelfTierModule, HV, Chain),
     written_args_settled_by_chain(Chain, Written).
 written_args_settled(local(Space), HV, Written) :-
     match_stored(Space, [':', HV, Chain], Chain, _),
@@ -1253,12 +1295,69 @@ written_arg_settled(Expected, Written) :-
 
 arrow_declared_data_head(HV, DeclarationTier) :-
     atom(HV),
-    '$metta_atoms:&self':'&self'(':', HV, Chain),
+    current_metta_module(SelfTierModule),
+    self_tier_clause(SelfTierModule, HV, Chain),
     nonvar(Chain),
     Chain = [->|_],
     current_metta_module(Module),
     inherited_data_head_arrow_tier(Module, HV, DeclarationTier),
     !.
+
+%The self TIER's ':' rows, wherever the current context's home is, at the
+%literal probe's own price: self_tier_clause/3 dispatches on the MODULE, so
+%a module whose space stores its own declarations carries one specialized
+%clause (asserted by the lifecycle when the execution module is born,
+%retracted when its space is released) and everything else falls through to
+%the &self literal below. Every cleverer shape measured worse on
+%alpha-unique's ten thousand data heads: deriving the tier per head cost
+%+40 inferences each (3.50M to 3.95M), a copy_term'd prebuilt row +75, and
+%a nb-global memo keyed by the module still +40, because the sites fire
+%about five times per head and any per-site overhead multiplies. A foreign
+%space gets no specialized clause -- the lifecycle only speaks storage
+%modules -- so a compile-time declaration probe can never run a provider
+%(the take suite measured exactly that before the fence existed).
+:- dynamic self_tier_clause/3.
+
+self_tier_clause(_, HV, Chain) :-
+    '$metta_atoms:&self':'&self'(':', HV, Chain).
+
+%The lifecycle's two doors: a born execution module notes its tier, a
+%released space forgets it. Exported so engine/spaces/lifecycle.pl can call
+%them without reaching an unpublished name.
+:- dynamic self_tier_ref/2.
+
+self_tier_note(Module, Space) :-
+    (   atom(Space),
+        Space \== '&self',
+        \+ self_tier_ref(Module, _),
+        native_storage_module_cache(Space, AtomsModule)
+    ->  Row =.. [Space, ':', HV, Chain],
+        asserta((self_tier_clause(Module, HV, Chain) :-
+                    (   AtomsModule:Row
+                    ->  true
+                    ;   '$metta_atoms:&self':'&self'(':', HV, Chain)
+                    )), Ref),
+        assertz(self_tier_ref(Module, Ref))
+    ;   true
+    ).
+
+%erase/1 by the remembered reference, so the catch-all &self clause above,
+%whose head also unifies a bound module, is never swept with it.
+self_tier_forget(Module) :-
+    forall(retract(self_tier_ref(Module, Ref)), erase(Ref)).
+
+%The space branch is the direct atoms-table probe, one indexed read like
+%the &self literal above it: match_stored here cost about +140 inferences
+%per compiled data head on the alpha-unique counter (3.50M to 4.90M over
+%its ten thousand heads) once benchmark spaces became context spaces, and
+%it also CROSSED THE FOREIGN SEAM, running a provider from inside the
+%compiler (the take suite measured its exactness fixtures asked once
+%extra, with no bound, before the real query). A foreign space has no
+%storage-cache row -- the claim door retracts it -- so it takes the &self
+%fallback exactly as it did before this door generalized, a parametric
+%space name fails atom/1 into the same fallback, and a native space that
+%stores no ':' row for the head falls back to &self the same way the
+%equation tier does.
 
 %The direct &self probe above remains first, so an ordinary data head pays the
 %same one indexed miss as before. Only a head that actually has an inherited
@@ -1584,6 +1683,17 @@ functioncall_dl(Fun, Chains, Args, IsPartial, Bound, Out, Goals0, Goals) :-
                                       RawProduced, Out, ResultGoal),
             Continue = [ResultGoal]
         ;   (   ResultType == 'Atom'
+            ->  Finality = final
+            ;   atom(Fun),
+                total_boolean_operation(Fun)
+            %A total boolean's answer is an atomic constant, so the evaluated
+            %plumbing -- the backward seed, the masked-result chain -- is dead
+            %around it and the call takes the final shape: the output IS the
+            %call's own last argument. A backward check still works, because
+            %a pre-bound output reaches the comparison's own if-then-else and
+            %fails exactly where the seeded spelling failed
+            %[source: engine/translator/special_forms.pl,
+            %total_boolean_operation/1].
             ->  Finality = final
             ;   Finality = evaluated
             ),

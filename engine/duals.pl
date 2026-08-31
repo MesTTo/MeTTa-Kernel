@@ -51,11 +51,11 @@
 %   - translator.pl:fun_meta_clause/4 retains one fact per compiled equation
 %     holding its head arguments and its unevaluated MeTTa body
 %     [source: engine/translator.pl, record_fun_meta/3].
-%   - a head argument that constrain_args/3 compiles into a GOAL rather than
-%     into structure, which is the in-place type annotation `(: $x T)`, is
-%     recorded by head_pattern_note/5 under the reason type_annotation so this
-%     file can refuse it rather than dualise a head it cannot see
-%     [tested: an_annotated_head_has_no_dual].
+%   - a head argument that constrain_args/7 compiles into a GOAL rather than
+%     into structure is recorded by head_pattern_note/5 under the reason it was
+%     compiled for, so this file can refuse it rather than dualise a head it
+%     cannot see. There is one: Curry's functional pattern, a call run
+%     backwards [tested: a_functional_pattern_head_has_no_dual].
 %   - MeTTa True and False are the Prolog atoms true and false
 %     [source: engine/parser.pl:133].
 % Guarantees:
@@ -716,17 +716,18 @@ refuse_undefined_builtin(Fun, InputArity, Module) :-
                              have a dual')))
     ).
 
-%constrain_args/3 turns an in-place type annotation in a head argument into a
-%goal: (= (f (: $x Number)) $x) compiles to f(A, A) :- has_type(A, 'Number').
-%That goal is not part of the recorded body, so a dual built from the recorded
-%head would silently ignore the constraint and claim more than it can prove.
+%constrain_args/7 turns a head argument holding a CALL into a goal:
+%(= (f (g $x)) $x) runs g backwards and matches the caller's argument against
+%what it answers. That goal is not part of the recorded body, so a dual built
+%from the recorded head would silently ignore the constraint and claim more
+%than it can prove.
 refuse_unsupported_head(Module, Fun) :-
-    (   head_pattern_note(Module, Fun, _, _, type_annotation)
+    (   head_pattern_note(Module, Fun, _, _, functional_pattern)
     ->  throw(error(type_error(dualisable_function, Fun),
                     context(build_dual/3,
                             'this function constrains an argument in its head \c
-                             with an in-place annotation, and that constraint \c
-                             has no dual')))
+                             by running a function backwards, and that \c
+                             constraint has no dual')))
     ;   true
     ).
 
@@ -1326,7 +1327,7 @@ let_generator(Pattern, Value, Generator) :-
     translate_expr(Pattern, PatternGoals, PatternValue),
     translate_expr(Value, ValueGoals, ValueResult),
     goals_to_conj([PatternGoals, ValueGoals,
-                   unify_with_occurs_check(PatternValue, ValueResult)],
+                   PatternValue = ValueResult],
                   Generator).
 
 argument_values(Args, Conj, Values) :-

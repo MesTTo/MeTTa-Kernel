@@ -4,6 +4,10 @@
 %   A foreign space life releases tabled, generated, deferred-translation, and
 %   support state before its execution-module name can be reused [tested:
 %   test_a_recycled_mork_name_inherits_nothing; commit=d843bb6d17a525c36afd21cab077d63b34447535].
+%   A space is USED when its execution module owns a clause, its storage holds
+%   an atom, or it is foreign, so asking which module it uses is a read and
+%   leaves its name reusable [tested: a_read_of_a_module_does_not_retire_its_space_name,
+%   a_space_that_compiled_a_clause_still_refuses_a_late_parent; commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -98,8 +102,11 @@ remove_sexp(Space, Atom) :- remove_sexp(Space, Atom, _).
 %Double negation rather than a copy because the bindings must NOT escape.
 %That is the engine's own rule for the compiled half, "retraction must not
 %bind the caller's variables" (engine/translator.pl:115), and the language's:
-%remove-atom answers unit, so (remove-atom &self (pair $x)) is a request, not
-%a query, and $x is no more bound afterwards than before. It is also the
+%remove-atom answers True whether or not anything went, so
+%(remove-atom &self (pair $x)) is a request, not a query, and $x is no more
+%bound afterwards than before. The door above drains every occurrence and
+%calls this once per one it read, so this stays the single-clause retract it
+%always was [source: engine/spaces/foreign.pl, remove_matching_atoms/2]. It is also the
 %cheaper of the two isolations. Measured 2026-08-19 over 20,000 removals, min
 %of three: 1.0001 inferences per removal against the probe-and-retractall
 %shape's 2.0001, and against 2.0001 for the copy_term spelling
@@ -230,6 +237,8 @@ metta_exec_module_base(Space, Base) :-
     ->  ensure_restricted_profile(Grants, Base)
     ;   space_parent(Space, Parent)
     ->  space_module(Parent, Base)
+    ;   space_equation_home(Space, Home)
+    ->  space_module(Home, Base)
     ;   space_module('&self', Base)
     ).
 
@@ -251,6 +260,17 @@ ensure_metta_exec_module_locked(Space, Module) :-
     set_module(Module:base(Base)),
     metta_refresh_repaired_shadow_imports(Module),
     assertz(metta_exec_module_known(Space, Module)),
+    %The compile-time declaration tier upgrades with the module only when
+    %the space ALREADY stores a ':' row (declarations that arrive later
+    %upgrade through the write funnel's own indexed clause); a module whose
+    %space never declares keeps the one-probe &self literal.
+    (   atom(Space),
+        native_storage_module_cache(Space, TierAtoms),
+        TierProbe =.. [Space, ':', _, _],
+        once(TierAtoms:TierProbe)
+    ->  translator:self_tier_note(Module, Space)
+    ;   true
+    ),
     protect_engine_emitted(Module).
 
 %A compiled call keeps the procedure identity it resolved while a local
@@ -767,6 +787,7 @@ metta_declare_restricted_space_locked(Space, Grants) :-
     ->  throw(error(metta_space_restriction_after_use(Space), none))
     ;   ensure_restricted_profile(Grants, _),
         transaction(( assertz(space_restricted(Space, Grants)),
+                      metta_forget_empty_exec_module(Space),
                       forall(member(Capability, Grants),
                              assertz(space_grant(Space, Capability))),
                       metta_add_atom('&metta', [restricted, Space], _),
@@ -848,6 +869,49 @@ metta_declare_space_parent(Child, Parent) :-
     with_mutex('$metta_metta_exec',
                metta_declare_space_parent_locked(Child, Parent)).
 
+%A context's HOME supplies the equation tier its spaces resolve through, and
+%NOTHING else. space_parent/2 carries four meanings at once -- the equation
+%base, the child-first read union, per-conjunct routed matching, and the
+%(inherits ...) reflection -- and an isolated MeTTa() context needs exactly
+%one of them: its spaces see the home's EQUATIONS the way every space sees
+%&self's, while their atoms stay their own. Wiring contexts through
+%space_parent/2 measured both other meanings as defects: a sibling space
+%answered the home's atoms, and the join ladder's conjunctions took the
+%routed per-conjunct path, 37,122 to 124,067 inferences at width 256 on
+%memory-join-shared [measured 2026-08-30; command=bench.py --memory-scale].
+%So the narrow relation exists, feeding only metta_exec_module_base/2 and
+%the recycling re-arm, with the same live-child drop refusal.
+:- dynamic space_equation_home/2.
+
+metta_declare_space_equation_home(Child, Home) :-
+    metta_require_space_name('new-space', Child),
+    metta_require_space_name('new-space', Home),
+    with_mutex('$metta_metta_exec',
+               metta_declare_space_equation_home_locked(Child, Home)).
+
+metta_declare_space_equation_home_locked(Child, Home) :-
+    (   Child == Home
+    ->  throw(error(metta_space_parent_cycle(Child, Home), none))
+    ;   space_equation_home(Child, Standing)
+    ->  (   Standing == Home
+        ->  true
+        ;   throw(error(metta_space_parent_conflict(Child, Standing, Home),
+                        none))
+        )
+    ;   space_restricted(Child, Grants)
+    ->  throw(error(metta_space_model_conflict(Child, restricted(Grants),
+                                                inherits(Home)), none))
+    ;   space_parent_child_used(Child)
+    ->  throw(error(metta_space_parent_after_use(Child), none))
+    ;   transaction(( assertz(space_equation_home(Child, Home)),
+                      metta_forget_empty_exec_module(Child),
+                      ensure_native_storage_module(Child, _),
+                      space_module(Child, ChildModule),
+                      space_module(Home, HomeModule),
+                      assertz(metta_exec_module_parent(ChildModule,
+                                                       HomeModule)) ))
+    ).
+
 metta_require_space_name(_, Space) :-
     metta_space_name(Space),
     !.
@@ -871,6 +935,7 @@ metta_declare_space_parent_locked(Child, Parent) :-
     ->  throw(error(metta_space_parent_after_use(Child), none))
     ;   transaction(( assertz(space_parent(Child, Parent)),
                       metta_add_atom('&metta', [inherits, Child, Parent], _),
+                      metta_forget_empty_exec_module(Child),
                       ensure_native_storage_module(Child, _),
                       space_module(Child, ChildModule),
                       space_module(Parent, ParentModule),
@@ -892,9 +957,39 @@ space_parent_reaches(Space, Target, Seen) :-
     ;   space_parent_reaches(Parent, Target, [Space|Seen])
     ).
 
-space_parent_child_used(Child) :- metta_exec_module_known(Child, _), !.
+%A module that EXISTS is not a space that was used. space_module/2 is an
+%ENSURE: it creates the module for whoever asks, so a read created one and the
+%name was retired for good, which is how a test that asked what a dropped
+%space's module owned stopped its name coming back [measured 2026-08-31:
+%metta_exec_module_known/2 went from false to true across that read alone].
+%What use means here is CONTENT the space's own program put there: a clause it
+%compiled, an atom it stored, or a foreign implementation behind it. An empty
+%module holds nothing to lose, and the declarations below forget it so their
+%own space_module/2 call rebuilds it on the base just declared, which is what a
+%name nobody had asked about would have got
+%[tested: a_read_of_a_module_does_not_retire_its_space_name].
+space_parent_child_used(Child) :- metta_exec_module_owns_clauses(Child), !.
 space_parent_child_used(Child) :- native_storage_module_cache(Child, _), !.
 space_parent_child_used(Child) :- seam:foreign_space(Child).
+
+metta_exec_module_owns_clauses(Child) :-
+    metta_exec_module_known(Child, Module),
+    current_predicate(Module:Name/Arity),
+    functor(Head, Name, Arity),
+    \+ predicate_property(Module:Head, imported_from(_)),
+    !.
+
+%Forget an execution module that exists and owns nothing, so the next
+%space_module/2 call builds it on the base its caller has just declared. A
+%module with clauses never reaches here: space_parent_child_used/1 refuses the
+%declaration above. Same two retractions metta_release_space/1 makes, for the
+%same reason it makes them.
+metta_forget_empty_exec_module(Space) :-
+    (   metta_exec_module_known(Space, _)
+    ->  metta_forget_exec_module_parent(Space),
+        retractall(metta_exec_module_known(Space, _))
+    ;   true
+    ).
 
 %Child first, then each ancestor. The seen list is an invariant guard against
 %a corrupt or externally asserted relation; declarations refuse such cycles
@@ -909,21 +1004,83 @@ space_read_chain_(Space, Seen, Each) :-
         space_read_chain_(Parent, [Space|Seen], Each)
     ).
 
+%An (inherits ...) heir refuses: that relationship is program-owned and a
+%recycled parent name must not be followable. An equation-home child does
+%NOT refuse: it is the world's own mint and the release cascades it, so the
+%python pre-ask and the release door answer the same question by
+%construction [tested: a_context_close_takes_its_world_with_it].
 metta_assert_space_releasable(Space) :-
     (   space_parent(Child, Space)
     ->  throw(error(metta_space_parent_live_child(Space, Child), none))
     ;   true
     ).
 
+%A space that is the equation HOME of others is a world, and dropping the
+%world drops the spaces living in it first: a context's own mints read its
+%equations and cannot outlive it meaningfully, and their names return to
+%the pool with their world's. The space_parent refusal in the releasable
+%check STAYS a refusal, because an (inherits ...) declaration is
+%program-owned and dropping the parent out from under it is the caller's
+%mistake to hear about; that check runs before any child is touched so a
+%refused release tears nothing down. The mutex is recursive, so a child's
+%own release re-enters it safely.
+metta_release_world_children(Space) :-
+    forall(space_equation_home(Child, Space),
+           metta_release_space(Child)).
+
+%The world a running program mints into: the last space before '&self' on
+%the equation-home chain of the space evaluating right now. A context home
+%declares itself onto '&self' when it is minted, so inside that world the
+%walk answers the home; in the default world no row exists and the walk
+%answers '&self' [tested: a_program_minted_space_reads_its_worlds_equations].
+metta_space_world_home(Home) :-
+    (   current_metta_module(Module),
+        metta_module_space(Module, Running),
+        space_equation_home_root(Running, Root)
+    ->  Home = Root
+    ;   Home = '&self'
+    ).
+
+space_equation_home_root(Space, Root) :-
+    (   space_equation_home(Space, Up)
+    ->  (   Up == '&self'
+        ->  Root = Space
+        ;   space_equation_home_root(Up, Root)
+        )
+    ;   Root = '&self'
+    ).
+
 %A released name is allowed to acquire a different parent in its next life.
 %Clear while the standing base is still known, then remove the relationship
 %and its reflected atom transactionally and forget the module mapping so the
 %next space_module/2 call sets the persistent SWI module's new base.
+%The host clears through metta_clear_space_for_release/1 BEFORE calling
+%this, in its own query, and this sweeps again. Both steps are load-bearing,
+%which a third configuration proves: on a 10,000-atom space the pre-clear
+%plus this sweep reclaims (8 atoms survive), this sweep alone retains
+%20,008, and the pre-clear with this sweep SKIPPED also retains 20,002. The
+%second sweep is cheap because it runs over an emptied space; what it still
+%does there, the untabling and generated-predicate clearing, is what leaves
+%the first query's erasures reclaimable
+%[measured 2026-08-31, three configurations of the same workload;
+%tested: test_dropping_a_space_reclaims_its_atoms].
 metta_release_space(Space) :-
     with_mutex('$metta_metta_exec',
                ( metta_assert_space_releasable(Space),
-                 metta_host_clear_space(Space),
+                 %The releasing flag mutes the super-user recompilation the
+                 %removal funnel fires per equation: a release is a world
+                 %dying, its own users die with it, and a cross-world super
+                 %user cannot exist because chains only run upward and an
+                 %(inherits ...) heir refused above. Recompiling a dying
+                 %user resolved super inside a half-dead world and threw
+                 %[tested: a_context_close_takes_its_world_with_it].
+                 setup_call_cleanup(
+                     nb_setval('$metta_space_releasing', true),
+                     ( metta_release_world_children(Space),
+                       metta_host_clear_space(Space) ),
+                     nb_setval('$metta_space_releasing', false)),
                  transaction(( metta_forget_space_parent(Space),
+                               retractall(space_equation_home(Space, _)),
                                metta_forget_space_restriction(Space),
                                metta_forget_parametric_space(Space),
                                metta_forget_world_coverage(Space),
@@ -934,7 +1091,8 @@ metta_release_space(Space) :-
 
 metta_forget_exec_module_parent(Space) :-
     (   metta_exec_module_known(Space, Module)
-    ->  retractall(metta_exec_module_parent(Module, _))
+    ->  translator:self_tier_forget(Module),
+        retractall(metta_exec_module_parent(Module, _))
     ;   true
     ).
 
@@ -1584,6 +1742,21 @@ metta_host_clear_space(Space) :-
     clear_generated_predicates(Module),
     retractall(deferred_metta_function(_, Module, Space, _, _, _)),
     clear_module_translation_state(Module).
+
+%The store cleared as its OWN query, ahead of the release, under the same
+%mute the release uses. Two facts force this shape. Clearing inside the
+%release query leaves the erased clauses unreclaimable: the atoms they held
+%stayed in the table (20,008 surviving against 6 for the same workload
+%through this door, 5 of 6 fresh processes), because a query cannot reclaim
+%what it erased while it still runs. And clearing unmuted runs the removal
+%funnel's super recompilation over a world that is dying, which resolved
+%super inside a half-dead world and threw
+%[tested: test_dropping_a_space_reclaims_its_atoms; measured 2026-08-31:
+%post_gc_atom_count 20008 -> 6 at 10,000 atoms; commit=WORKTREE].
+metta_clear_space_for_release(Space) :-
+    setup_call_cleanup(nb_setval('$metta_space_releasing', true),
+                       metta_host_clear_space(Space),
+                       nb_setval('$metta_space_releasing', false)).
 
 metta_host_clear_foreign_storage(Space) :-
     clear_foreign_atoms(Space),

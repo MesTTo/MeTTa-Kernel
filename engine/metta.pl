@@ -143,7 +143,7 @@
 %   - ==/3 and !=/3 refuse two operands of known and different types and
 %     answer for every other pair, at no cost on two numbers [tested
 %     2026-08-19:
-%     extensions/python/tests/ch03_atoms_and_expressions/test_equality.py::test_cross_kind_equality_answers_what_the_arbiter_answers]
+%     extensions/python/tests/ch03_atoms_and_expressions/test_equality.py::test_cross_kind_equality_answers_false]
 %     [measured 2026-08-19: 4487.45 inferences per thousand-iteration loop,
 %     unchanged].
 %   - %Undefined% is consistent with every type in both directions, so a call
@@ -1569,4 +1569,5 @@ metta_host_function_generation(Generation) :-
 :- initialization((seam:publish_declared, protect_metta_exec_modules,
                    load_builtin_type_surface, load_engine_prelude,
                    spaces:metta_publish_builtin_visibility,
-                   retract_unrelated_system_arities)).
+                   retract_unrelated_system_arities,
+                   snapshot_builtin_function_sources)).

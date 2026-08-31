@@ -207,22 +207,29 @@ test(language_policy_roots_are_typed_and_module_qualified) :-
     assertion(\+ user:p36_supported_fact(type_dependent)),
     assertion(\+ user:p36_supported_fact(dispatch_dependent)).
 
-%The clause-compile door instruments a recursive definition with the fuel
-%wrapper, and the change-driven recompile that support invalidation queues
-%must keep it: the repair path re-translates the stored equation, and at the
-%typing-cluster merge it re-asserted the clause uninstrumented, silently
-%unbounding recursion the moment anything the function mentions changed.
-%Neither parent could show it: one kept the wrapper with no recompile queue,
-%the other had the queue and no wrapper.
+%The fuel charge is compiled only while a max-stack-depth budget is
+%configured, which is upstream's cost for the budget-less program (upstream
+%has no pragma at all); the pragma's arrival rebuilds every recorded
+%chargeless function through metta_fuel_ensure_charges/0. This test pins the
+%whole lifecycle: chargeless before, charged at activation, and STILL charged
+%after a change-driven recompile -- the repair path re-translates the stored
+%equation, and at the typing-cluster merge it once re-asserted the clause
+%uninstrumented, silently unbounding recursion the moment anything the
+%function mentions changed.
 test(a_recompiled_recursive_clause_keeps_its_fuel_wrapper,
      [ setup(( process_metta_string("(= (sg-fuel-helper $x) $x)", _),
                process_metta_string("(= (sg-fuel-rec $n) (if (> $n 0) (sg-fuel-rec (sg-fuel-helper (- $n 1))) done))", _) )),
-       cleanup(( remove_sexp('&self', [=, ['sg-fuel-rec', _], _]),
+       cleanup(( set_metta_pragma('max-stack-depth', none),
+                 remove_sexp('&self', [=, ['sg-fuel-rec', _], _]),
                  remove_sexp('&self', [=, ['sg-fuel-helper', _], _]) )) ]) :-
     space_module('&self', Module),
-    forall(clause(Module:'sg-fuel-rec'(_, _), Before),
-           ( term_to_atom(Before, BeforeText),
-             assertion(sub_atom(BeforeText, _, _, _, '$metta_fuel_remaining')) )),
+    forall(clause(Module:'sg-fuel-rec'(_, _), Bare),
+           ( term_to_atom(Bare, BareText),
+             assertion(\+ sub_atom(BareText, _, _, _, '$metta_fuel_remaining')) )),
+    set_metta_pragma('max-stack-depth', 100000),
+    forall(clause(Module:'sg-fuel-rec'(_, _), Charged),
+           ( term_to_atom(Charged, ChargedText),
+             assertion(sub_atom(ChargedText, _, _, _, '$metta_fuel_remaining')) )),
     process_metta_string("(= (sg-fuel-helper 0) 0)", _),
     forall(clause(Module:'sg-fuel-rec'(_, _), After),
            ( term_to_atom(After, AfterText),

@@ -106,9 +106,10 @@ metta_space_conflict(prefix(Prefix), Owner, Name, Other) :-
 %this on its own thread. Two owners both passing the conflict test and both
 %asserting is exactly the silent double ownership the door exists to end, so
 %the window is closed rather than argued about. It costs a lock on a path
-%taken once per space per provider. Nothing takes this mutex while holding
-%another, and lib_redis's own metta_redis_spaces is taken OUTSIDE it, so there
-%is one order and no cycle.
+%taken once per space per provider. The storage mutex is the one lock taken
+%INSIDE this one (metta_claim_space_forgets_native/1), the seeding path takes
+%it alone, and lib_redis's own metta_redis_spaces is taken OUTSIDE it, so
+%there is one order and no cycle.
 metta_claim_space(Extent, Owner) :-
     with_mutex('$metta_space_claim', metta_claim_space_(Extent, Owner)).
 
@@ -116,9 +117,19 @@ metta_claim_space_(Extent, Owner) :-
     (   once(metta_space_conflict(Extent, Owner, Held, Other))
     ->  throw(error(metta_space_claimed(Extent, Owner, Held, Other), none))
     ;   metta_space_claim(Extent, Owner)
-    ->  true
-    ;   assertz(metta_space_claim(Extent, Owner))
+    ->  metta_claim_space_forgets_native(Extent)
+    ;   assertz(metta_space_claim(Extent, Owner)),
+        metta_claim_space_forgets_native(Extent)
     ).
+
+%The half of the match door's cache-first premise this door enforces: a name
+%claimed foreign loses its native storage cache row, so the cache-first
+%clause cannot answer past the provider from a life before the claim. The
+%claim mutex is held here and the storage mutex is taken inside it; that is
+%the one nesting order between the two (the seeding path takes storage alone),
+%so there is no cycle.
+metta_claim_space_forgets_native(Extent) :-
+    ( atom(Extent) -> native_storage_cache_forget(Extent) ; true ).
 
 %!  metta_disclaim_space(+Extent, +Owner) is det.
 %
@@ -807,7 +818,15 @@ visible_predicate_definition(Module, Predicate, Arity) :-
 metta_ensure_compiled(F) :-
     (   deferred_metta_function(F, _, _, _, _, _)
     ->  sig_atomic(with_mutex(metta_deferred_translation,
-                              translate_when_still_deferred(F)))
+                              translate_when_still_deferred(F))),
+        %The SETTLE point. A body's own call sites force their callees from
+        %inside this one, so the inner forces reach here with the outer
+        %function still guarded; only the outermost fires, and by then no
+        %predicate is half-built.
+        (   metta_function_compiling(_)
+        ->  true
+        ;   forall(seam:deferred_translation_settled, true)
+        )
     ;   true
     ).
 
@@ -1051,6 +1070,7 @@ metta_instrument_recursive_clause([=, [F|HeadArguments], Body],
     Head =.. [_|Arguments],
     append(Inputs, [_Output], Arguments),
     \+ ( member(Input, Inputs), nonvar(Input), Input == quote ),
+    metta_fuel_budget_configured,
     !,
     metta_fuel_culprit(F, Inputs, Culprit),
     metta_source_reduction_count(Body, Nodes),
@@ -1059,7 +1079,20 @@ metta_instrument_recursive_clause([=, [F|HeadArguments], Body],
     %a third of what it cost as a shared call, and the cost lands as a literal
     %because it is settled here.
     metta_fuel_step_goal(Culprit, Cost, Charge).
+%A recursive clause compiled while no budget is configured carries NO charge
+%at all, and the function is recorded so metta_fuel_ensure_charges/0 can
+%rebuild it the moment a budget arrives
+%[source: engine/metta/control.pl, metta_fuel_budget_configured/0 and the
+%set_metta_pragma/2 hook].
+metta_instrument_recursive_clause([=, [F|HeadArguments], Body], Clause,
+                                  Clause) :-
+    length(HeadArguments, Arity),
+    metta_source_calls_head(Body, F, Arity),
+    \+ metta_source_has_variable_head(Body),
+    !,
+    metta_fuel_note_chargeless(F).
 metta_instrument_recursive_clause(_, Clause, Clause).
+
 
 metta_fuel_culprit(_, [Only], Only) :- !.
 metta_fuel_culprit(F, Inputs, [F|Inputs]).
@@ -1126,7 +1159,11 @@ assert_function_clause(Module, Clause, Ref) :-
           throw_builtin_redefinition(Module, Clause)).
 
 %Two refusals, because SWI raises the same permission error for two different
-%reasons and only one of them is about Prolog. A name the ENGINE emits into
+%reasons and only one of them is about Prolog. The boundary door left this
+%set when its emission became module-qualified: a swapped dynamic door
+%cannot rely on SWI's static-procedure refusal, so its compiled calls name
+%translator: explicitly and a space-local definition of the same name is
+%harmless rather than forbidden. A name the ENGINE emits into
 %compiled bodies is bound into every space's module on purpose
 %(protect_engine_emitted/1 above), and telling its author that it is one of
 %Prolog's core predicates would send them looking in the wrong place.
@@ -1179,36 +1216,78 @@ prolog:error_message(metta_builtin_redefinition(Name, Arity, Space)) -->
        this space\'s own module and shadows it there, leaving the engine\'s \c
        and every other space\'s alone' ].
 
-%Unit for a removal that happened, an error for one that found nothing.
+%TRUE WHETHER OR NOT ANYTHING WENT, which is what a removal ANSWERS. Whether
+%the store held the atom is a different question, and the answer to it is not
+%lost: metta_remove_atom/3 still carries the boolean, the engine's own callers
+%read it -- the loader's rollback, the storage modules, the seam's removal
+%hooks -- and the Python door returns it, so `space.remove(atom) is False` is
+%still how a host program asks.
 %
-%The language's own text is what asks for this rather than what forbids it:
-%"if the given atom is not in the space, remove-atom currently neither raises a
-%error nor returns the empty result" is a COMPLAINT, and upstream carries the
-%same question as a TODO it has not answered, `stdlib/space.rs:219`, "Is it
-%necessary to distinguish whether the atom was removed or not?". The arbiter
-%answers it: LeaTTa's Hyperon-Hacks-Register row 15 rules "Implement. Keep the
-%distinction", records it SATISFIED in `Metta.Minimal.removeAtomStep`, and
-%pins the wording this reproduces. Hyperon as shipped answers unit for both,
-%so this is a deliberate divergence from the implementation towards the
-%specification, which is also what this engine's own hard-error rule says
-%[source: LeaTTa wiki/Hyperon-Hacks-Register.md row 15, and
-%MettaHyperonFull/Minimal/Interpreter.lean removeAtomStep at 5407-5426].
-%
-%metta_remove_atom/3 still answers whether anything went and still answers ONLY
-%that, because the engine's own callers read the boolean: the loader's
-%rollback, the storage modules, and the seam's removal hooks all ask "did the
-%store hold it" rather than "what does a program see".
+%It answered an ERROR for an absent atom until 2026-08-30, on a ground that
+%this engine no longer stands on. The language's own text raises the question
+%rather than settling it -- "if the given atom is not in the space,
+%remove-atom currently neither raises a error nor returns the empty result" is
+%a COMPLAINT, and upstream carries the same question as an unanswered TODO at
+%`stdlib/space.rs:219`, "Is it necessary to distinguish whether the atom was
+%removed or not?" -- and the error was LeaTTa's answer to it
+%(Hyperon-Hacks-Register row 15, "Implement. Keep the distinction"). PeTTa is
+%the arbiter now, and PeTTa answers `True`
+%[measured 2026-08-30 against PeTTa@ae66fa8: `!(remove-atom &self (never
+%there))` answers `true` there and answered
+%`(Error (remove-atom &self (never there)) "remove-atom: atom is not in the
+%space")` here]. A different ANSWER to the same call is not a superset, which
+%is the one thing the superset rule does not allow, so the answer follows
+%upstream and the distinction stays where it costs a program nothing.
 'remove-atom'(Space, Term, Result) :-
     (   metta_space_name(Space)
-    ->  metta_remove_atom(Space, Term, Removed),
-        (   Removed == true
-        ->  Result = true
-        ;   space_operation_error('remove-atom', [Space, Term],
-                                  "remove-atom: atom is not in the space",
-                                  Result)
-        )
+    ->  remove_matching_atoms(Space, Term),
+        Result = true
     ;   space_argument_error('remove-atom', [Space, Term], Result)
     ).
+
+%EVERY atom that unifies, which is retractall/1's shape and upstream's own:
+%`remove_sexp(Space, [Rel|Args]) :- Term =.. [Space, Rel | Args],
+%retractall(Term).`, under a comment reading "Remove all same atoms"
+%[source: PeTTa@ae66fa8 src/spaces.pl:5-7 and :43-44].
+%
+%Each pass probes on a COPY, for the reason retractall does not bind either: a
+%removal that instantiated the caller's pattern would turn the second pass
+%into a search for the first pass's answer, so `(remove-atom &self (dup $x))`
+%over `(dup 1)` and `(dup 2)` would take one and leave the other. Upstream
+%takes both [measured 2026-08-30 against PeTTa@ae66fa8, which leaves `()`
+%where this engine left `(2)`].
+%
+%It removed ONE occurrence until 2026-08-30, as multiset subtraction, on a
+%ground this engine no longer stands on: LeaTTa's Properties.lean required
+%subtraction, PeTTa is the arbiter now, and a different answer to the same
+%call is not a superset. The one-occurrence door is not lost and is not
+%private -- metta_remove_atom/3 is it, every internal caller uses it, and the
+%Python surface spells the pair apart already, `space -= atom` for the exact
+%atom against `del space[pattern]` for the pattern.
+%
+%EVERY ROW IS FOUND BEFORE ANY OF THEM LEAVES, which is the same rule
+%unstore_atom/3 records above for a conjunction that writes, and it is what
+%retractall/1 gets for free from Prolog's logical update view. Interleaving a
+%read and a write per occurrence instead is a check-then-act race that a
+%concurrent or transactional provider can lose, and the seam publishes
+%begin/commit/rollback precisely because a provider coordinates at that grain
+%[source: EXTENDING.md, the provider transaction hooks].
+%
+%The read also has to come first for a plainer reason: seam:foreign_remove/3
+%must complete or raise, so a provider cannot answer "there was nothing here".
+%A loop that ended on a failed removal put that question to one, and
+%foreign_write/3 read the answer as a refusal with no reason -- the duckdb
+%example died with "the provider for &crm did not complete the remove
+%operation and gave no reason" [measured 2026-08-30;
+%fixture=extensions/python/examples/integration/duckdb_space.py].
+%
+%Each removal takes the atom the read BOUND, so the one-occurrence door does
+%exactly one occurrence and the multiplicity comes from the snapshot holding
+%one entry per stored copy.
+remove_matching_atoms(Space, Term) :-
+    findall(Found, match_stored(Space, Term, Term, Found), Matches),
+    forall(member(Atom, Matches),
+           ( metta_remove_atom(Space, Atom, _) -> true ; true )).
 
 %WHY THE DOORS ASK IT WHERE THEY DO, which is the decision this section makes.
 %
@@ -1869,6 +1948,24 @@ match(Space, Pattern, OutPattern, Result) :- nonvar(Pattern), Pattern = [Comma|_
                                                                       Result)
                                              ).
 
+%THE COMMON CASE FIRST: an atom name whose native storage is already cached
+%is the overwhelming shape of a hot match loop, and it used to pay the
+%foreign-claim probe and the parametric head unification on every call --
+%seam:foreign_space/1 alone answered 45,781 misses on the Peano example.
+%Sound ahead of the foreign clause because a foreign-claimed name never has a
+%native storage cache row -- ENFORCED, not assumed: prefix claims seed no
+%rows, and metta_claim_space/2 retracts the row for an atom-name claim, so a
+%space created native and claimed later cannot answer from its stale native
+%module [tested: test_view_is_a_live_queryable_space, which measured exactly
+%that stale answer before the claim door forgot the row].
+match(Space, Pattern, OutPattern, Result) :-
+    atom(Space),
+    native_storage_module_cache(Space, Module), !,
+    (   space_parent(Space, _)
+    ->  match_inherited_space(Space, Module, Pattern, OutPattern, Result)
+    ;   match_native(Module, Space, Pattern, OutPattern, Result)
+    ).
+
 %A single pattern over a foreign space: the provider answers, and the
 %conjunction door above has already taken the conjunctive case.
 match(Space, Pattern, OutPattern, Result) :- nonvar(Space),
@@ -1895,13 +1992,6 @@ match([Family|Parameters], Pattern, OutPattern, Result) :-
     space_parametric(Space),
     native_storage_module_cache(Space, Module), !,
     match_native(Module, Space, Pattern, OutPattern, Result).
-match(Space, Pattern, OutPattern, Result) :-
-    atom(Space),
-    native_storage_module_cache(Space, Module), !,
-    (   space_parent(Space, _)
-    ->  match_inherited_space(Space, Module, Pattern, OutPattern, Result)
-    ;   match_native(Module, Space, Pattern, OutPattern, Result)
-    ).
 %Only a name the engine holds no space for reaches here, and the question left
 %is which kind it is: a space nothing has written to yet answers nothing, which
 %is what an empty space answers, and anything else is refused by name.

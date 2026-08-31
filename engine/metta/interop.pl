@@ -53,9 +53,31 @@ import_prolog_function(N, true) :-
 %[tested: a_declared_export_publishes_only_its_declared_arity].
 import_prolog_function_at(N, Arity) :-
     must_be(atom, N),
+    %ALREADY DONE is not a failure. The name is a builtin, the clauses behind
+    %it are still the ones the engine booted with, and so the request -- make
+    %this Prolog predicate callable from MeTTa -- is already satisfied; there
+    %is nothing to register and nothing to refuse. Upstream's lib_import.metta
+    %asks for (static-import! git-import! use-module!) in one call and this
+    %engine ships git-import! itself, so the refusal below stopped a library
+    %that asks for a superset of what it provides from loading at all
+    %[measured 2026-08-30: examples/prologimport.metta stopped there with
+    %every earlier test in the file already passing].
+    %
+    %Returning EARLY rather than falling through is the whole point: running
+    %the registration again would call register_prolog_arities/1 a second
+    %time, after retract_unrelated_system_arities/0 has already run, and put
+    %back the system-lent arities that pass exists to drop -- `!(not)` would
+    %abort the runnable again. A no-op does nothing
+    %[tested: a_builtin_the_engine_still_backs_is_a_no_op].
+    (   builtin_clauses_unchanged(N)
+    ->  true
+    ;   import_prolog_function_now(N, Arity)
+    ).
+
+import_prolog_function_now(N, Arity) :-
     refuse_reserved_registration(N),
-    refuse_absent_prolog_function(N),
-    prolog_function_source(N, Source),
+    refuse_absent_prolog_function(N, Arity),
+    prolog_function_source(N, Arity, Source),
     claim_function_name(N, prolog, Source),
     %The clauses are the HOST's, in whatever module consult_global/1 put them
     %(`user`), and every space reaches them through the base chain. What is
@@ -77,7 +99,23 @@ import_prolog_function_at(N, Arity) :-
 %the case this has to detect. A registration made from source held in memory
 %has no file, and says so.
 prolog_function_source(N, Source) :-
-    (   current_predicate(N/Arity),
+    prolog_function_source(N, scan, Source).
+
+%The declared arity, when the caller holds one, turns the name's arity
+%enumeration into one indexed probe: a registration burst of a few hundred
+%C-seat names spent about 14% of its whole example inside
+%current_predicate/1's table iteration before the arity was threaded
+%[measured 2026-08-30: htable_iter and pl_current_predicate1 in the
+%c_extension example's span profile]. `scan` keeps the enumeration for the
+%doors that genuinely do not know the arity.
+prolog_function_source(N, DeclaredArity, Source) :-
+    (   integer(DeclaredArity),
+        functor(Head, N, DeclaredArity),
+        nth_clause(Head, 1, Ref),
+        clause_property(Ref, file(File))
+    ->  Source = File
+    ;   \+ integer(DeclaredArity),
+        current_predicate(N/Arity),
         functor(Head, N, Arity),
         nth_clause(Head, 1, Ref),
         clause_property(Ref, file(File))
@@ -876,6 +914,18 @@ prolog_function_name_list(Names, Context) :-
 %engine re-exports names through gets the same answer without a second list
 %[tested: platform_capabilities:a_re_export_lost_with_its_capability_refuses_by_name].
 refuse_absent_prolog_function(N) :-
+    refuse_absent_prolog_function(N, scan).
+
+refuse_absent_prolog_function(N, Arity) :-
+    (   integer(Arity)
+    ->  (   current_predicate(N/Arity)
+        ->  true
+        ;   refuse_absent_prolog_function(N, scan)
+        )
+    ;   refuse_absent_prolog_function_scan(N)
+    ).
+
+refuse_absent_prolog_function_scan(N) :-
     (   current_predicate(N/_)
     ->  true
     ;   metta_platform_absent_name(N, Capability)
@@ -899,6 +949,43 @@ consult_global(File) :- refuse_unloadable_source_file(File),
 use_module_global(File) :- refuse_unloadable_source_file(File),
                            loading_loudly(user:use_module(File)),
                            register_pending_exports.
+ensure_loaded_global(File) :- refuse_unloadable_source_file(File),
+                              loading_loudly(user:ensure_loaded(File)),
+                              register_pending_exports.
+
+%%%% Where a file a MeTTa program loads puts its predicates %%%%
+%
+%A host LOADER takes its target namespace from the CONTEXT MODULE of the call,
+%and a MeTTa runnable's context module is its space's execution module. So a
+%program that imported SWI's own loader and wrote (consult "x.pl") loaded x.pl
+%into '$metta_exec:&self': the file's directives ran and the call succeeded, so
+%the load looked like it had worked, while import_prolog_function/2 could not
+%find the predicates the file had just defined and no other space could call
+%them [measured 2026-08-30: the load context module was '$metta_exec:&self'
+%here against user upstream, and a consulted noisy_marker/1 was findable in no
+%module at all afterwards].
+%
+%A load is a PROCESS-tier event, and the scope the call happens to be made
+%from does not get to decide where the definitions live. CPython installs an
+%imported module into sys.modules whatever frame ran the import, Emacs Lisp's
+%load and R's library() are global for the same reason, and SWI itself makes
+%the target explicit rather than implicit wherever it matters, which is why
+%load_files/2 takes a module option [source: SWI-Prolog 10 manual, section 4.3
+%"Loading Prolog source files"]. The engine already holds that line for the
+%other host-tier writer: assertaPredicate/2 puts an asserted clause in the
+%host tier rather than in the space that asked for it.
+%
+%So the SWI spelling reaches the same funnel the MeTTa spelling does, which is
+%what the export comment above already claims for "a bare consult". Only the
+%ONE-FILE loaders are mapped. use_module/2's second argument is an import
+%list rather than a result, so MeTTa's last-argument-is-the-output convention
+%does not describe it and nothing here pretends otherwise; load_files/2 is
+%already written with its target module named, as lib_tabling.metta does with
+%(load_files user ((Predicate (stream $S))))
+%[tested: a_host_loader_called_from_metta_loads_into_the_process_tier].
+host_process_tier_loader(consult, 1, consult_global).
+host_process_tier_loader(use_module, 1, use_module_global).
+host_process_tier_loader(ensure_loaded, 1, ensure_loaded_global).
 
 %%%% Read the manifest before running the payload %%%%
 %
@@ -1166,12 +1253,27 @@ import_file_string(File, SFile) :- string(File), !, SFile = File.
 import_file_string(File, SFile) :- atom_string(File, SFile).
 
 
+%TWO CANDIDATES FOR A RELATIVE PATH, in upstream's own order: the path AS
+%WRITTEN first, resolved against the process's working directory, and only
+%then the importing file's own directory. Upstream spells the pair
+%`( Path = SFile ; atomic_list_concat([Base, '/', SFile], Path) )` and takes
+%the first that exists [source: PeTTa@ae66fa8 src/metta.pl:283-289].
+%
+%This engine tried only the second, so `!(import! &self lib/lib_he)` from a
+%file in examples/ looked for examples/lib/lib_he and refused, where upstream
+%finds lib/lib_he beside the checkout it was launched from
+%[measured 2026-08-30: examples/test_unify_eval_branches.metta and
+%examples/python_import.metta both failed with
+%`source_sink 'lib/lib_he' does not exist`].
 resolve_existing_import_path(Base, RequestedPath, CanonPath) :-
-    ( is_absolute_file_name(RequestedPath)
-      -> absolute_file_name(RequestedPath, CanonPath,
-                            [access(read), file_errors(fail)])
-       ; absolute_file_name(RequestedPath, CanonPath,
-                            [relative_to(Base), access(read), file_errors(fail)]) ),
+    (   is_absolute_file_name(RequestedPath)
+    ->  absolute_file_name(RequestedPath, CanonPath,
+                           [access(read), file_errors(fail)])
+    ;   absolute_file_name(RequestedPath, CanonPath,
+                           [access(read), file_errors(fail)])
+    ;   absolute_file_name(RequestedPath, CanonPath,
+                           [relative_to(Base), access(read), file_errors(fail)])
+    ),
     !.
 
 throw_missing_import(File) :-

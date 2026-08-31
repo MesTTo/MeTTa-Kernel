@@ -397,24 +397,23 @@ test(an_unnamed_call_cannot_be_negated,
      [throws(error(type_error(dualisable_body, _), _))]) :-
     metta("!(not-provable $g)").
 
-%An in-place type annotation in a head argument compiles to a goal that the
-%retained equation no longer holds, so a dual built from that equation would
-%ignore the constraint and claim more than it can prove. It is the only head
-%argument that still compiles to a goal: a head argument that is a call is a
-%PATTERN and matches structurally, so it duals like any other structure
-%[tested: a_head_holding_a_call_duals_structurally].
-test(an_annotated_head_has_no_dual,
-     [throws(error(type_error(dualisable_function, 'fp-positive'), _))]) :-
-    metta("(= (fp-positive (: $n Number)) True)"),
-    metta("!(not-provable (fp-positive 10))").
-
-%The control. A head holding a call used to be refused for the same reason,
-%because the call became a goal; matched structurally it is ordinary
-%structure, so it duals like any other structure and no longer raises.
-test(a_head_holding_a_call_is_no_longer_refused) :-
+%A head argument that compiles to a GOAL is a constraint the retained equation
+%no longer holds, so a dual built from that equation would ignore it and claim
+%more than it can prove. One argument does that: Curry's functional pattern.
+%An in-place type annotation was the other until 2026-08-30, when `(: $x T)`
+%in a head became ordinary structure, as upstream reads it. `(= (fp-halfof (fp-dbl $n)) True)`
+%constrains its argument by running fp-dbl BACKWARDS, so `(fp-halfof 10)`
+%solves 2*n=10 and IS provable -- while the recorded equation shows only the
+%written head, where a dual would see a structure that never matches 10 and
+%answer True. Refusing is the only sound answer. This test asserted the
+%opposite between 2026-08-19 and 2026-08-30, when the engine matched such a
+%head structurally because LeaTTa does
+%[source: PeTTa@ae66fa8 src/translator.pl:9-12].
+test(a_functional_pattern_head_has_no_dual,
+     [throws(error(type_error(dualisable_function, 'fp-halfof'), _))]) :-
     metta("(= (fp-dbl $n) (#* 2 $n))\n\c
            (= (fp-halfof (fp-dbl $n)) True)"),
-    metta_answer("!(not-provable (fp-halfof 10))", true).
+    metta("!(not-provable (fp-halfof 10))").
 
 :- end_tests(duals_refusals).
 
@@ -663,10 +662,11 @@ test(a_case_the_witness_cannot_settle_still_refuses,
 %Whether a function is dualisable depends on its definition, not on its
 %arguments, so asking first costs nothing and is the whole fix.
 
-%A head that constrains an argument in place has no dual, which is the static
-%property duals:refuse_unsupported_head/2 tests.
+%A head that constrains an argument by running a function backwards has no
+%dual, which is the static property duals:refuse_unsupported_head/2 tests.
 test(a_function_with_no_dual_is_refused_before_its_argument_runs) :-
-    process_metta_string("(= (np-effect (: $x Number)) True)", _),
+    process_metta_string("(= (np-eff-dbl $n) (#* 2 $n))", _),
+    process_metta_string("(= (np-effect (np-eff-dbl $x)) True)", _),
     catch(( process_metta_string("!(not-provable (np-effect 2))", _),
             Outcome = accepted ),
           error(type_error(dualisable_function, _), _),
@@ -677,7 +677,8 @@ test(a_function_with_no_dual_is_refused_before_its_argument_runs) :-
 %connective is established too rather than only a bare one.
 test(a_nested_call_is_established_as_well) :-
     process_metta_string("(= (np-ok) True)", _),
-    process_metta_string("(= (np-bad (: $x Number)) True)", _),
+    process_metta_string("(= (np-dbl $n) (#* 2 $n))", _),
+    process_metta_string("(= (np-bad (np-dbl $x)) True)", _),
     catch(( process_metta_string("!(not-provable (and (np-ok) (np-bad 2)))", _),
             Outcome = accepted ),
           error(type_error(dualisable_function, _), _),

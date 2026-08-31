@@ -79,6 +79,63 @@ register_prolog_arities(N) :-
 %Limitation: a host library or backend that registers a name AFTER the boot
 %chain is not swept, because nothing re-runs this. Nothing in the tree does
 %that today; a registration door that starts to would call this again.
+%%%% What a builtin's clauses were when the engine finished booting %%%%
+%
+%A registration that asks for a name the engine ALREADY provides is satisfied,
+%not refused. Upstream's lib_import.metta asks for
+%(static-import! git-import! use-module!) in ONE call, and this engine ships
+%git-import! itself in lib/lib_gitimport/lib_gitimport.pl, so that name already
+%denotes the very predicate the caller is asking for and the registration would
+%replace nothing. Refusing it stopped a library that asks for a superset of
+%what it provides from loading at all
+%[measured 2026-08-30: examples/prologimport.metta stopped at that refusal
+%with every earlier test already passing].
+%
+%The question a reserved name has to answer is whether the clauses behind it
+%are STILL the engine's, and the only exact answer is the file they came from.
+%It is recorded once, here, after the boot chain has loaded every library the
+%engine ships, and compared at the door. A file consulted later that redefines
+%the name moves that file, and the refusal then fires on the replacement it
+%exists to catch. This is import's ordinary idempotence: `import x` is a no-op
+%once x is in sys.modules, and CREATE TABLE IF NOT EXISTS says the same of a
+%name that already denotes what was asked for
+%[tested: a_registration_of_an_unchanged_builtin_is_a_no_op].
+%
+%A name registered AFTER this pass, by an extension or a host, has no row and
+%is refused exactly as before: the engine cannot say a claim is idempotent
+%when it never saw the original.
+:- dynamic builtin_function_source/2.
+%The ARITY comes from the registry rather than from current_predicate/1's
+%enumeration. Asking `current_predicate(N/A)` with A unbound scans the
+%module's predicate table for every one of the ~300 builtin names, and this
+%pass runs on every boot: 26.4M instructions of a 1,065M boot, measured
+%2026-08-30 by removing the pass. The registry already holds each name's
+%arities because register_prolog_arities/1 put them there, so binding A first
+%turns a scan into a lookup.
+snapshot_builtin_function_sources :-
+    forall(builtin_fun(N),
+           (   builtin_function_source(N, _)
+           ->  true
+           ;   builtin_first_clause_file(N, Source),
+               assertz(builtin_function_source(N, Source))
+           )).
+
+builtin_first_clause_file(N, Source) :-
+    (   arity(N, Arity),
+        functor(Head, N, Arity),
+        nth_clause(Head, 1, Ref),
+        clause_property(Ref, file(File))
+    ->  Source = File
+    ;   Source = unknown
+    ).
+
+%The SAME lookup the snapshot took, so the two cannot disagree about which
+%arity they read.
+builtin_clauses_unchanged(N) :-
+    builtin_function_source(N, Booted),
+    builtin_first_clause_file(N, Now),
+    Booted == Now.
+
 retract_unrelated_system_arities :-
     findall(N-Arity,
             ( arity(N, Arity), unrelated_system_predicate(N, Arity) ),
@@ -422,9 +479,13 @@ runtime_type_guarded('*').
 runtime_type_guarded('/').
 runtime_type_guarded('%').
 runtime_type_guarded('<').
-%== and != carry their own guard, comparable_operands/3, which is exactly
-%what their declared type (-> $a $a Bool) states, so the typed dispatch has
-%nothing left to check. Classifying them here is what makes
+%== and != are TERM equality and answer a Bool for any two operands, which is
+%exactly what their declared type (-> $a $b Bool) states, so the typed
+%dispatch has nothing left to check. They carried a comparable_operands/2
+%guard for LeaTTa's one-variable declaration until 2026-08-30; upstream's
+%declaration uses two independent variables and constrains nothing
+%[source: PeTTa@ae66fa8 lib/lib_builtin_types.metta:17-18]. Classifying them
+%here is what makes
 %lib_builtin_types.metta affordable: with the file loaded, a workload calling
 %== and != went from 102402 inferences to 181602, +77%, and back to 102402
 %with these two lines [measured 2026-08-16]. Their own guard is cheaper than

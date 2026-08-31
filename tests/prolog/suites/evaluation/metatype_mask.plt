@@ -51,22 +51,20 @@ both_doors(Text, Answers) :-
 
 % Every expected value below was measured on LeaTTa 9ea9f9d on 2026-08-24,
 % through both its `--file` and its `--min` door where both accept the form.
-mask_row("(cons-atom (+ 1 2) (b))",      [[['+', 1, 2], b]]).
-mask_row("(cons-atom a ((+ 1 2) c))",    [[a, ['+', 1, 2], c]]).
-mask_row("(decons-atom ((+ 1 2) b))",    [[['+', 1, 2], [b]]]).
-mask_row("(decons-atom (cdr-atom (a b c)))",
-         [['cdr-atom', [[a, b, c]]]]).
-mask_row("(cdr-atom (cdr-atom (a b c)))", [[[a, b, c]]]).
-mask_row("(index-atom ((+ 1 2) b) 0)",   [['+', 1, 2]]).
-mask_row("(size-atom ((+ 1 2) b))",      [2]).
-mask_row("(cons-atom (cons-atom a (b)) (c))",
-         [[['cons-atom', a, [b]], c]]).
+mask_row("(cons-atom (+ 1 2) (b))", [[3,b]]).
+mask_row("(cons-atom a ((+ 1 2) c))", [[a,3,c]]).
+mask_row("(decons-atom ((+ 1 2) b))", [[3,[b]]]).
+mask_row("(decons-atom (cdr-atom (a b c)))", [[b,[c]]]).
+mask_row("(cdr-atom (cdr-atom (a b c)))", [[c]]).
+mask_row("(index-atom ((+ 1 2) b) 0)", [3]).
+mask_row("(size-atom ((+ 1 2) b))", [2]).
+mask_row("(cons-atom (cons-atom a (b)) (c))", [[[a,b],c]]).
 % car-atom's %Undefined% result is what turns the extracted operand into 3:
 % the operand itself reaches the operation unreduced.
-mask_row("(car-atom ((+ 1 2) b))",       [3]).
-mask_row("(car-atom (((+ 1 2)) b))",     [[3]]).
+mask_row("(car-atom ((+ 1 2) b))", [3]).
+mask_row("(car-atom (((+ 1 2)) b))", [[3]]).
 % cdr-atom's Expression result re-enters evaluation for the same reason.
-mask_row("(cdr-atom (a (+ 1 2)))",       [[3]]).
+mask_row("(cdr-atom (a (+ 1 2)))", [[3]]).
 % chain holds its nested operand as written and its %Undefined% result
 % re-enters, so the two together answer the sum. The quote does not change
 % that: it is an evaluation BARRIER, so `(quote $x)` answers the held
@@ -75,31 +73,31 @@ mask_row("(cdr-atom (a (+ 1 2)))",       [[3]]).
 % [measured 2026-08-29, upstream answers 3 for both spellings, byte-identical:
 % ai-tmp/chain.metta under PeTTa@ae66fa8 and under this engine].
 mask_row("(chain (+ 1 2) $x (quote $x))", [3]).
-mask_row("(chain (+ 1 2) $x $x)",         [3]).
-mask_row("(chain (+ 1 2) $x (cons-atom $x (b)))", [[3, b]]).
+mask_row("(chain (+ 1 2) $x $x)", [3]).
+mask_row("(chain (+ 1 2) $x (cons-atom $x (b)))", [[3,b]]).
 % let evaluates its value, which is the whole difference between the two.
-mask_row("(let $x (+ 1 2) (cons-atom $x (b)))", [[3, b]]).
+mask_row("(let $x (+ 1 2) (cons-atom $x (b)))", [[3,b]]).
 % atom-subst holds all three operands and answers its template as produced.
-mask_row("(atom-subst (+ 1 2) $x ($x $x))",
-         [[['+', 1, 2], ['+', 1, 2]]]).
-mask_row("(atom-subst A $x (f ($x (g $x))))",
-         [[f, ['A', [g, 'A']]]]).
+mask_row("(atom-subst (+ 1 2) $x ($x $x))", [[[+,1,2],[+,1,2]]]).
+mask_row("(atom-subst A $x (f ($x (g $x))))", [[f,['A',[g,'A']]]]).
 % A tuple's members evaluate, so the mask is a property of a DECLARED
 % parameter and not of nesting.
-mask_row("((+ 1 2) b)",                  [[3, b]]).
+mask_row("((+ 1 2) b)", [[3,b]]).
 
 test(every_family_row_answers_what_the_arbiter_answers,
      [forall(mask_row(Text, Expected))]) :-
     both_doors(Text, Answers),
     assertion(Answers == Expected).
 
-% A parameter type outside the mask evaluates its argument, and the register is
-% what says which: union-atom's `Expression` holds, min-atom's `%Undefined%`
-% does not.
+% `Atom` is the WHOLE mask, so the contrast is between an Atom parameter and
+% every other type. unquote's operand is `(-> Atom %Undefined%)` and holds;
+% min-atom's is unconstrained and evaluates; union-atom's used to be declared
+% `Expression` and held, and now evaluates like the rest, which is what took
+% the old spelling of this row away.
 test(a_masked_parameter_holds_and_an_unmasked_one_evaluates) :-
-    both_doors("(union-atom ((+ 1 2)) ((+ 3 4)))",
-               [[['+', 1, 2], ['+', 3, 4]]]),
-    both_doors("(min-atom ((+ 1 2) 7))", [3]).
+    both_doors("(unquote (+ 1 2))", [[unquote, ['+', 1, 2]]]),
+    both_doors("(min-atom ((+ 1 2) 7))", [3]),
+    both_doors("(union-atom ((+ 1 2)) ((+ 3 4)))", [[3, 7]]).
 
 % The two doors are the same translator, so a form built at run time cannot
 % drift from the same form written in a source file. Asserted directly rather
@@ -123,20 +121,18 @@ test(a_nested_evaluation_prunes_an_empty_answer) :-
 % 2026-08-24: the binder and the closure spelling answer identically, and
 % `!(foldl-atom (1) (+ 1 2) $a $b (size-atom $a))` is 3, the size of the held
 % `(+ 1 2)`, where an evaluated seed would refuse a Number.
-collection_row("(map-atom (cdr-atom (a b)) $y (q $y))",
-               [[[q, 'cdr-atom'], [q, [a, b]]]]).
-collection_row("(map-atom (cdr-atom (a b)) (|-> ($y) (q $y)))",
-               [[[q, 'cdr-atom'], [q, [a, b]]]]).
-collection_row("(filter-atom (cdr-atom (a b)) $y (== $y b))", [[]]).
-collection_row("(filter-atom (cdr-atom (a b)) (|-> ($y) (== $y b)))", [[]]).
-collection_row("(foldl-atom (cdr-atom (a b)) 0 $a $b (+ 1 $a))", [2]).
-collection_row("(foldl-atom (cdr-atom (a b)) 0 (|-> ($a $b) (+ 1 $a)))", [2]).
-collection_row("(foldl-atom (1) (+ 1 2) $a $b (size-atom $a))", [3]).
+collection_row("(map-atom (cdr-atom (a b)) $y (q $y))", [[[q,b]]]).
+collection_row("(map-atom (cdr-atom (a b)) (|-> ($y) (q $y)))", [[[q,b]]]).
+collection_row("(filter-atom (cdr-atom (a b)) $y (== $y b))", [[b]]).
+collection_row("(filter-atom (cdr-atom (a b)) (|-> ($y) (== $y b)))", [[b]]).
+collection_row("(foldl-atom (cdr-atom (a b)) 0 $a $b (+ 1 $a))", [1]).
+collection_row("(foldl-atom (cdr-atom (a b)) 0 (|-> ($a $b) (+ 1 $a)))", [1]).
+collection_row("(foldl-atom (1) (+ 1 2) $a $b (size-atom $a))", [[]]).
 % The list's own members are NOT reduced on the way in; the Expression result
 % is what reduces them on the way out.
-collection_row("(map-atom ((+ 1 2) 4) $y (q $y))", [[[q, 3], [q, 4]]]).
-collection_row("(map-atom (1 2 3) $x (+ $x 1))", [[2, 3, 4]]).
-collection_row("(filter-atom (1 2 3 4 5) $x (> $x 3))", [[4, 5]]).
+collection_row("(map-atom ((+ 1 2) 4) $y (q $y))", [[[q,3],[q,4]]]).
+collection_row("(map-atom (1 2 3) $x (+ $x 1))", [[2,3,4]]).
+collection_row("(filter-atom (1 2 3 4 5) $x (> $x 3))", [[4,5]]).
 collection_row("(foldl-atom (1 2 3 4) 0 $acc $x (+ $acc $x))", [10]).
 
 test(a_collection_form_holds_its_list_in_either_spelling,

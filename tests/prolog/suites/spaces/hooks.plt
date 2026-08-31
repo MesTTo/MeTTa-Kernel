@@ -16,11 +16,14 @@
 % Guarantees:
 %   - compiled fire observes the evaluator's residual unchanged, and the
 %     verdict consumer classifies that residual as the named stuck state
-%     [tested: a_compiled_fire_treats_an_unreduced_eval_as_stuck;
+%     [tested: an_uncovered_offer_is_stuck_by_answering_nothing;
 %     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3]
 %   - host writes, running MeTTa add-atom forms, and file loads into a target
 %     space all pass accept, transform, drop, and refuse through the same
 %     declared pre-add hook [tested: admission_route_matrix; commit=ce55fe46f26484be4269d06d6b99684d5edc040f]
+%   - the outermost transaction's commit phase leaves every enlisted provider
+%     committed or rolled back and records which of them made their writes
+%     durable [tested: foreign_commit_phase; commit=WORKTREE]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -393,19 +396,37 @@ test(a_compiled_fire_answers_what_the_eval_path_answers) :-
     cf_parity('cf-guard', [raw, 7]),
     cf_parity('cf-guard', [plain, 2]).
 
-test(a_compiled_fire_treats_an_unreduced_eval_as_stuck) :-
+%An offer NO RULE COVERS stays locally detectable, which is the whole
+%interaction-net discipline this file tests, but the shape of the evidence
+%moved on 2026-08-30. A handler whose equations miss used to answer the call
+%back as a residual, and the verdict algebra classified that residual as
+%stuck. With NoMatchEnum defaulting to NoMatchFail -- upstream's rule, where a
+%name WITH equations that none of them match simply fails -- the eval answers
+%NOTHING, and metta_hook_pre_phase/4 reaches the same stuck state through its
+%own else branch instead
+%[source: PeTTa@ae66fa8, which compiles equations straight to Prolog clauses
+%so an uncovered call has no clause; measured 2026-08-30].
+%Both routes are asserted here, because the residual one is still reachable:
+%a handler can RETURN its own call shape as a value.
+test(an_uncovered_offer_is_stuck_by_answering_nothing) :-
     current_metta_module(Module),
     findall(Residual,
             eval_metta_in_module(Module, ['cf-guard', [uncovered, 3]],
                                  Residual),
             Residuals),
-    Residuals == [['cf-guard', [uncovered, 3]]],
+    assertion(Residuals == []),
     metta_hook_drop_compiled('&cf-parity', pre_add),
-    once(metta_hook_eval('&cf-parity', pre_add, 'cf-guard', Module,
-                         [uncovered, 3], Fired)),
-    Fired == ['cf-guard', [uncovered, 3]],
-    catch(metta_hook_apply(Fired, '&cf-parity', 'cf-guard', [uncovered, 3],
-                           _, true), Error, true),
+    %The compiled fire is an observer of that evaluation, so it answers
+    %nothing too, which is exactly what metta_hook_pre_phase/4 turns into the
+    %stuck error [tested: an_unclaimed_request_is_a_stuck_state_that_says_so,
+    %which drives the real add-atom door end to end].
+    assertion(\+ metta_hook_eval('&cf-parity', pre_add, 'cf-guard', Module,
+                                 [uncovered, 3], _)),
+    %The residual route still classifies, for a handler that answers its own
+    %call shape as a verdict.
+    catch(metta_hook_apply(['cf-guard', [uncovered, 3]], '&cf-parity',
+                           'cf-guard', [uncovered, 3], _, true),
+          Error, true),
     assertion(Error = error(metta_hook_stuck('&cf-parity', 'pre-add',
                                               'cf-guard', [uncovered, 3]), _)),
     metta_hook_drop_compiled('&cf-parity', pre_add).
@@ -433,36 +454,43 @@ test(an_equation_added_after_the_claim_decides_the_next_fire) :-
 %matches the constraint, never something derived from it.
 %
 %What the handler RECEIVES is the offer, which is what the fire clause
-%guarantees by compiling the handler against an unbound argument. What it
-%ANSWERS is then subject to the ordinary result rule, and only a declared
-%result of the metatype `Atom` makes an answer final, so the verdict that
-%shows the offer intact is the one built by an `(-> Atom Atom)` handler.
-%Measured 2026-08-24 against LeaTTa 9ea9f9d with `(= (cf-marker) evaluated)`
-%and `(= (h $a) (accept (saw $a)))`: `!(h (cf-marker))` is
-%`(accept (saw (cf-marker)))` when h is declared `(-> Atom Atom)`, and
-%`(accept (saw evaluated))` both when it is declared `(-> Atom %Undefined%)`
-%and when it is not declared at all.
+%guarantees by compiling the handler against an unbound argument, and what it
+%ANSWERS is that offer unchanged. The DECLARATION does not alter either half:
+%the fire hands the atom over as data whatever the handler's type says, and a
+%result does not re-enter evaluation.
 %
-%The two fires therefore differ, which is what makes the recompile VISIBLE:
-%before the result rule was implemented both answered the same thing, so a
-%fire clause that had gone stale would have passed this test unchanged.
+%This asserted the opposite for an UNDECLARED handler until 2026-08-30 --
+%`(saw evaluated)` rather than `(saw (cf-marker))` -- and the difference
+%between the two declarations was what it used to detect a stale fire clause
+%with. That difference was the equation result continuation making up a round
+%the hook never asked for, and it is gone with it, so the recompile is checked
+%by the test that changes the handler's EQUATIONS instead
+%[tested: an_equation_added_after_the_claim_decides_the_next_fire].
+%
+%As an ordinary MeTTa call the three declarations differ, and this engine
+%answers what upstream answers for all three
+%[measured 2026-08-30 with `(= (cf-marker) evaluated)` and
+%`(= (h $a) (saw $a))`: `!(h (cf-marker))` is `(saw evaluated)` undeclared and
+%`(saw (cf-marker))` under both `(-> Atom %Undefined%)` and `(-> Atom Atom)`,
+%byte-identical on both engines; fixture=ai-tmp/petta-align/hk.metta]. The
+%hook is not that call: it never evaluates the offer, which is the whole
+%point of a BEFORE trigger.
 test(the_offered_atom_reaches_the_handler_as_itself) :-
     process_metta_string(
         "(= (cf-marker) evaluated)\n\
 (= (cf-typed $a) (accept (saw $a)))", _),
     metta_declare_hook(pre_add, '&cf-pool', 'cf-typed'),
     metta_add_atom('&cf-pool', ['cf-marker'], _),
-    (   'get-atoms'('&cf-pool', [saw, evaluated])
+    (   'get-atoms'('&cf-pool', [saw, ['cf-marker']])
     ->  true
-    ;   throw(cf_expected_the_undeclared_result_to_reduce)
+    ;   throw(cf_expected_the_offer_to_reach_the_handler_as_itself)
     ),
-    %A later type declaration recompiles the fire through the change
-    %hooks; the offer stays data on the other side of it, and now the
-    %verdict shows it.
+    %A later type declaration recompiles the fire through the change hooks,
+    %and the offer stays data across it.
     process_metta_string("(: cf-typed (-> Atom Atom))", _),
     metta_add_atom('&cf-pool', ['cf-marker'], _),
     findall(X, 'get-atoms'('&cf-pool', [saw, X]), Seen),
-    Seen == [evaluated, ['cf-marker']],
+    Seen == [['cf-marker'], ['cf-marker']],
     metta_undeclare_hook(pre_add, '&cf-pool').
 
 :- end_tests(hooks_compiled_fire).
@@ -886,3 +914,116 @@ test(test_the_threadpool_bound_is_one_simpagation_rule,
     assertion(Members == ['&tp2-w1', '&tp2-w2']).
 
 :- end_tests(hooks_worked_instances).
+
+
+%%%% The foreign commit phase %%%%
+%
+%A test participant that records every verb it is asked for and can refuse
+%its commit by throwing or by simply failing. It rides the same multifile
+%seam the Python and Node providers ride; both of their clauses fail for an
+%atom neither of them registered, so these clauses decide the test spaces
+%and nothing else.
+:- multifile seam:foreign_commit/1.
+:- multifile seam:foreign_rollback/1.
+
+:- dynamic hplt_participant/1.
+:- dynamic hplt_refusal/2.
+:- dynamic hplt_call/2.
+
+seam:foreign_commit(Space) :-
+    hplt_participant(Space),
+    assertz(hplt_call(Space, commit)),
+    (   hplt_refusal(Space, throw)
+    ->  throw(error(hplt_commit_refused(Space), none))
+    ;   \+ hplt_refusal(Space, fail)
+    ).
+seam:foreign_rollback(Space) :-
+    hplt_participant(Space),
+    assertz(hplt_call(Space, rollback)).
+
+hplt_participants(Spaces, Refusal) :-
+    hplt_clear_participants,
+    forall(member(S, Spaces), assertz(hplt_participant(S))),
+    (   Refusal = Space-How
+    ->  assertz(hplt_refusal(Space, How))
+    ;   true
+    ).
+
+hplt_clear_participants :-
+    retractall(hplt_participant(_)),
+    retractall(hplt_refusal(_, _)),
+    retractall(hplt_call(_, _)),
+    nb_setval('$metta_tx_foreign_outcome', foreign_outcome(discard, [], [])).
+
+hplt_calls(Calls) :-
+    findall(S-V, hplt_call(S, V), Calls).
+
+:- begin_tests(foreign_commit_phase).
+
+% Commit is single-coordinator, so a refusal leaves the earlier commits
+% standing; what it must NOT leave is a participant in neither state. One
+% left open kept its uncommitted rows, and the next transaction's begin
+% staged them as though they had been durable.
+test(a_refused_commit_rolls_back_the_participants_it_never_reached,
+     [ setup(hplt_participants(['&hplt-p1', '&hplt-p2', '&hplt-p3'],
+                               '&hplt-p2'-throw)),
+       cleanup(hplt_clear_participants) ]) :-
+    metta_finish_foreign(committed,
+                         ['&hplt-p1', '&hplt-p2', '&hplt-p3'], Result),
+    assertion(subsumes_term(threw(error(hplt_commit_refused('&hplt-p2'), _)),
+                            Result)),
+    hplt_calls(Calls),
+    assertion(Calls == ['&hplt-p1'-commit, '&hplt-p2'-commit,
+                        '&hplt-p3'-rollback]).
+
+% The per-participant durable outcome, which is the only place the split
+% between committed and lost writes exists at all. Asked from the point of
+% view of one journal, which is excluded: its own missing receipt is a state
+% its owner reads out of the journal itself.
+test(the_commit_phase_records_which_participants_lost_their_writes,
+     [ setup(hplt_participants(['&hplt-p1', '&hplt-p2', '&hplt-p3'],
+                               '&hplt-p2'-throw)),
+       cleanup(hplt_clear_participants) ]) :-
+    metta_finish_foreign(committed,
+                         ['&hplt-p1', '&hplt-p2', '&hplt-p3'], _),
+    metta_foreign_writes_lost('&hplt-p1', FromFirst),
+    assertion(FromFirst == ['&hplt-p2', '&hplt-p3']),
+    metta_foreign_writes_lost('&hplt-p2', FromRefuser),
+    assertion(FromRefuser == ['&hplt-p3']).
+
+% A commit that merely fails used to propagate that failure through
+% forall/2, leaving Result unbound and turning a durable transaction into a
+% goal that failed with no outcome at all.
+test(a_commit_that_only_fails_is_named_rather_than_failing_the_finish,
+     [ setup(hplt_participants(['&hplt-p1'], '&hplt-p1'-fail)),
+       cleanup(hplt_clear_participants) ]) :-
+    metta_finish_foreign(committed, ['&hplt-p1'], Result),
+    assertion(subsumes_term(
+                  threw(error(metta_foreign_commit_failed('&hplt-p1'), _)),
+                  Result)),
+    metta_foreign_writes_lost('&hplt-other', Lost),
+    assertion(Lost == ['&hplt-p1']).
+
+% Every participant commits, so nothing was lost and the question has no
+% answer rather than an empty one.
+test(a_whole_commit_phase_leaves_no_lost_writes,
+     [ setup(hplt_participants(['&hplt-p1', '&hplt-p2'], none)),
+       cleanup(hplt_clear_participants) ]) :-
+    metta_finish_foreign(committed, ['&hplt-p1', '&hplt-p2'], Result),
+    assertion(Result == ok),
+    hplt_calls(Calls),
+    assertion(Calls == ['&hplt-p1'-commit, '&hplt-p2'-commit]),
+    assertion(\+ metta_foreign_writes_lost('&hplt-p1', _)).
+
+% A transaction that rolled back wholly promised nothing, so its rolled-back
+% participants are not reported as lost writes.
+test(a_rolled_back_transaction_reports_no_lost_writes,
+     [ setup(hplt_participants(['&hplt-p1', '&hplt-p2'], none)),
+       cleanup(hplt_clear_participants) ]) :-
+    metta_finish_foreign(failed, ['&hplt-p1', '&hplt-p2'], Result),
+    assertion(Result == ok),
+    hplt_calls(Calls),
+    assertion(Calls == ['&hplt-p1'-rollback, '&hplt-p2'-rollback]),
+    assertion(\+ metta_foreign_writes_lost('&hplt-p1', _)).
+
+:- end_tests(foreign_commit_phase).

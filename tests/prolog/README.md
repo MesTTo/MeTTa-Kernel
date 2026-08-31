@@ -134,14 +134,30 @@ tests: `reader/`, `translator/`, `evaluation/`, `spaces/`, `libraries/`,
 `host/`, `seams/`, `metatheory/`. Run all of them directly with:
 
     cd tests/prolog
+    export VIRTUAL_ENV=<the project venv> PATH="$VIRTUAL_ENV/bin:$PATH"
     for suite in suites/*/*.plt; do
-        swipl -g "set_test_options([format(log)]), run_tests" -t halt "$suite" || exit
+        swipl -g "set_test_options([format(log)]), run_tests" \
+            -t halt "$suite" -- extensions || exit
     done
 
 Run one suite while working on it:
 
     cd tests/prolog
-    swipl -g "set_test_options([format(log)]), run_tests" -t halt suites/translator/translator.plt
+    VIRTUAL_ENV=<the project venv> PATH="$VIRTUAL_ENV/bin:$PATH" \
+        swipl -g "set_test_options([format(log)]), run_tests" \
+            -t halt suites/translator/translator.plt -- extensions
+
+BOTH halves of that environment decide what the suites test, and this is the
+command `engine/test.sh` runs, which `engine/check.sh` gates on. `extensions`
+in argv is what makes the engine glob `extensions/*/extension.pl`: without it
+the Python seat never loads, `py-call` is not a builtin but ordinary data, and
+suites/host/shim.plt's oracle and suites/seams/extensions.plt's seat record
+have nothing to read. `VIRTUAL_ENV` is what janus follows when it starts the
+embedded interpreter, not the `python3` on PATH, so without it the oracle
+imports the system interpreter's packages and fails on the first one the
+project installed. Measured 2026-08-31 on this tree: the bare command in an
+earlier revision of this file left 28 tests failing across three suites, every
+one of them the environment rather than the engine.
 
 Run it from `tests/prolog`, not from the group directory and not from the
 repository root. A suite writes paths at two depths and both are correct: a

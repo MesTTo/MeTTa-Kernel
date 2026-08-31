@@ -28,22 +28,23 @@
             (test (collapse (match &cstore (edge a $x) $x)) (b c)))
      True)
 
-;Removal means what remove-atom means everywhere: ONE occurrence that
-;unifies goes, multiset subtraction, and the store answers whether one was
-;there. Two stored atoms match (edge a $any), so clearing them takes two
-;removals rather than one.
+;Removal means what remove-atom means everywhere: EVERY atom that unifies
+;goes. Two stored atoms match (edge a $any), and one removal clears both,
+;leaving the one edge that does not start at a.
+;
+;The C provider's own door is finer than that and stays so: seam:foreign_remove/3
+;takes one occurrence and reports whether one was there, and the door above it
+;reads the matching atoms and then asks the provider once for each. So the same
+;removal is one MeTTa call and two C calls.
 !(if (file-exists "./examples/ch19-spaces-backed-by-anything/19-02-a-space-in-c/cstore.so")
      (progn (remove-atom &cstore (edge a $any))
-            (test (let $answers (collapse (match &cstore (edge $x $y) ($x $y)))
-                    (size-atom $answers))
-                  2)
-            (remove-atom &cstore (edge a $other))
             (test (collapse (match &cstore (edge $x $y) ($x $y))) ((b c))))
      True)
 
-;Identical copies are where the reading matters most, and where this store
-;used to disagree with the seam it implements: three adds gave count 3 and
-;one removal gave count 0. Subtraction walks the count down one at a time.
+;Identical copies are where the reading matters most. Three adds give count
+;3, and ONE removal clears all three, because the door drains what unifies.
+;Draining is idempotent, so a second removal changes nothing and answers the
+;same True.
 !(if (file-exists "./examples/ch19-spaces-backed-by-anything/19-02-a-space-in-c/cstore.so")
      (progn (add-atom &cstore (dup 1))
             (add-atom &cstore (dup 1))
@@ -51,12 +52,8 @@
             (remove-atom &cstore (dup 1))
             (test (let $answers (collapse (match &cstore (dup $n) $n))
                     (size-atom $answers))
-                  2)
-            (remove-atom &cstore (dup 1))
-            (remove-atom &cstore (dup 1))
-            (test (let $answers (collapse (match &cstore (dup $n) $n))
-                    (size-atom $answers))
-                  0))
+                  0)
+            (test (remove-atom &cstore (dup 1)) True))
      True)
 
 ;The seam's own proof harness, asked of the C provider: every declared

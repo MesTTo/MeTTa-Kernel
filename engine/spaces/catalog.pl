@@ -58,13 +58,45 @@ native_storage_module_ready(Space, Module) :-
 
 %Whether a NAME is a space, which is the wider question: one this engine
 %already holds, or one it would create by being written to. A space is created
-%on demand here, so the second half cannot be the registry, and the rule for it
-%is the engine's own: an atom beginning with `&`, which is what is-space/2
-%answers, what evalc/3 has enforced at its door since it was written, and what
-%extensions/python/metta/space.py enforces at the library's
-%[tested: space_argument_refusals].
-metta_space_name(S) :- atom(S), sub_atom(S, 0, 1, _, '&'), !.
+%on demand here, so the second half cannot be the registry.
+%
+%ANY SYMBOL IS ONE, which is upstream's answer and not a relaxation of taste.
+%There a space IS a Prolog predicate name: `match/4` builds
+%`Term =.. [Space, Rel|PatArgs]` and `add_sexp/2` asserts the same shape, so
+%writing to `my_space_name` creates it exactly as writing to `&self` does
+%[source: PeTTa@ae66fa8 src/spaces.pl:1-6,52-62].
+%
+%This engine required a leading `&` between 2026-08-20 and 2026-08-30, on
+%LeaTTa's `spaceName` rule that "bare symbols resolve only through the running
+%context's token table; an unbound symbol is not a space"
+%[source: LeaTTa MettaHyperonFull/Minimal/Interpreter.lean:1565-1573]. Under
+%that rule `examples/add_atom_fun_space.metta` could not run, and this engine's
+%own copy of it was respelled to `&my_space_name` to fit.
+%
+%is-space/2 KEEPS the prefix test, and that is upstream's split rather than an
+%oversight here: `'is-space'(A,R) :- atom(A), atom_concat('&', _, A) -> ...`
+%sits in the same file as the match/4 that accepts any atom
+%[source: PeTTa@ae66fa8 src/metta.pl:208]. So
+%`(add-atom not_a_space (bad add))` answers true and
+%`(is-space not_a_space)` answers false in the same program, on BOTH engines
+%[measured 2026-08-30; fixture=ai-tmp/petta-align/space1.metta].
+metta_space_name(S) :- metta_space_prefixed_name(S), !.
 metta_space_name(S) :- metta_space_operand(S).
+
+%What a WRITE may create, which is wider than what the rest of the engine
+%calls a space. Upstream has no registry at all: `add_sexp/2` is
+%`Term =.. [Space, Rel|Args], assertz(Term)`, so writing to any symbol creates
+%that symbol's space [source: PeTTa@ae66fa8 src/spaces.pl:1-6]. This is asked
+%ONLY where a space is created, never on the nine hot paths that ask
+%metta_space_operand/1: making the shared test true for every atom was
+%measured on 2026-08-30 and cost two corpus files (translatepredicate,
+%spaces_succeedspredicate), five examples and five plunit units, because those
+%paths use it to tell a space operation from an ordinary symbol.
+metta_space_writable_name(S) :- atom(S), !.
+metta_space_writable_name(S) :- metta_space_operand(S).
+
+%The narrower question, and the only one is-space/2 asks.
+metta_space_prefixed_name(S) :- atom(S), sub_atom(S, 0, 1, _, '&').
 %HERE rather than beside metta_space_operand/1 below, because the two
 %directives that create &self's and &metta's storage modules run while this
 %file loads and a directive can only call what is already defined.
@@ -80,7 +112,7 @@ ensure_native_storage_module(Space, Module) :-
 %[measured 2026-08-20: direct-join +10, prepared-join +10, register-op +200,
 %py-method-call +30,002].
 ensure_native_storage_module(Space, Module) :-
-    metta_space_name(Space),
+    metta_space_writable_name(Space),
     native_storage_module(Space, Module),
     with_mutex('$metta_native_storage',
                ensure_native_storage_module_locked(Space, Module)).
@@ -98,6 +130,21 @@ ensure_native_storage_module_locked(Space, Module) :-
     ; set_prolog_flag(Module:unknown, fail),
       dynamic(Module:'$metta_native_storage'/0),
       assertz(native_storage_module_cache(Space, Module)) ).
+
+%A foreign claim over an EXISTING name falsifies the premise the match
+%door's cache-first clause states (a foreign-claimed name never has a native
+%storage cache row): a space can be created native, cached by its first
+%operation, and only then claimed by a provider, at which point the stale row
+%routes every match to the empty native module and the provider is never
+%asked. Measured as view({'port': 80}) answering [] while has_provider said
+%True [tested: extensions/python/tests/ch04_spaces_and_matching/test_spaces_combinators.py::test_view_is_a_live_queryable_space;
+%commit=WORKTREE]. The claim door calls this on every atom-name claim, under
+%the same mutex the seeding path holds, so the premise is enforced rather
+%than assumed; prefix claims seed no rows (their spaces are created through
+%the provider path) and need no sweep.
+native_storage_cache_forget(Space) :-
+    with_mutex('$metta_native_storage',
+               retractall(native_storage_module_cache(Space, _))).
 
 %The dynamic marker and module properties survive transaction rollback even
 %when its cache fact does not. A later write can therefore recover the cache
@@ -204,9 +251,22 @@ add_sexp_in(Module, [Family|Parameters], [Rel|Args], Ref) :-
     !,
     Term =.. ['$metta_parametric_atom', Rel|Args],
     assertz(Module:Term, Ref).
+%One more indexed clause, not a guard: a ':' head fails this clause's head
+%unification for every other write at zero inferences, the same trick the
+%'&metta' funnel clause above documents. A declaration LANDING in a space
+%is what upgrades that space's compile-time self tier from the &self
+%literal to the two-probe storage clause, so a space that never declares
+%never pays the second probe (alpha-unique's ten thousand data heads
+%measured the difference at +30 inferences per head when every module
+%carried the specialized clause unconditionally).
+add_sexp_in(Module, Space, [':'|Args], Ref) :- !,
+    self_tier_arrived(Space),
+    Term =.. [Space, ':' | Args],
+    assertz(Module:Term, Ref).
 add_sexp_in(Module, Space, [Rel|Args], Ref) :- !,
                                                Term =.. [Space, Rel | Args],
                                                assertz(Module:Term, Ref).
+
 %A scalar or empty expression cannot be a plain Space(Term) fact, because that
 %is already the encoding of the singleton expression (Term). It gets its own
 %predicate rather than a marked rule inside the space: a marked rule makes
@@ -218,6 +278,15 @@ add_sexp_in(Module, Space, [Rel|Args], Ref) :- !,
 %call reaches.
 add_sexp_in(Module, _, Atom, Ref) :-
     assertz(Module:'$metta_native_scalar'(Atom), Ref).
+
+%Below every add_sexp_in/4 clause so the write funnel stays contiguous for
+%the source reader; the tier note itself is order-free.
+self_tier_arrived('&self') :- !.
+self_tier_arrived(Space) :-
+    (   metta_exec_module_known(Space, Module)
+    ->  translator:self_tier_note(Module, Space)
+    ;   true
+    ).
 
 %%%% The catalog describes its own kinds %%%%
 %
@@ -1421,7 +1490,7 @@ metta_catalog_preset([algebra, amplitude, 'amplitude-add',
 %an_amplitude_context_without_the_whole_fragment_is_refused_by_name;
 %commit=7ae3103aee78e947d23c5872e3db23c28ad7fe1c].
 metta_catalog_preset(['dispatch-default', 'MismatchEnum', 'MismatchOriginal']).
-metta_catalog_preset(['dispatch-default', 'NoMatchEnum', 'NoMatchOriginal']).
+metta_catalog_preset(['dispatch-default', 'NoMatchEnum', 'NoMatchFail']).
 metta_catalog_preset(['dispatch-default', 'EvaluationOrderEnum', 'OrderClause']).
 metta_catalog_preset(['dispatch-default', 'FunctionResultEnum', 'Nondeterministic']).
 metta_catalog_preset(['dispatch-default', 'ClauseFailedEnum', 'ClauseFailNonDet']).

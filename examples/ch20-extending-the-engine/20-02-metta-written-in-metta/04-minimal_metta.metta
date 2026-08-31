@@ -17,9 +17,16 @@
 ;The specification: "It evaluates the <atom> until it becomes (return <atom>).
 ;Then (function (return <atom>)) expression returns the <atom>."
 !(test (function (return 42)) 42)
-;The chain binder receives the written atom at this instruction boundary.
-;LeaTTa 9ea9f9d answers the exact form with (+ 1 2), not 3.
-!(test (function (chain (+ 1 2) $x (return $x))) (noeval (+ 1 2)))
+;chain IS let: the binder takes the VALUE its operand produced, once, which is
+;upstream's own definition -- `(HV == let ; HV == chain), T = [Pat, Val, In]`
+;is one clause there [source: PeTTa@ae66fa8 src/translator.pl:207-210]. So the
+;operand reduces and the binder receives 3.
+;This engine substituted the WRITTEN atom here until 2026-08-30, on LeaTTa
+;9ea9f9d's answer of `(+ 1 2)`. Substitution also duplicated a
+;nondeterministic operand into a binder used twice:
+;`(chain (superpose (1 2)) $x ($x $x))` answered four rows where upstream
+;answers `(1 1) (2 2)`.
+!(test (function (chain (+ 1 2) $x (return $x))) 3)
 
 ;`return` is deliberately not registered, so it survives evaluation as data.
 ;Registering it as the identity its (-> $t $t) signature suggests makes

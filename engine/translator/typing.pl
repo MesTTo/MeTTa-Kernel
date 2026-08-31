@@ -35,7 +35,7 @@ typed_functioncall_dl(Fun, UniqueTypeChains, T, IsPartial, Bound, Out,
     %The arity guard below reads fun_meta rows, and a deferred function has
     %none until its equations translate: unforced, a declared 2-in name with
     %a 1-in equation compiled the ordinary typed branch instead of the
-    %IncorrectNumberOfArguments refusal the arbiter pins. The dispatch
+    %declared-arity refusal. The dispatch
     %stage's own force runs too late for this decision.
     metta_ensure_compiled(Fun),
     length(T, NewInputArity),
@@ -46,7 +46,7 @@ typed_functioncall_dl(Fun, UniqueTypeChains, T, IsPartial, Bound, Out,
                                                  InputArity)
     ->  ( IsPartial -> append(Bound, T, Written) ; Written = T ),
         RuntimeArgs = T,
-        AfterHead = [function_overapplication(Fun, Written, Out)|Goals]
+        AfterHead = [declared_arity_refusal(Fun, Written, Out)|Goals]
     ;   incomplete_application_kind(Fun, Arity, ApplicationKind),
         ApplicationKind == overapplied,
         \+ metta_segment_equation(Fun)
@@ -241,11 +241,34 @@ rest_parameter(Rest, Element) :-
     nonvar(Marker),
     Marker == '%Rest%'.
 
+%THE CHEAP QUESTION FIRST, then the walk. This runs on the
+%partial-application decision of every typed call, and the walk behind it is
+%over every candidate type chain with a length/2 on each.
+%
+%Only a USER rule can refuse here. The one shipped arrow-arity rule is
+%typing-arrow-arity-exact, `(Same, Same, accept)`, which accepts an exact
+%match and defers everything else, and arrow-arity does not fall through to
+%widening the way ordinary, derived and reporting do
+%[source: engine/type_rules.pl, typing_rule_entry/7 and
+%typing_check_decision/7]. So with no user arrow-arity rule registered the
+%walk cannot succeed and every step of it is dead work.
+%
+%The saving is small and is recorded as small: nilbc, which decides partial
+%application constantly, does not measurably reach this path
+%[measured 2026-08-30: 308,570,186 inferences before and after]. What the
+%guard buys is that the walk cannot grow into a cost for a program that does
+%reach it while registering no rule, which is every program that registers
+%none.
+%
+%current_metta_module/1 moves out of the loop with it: it was read once per
+%candidate and answers the same thing every time.
 type_chain_refusal(Chains, InputArity, Rule, Reason) :-
+    current_metta_module(Module),
+    registered_typing_rule(user, Module, _, 'arrow-arity', _, _, _),
+    !,
     member([->|Types], Chains),
     length(Types, Count),
     DeclaredInputArity is Count - 1,
-    current_metta_module(Module),
     typing_rule_refusal(Module, 'arrow-arity', InputArity,
                         DeclaredInputArity, Rule, Reason),
     !.
@@ -264,20 +287,51 @@ applicable_typed_branches([TypeChain|Rest], Fun, T, IsPartial, Bound, Out,
 typed_functioncall_branch(Fun, TypeChain, T, GsH, IsPartial, Bound, Out,
                           RuntimeArgs, BeforeCall, BranchGoal) :-
     TypeChain = [->|Xs],
-    append(ArgTypes0, [_OutType], Xs), !,
-    drop_unconstraining_types(TypeChain, ArgTypes0, ArgTypes),
+    append(_, [_], Xs), !,
+    %The RESULT type is dropped by the same rule as the arguments, in the same
+    %pass: a type variable that occurs once in the chain constrains nothing
+    %wherever it sits.
+    drop_unconstraining_types(TypeChain, Xs, AllTypes),
+    append(ArgTypes, [OutType], AllTypes),
     metta_argument_type_origins(ArgTypes, ArgOrigins),
     argument_applicability_checks(T, ArgTypes, ArgOrigins, ApplicabilityChecks),
     translate_args_by_type(T, ArgTypes, GsT2, AVsTmp0, ArgChecks, Computed0),
     ( IsPartial -> append(Bound, AVsTmp0, AVsTmp) ; AVsTmp = AVsTmp0 ),
     append(GsH, ApplicabilityChecks, BeforeArgs),
     append(BeforeArgs, GsT2, InnerEval),
-    %A declared result controls whether the produced atom re-enters evaluation;
-    %it is not a dynamic filter on the produced value.  The requested result
-    %type is checked by `metta`/`interpret` before dispatch.  Applying it here
-    %made every mismatching user result disappear, including the reference's
-    %`(-> Atom Variable)` function that deliberately returns 3.
-    OutCheck = [],
+    %THE RESULT IS CHECKED, exempting only the three types that constrain
+    %nothing. Upstream emits exactly this beside every typed call --
+    %`( (OutType == '%Undefined%' ; OutType == '_' ; OutType == 'Atom')
+    %   -> Extra = [] ; Extra = [('get-type'(Out,OutType) *-> true
+    %                             ; 'get-metatype'(Out,OutType))] )`
+    %[source: PeTTa@ae66fa8 src/translator.pl:382-383] -- and the same goal
+    %shape it uses for an argument, which here is check_argument_type/3.
+    %
+    %This was `OutCheck = []` until 2026-08-30, on the arbiter's reading that a
+    %declared result "controls whether the produced atom re-enters evaluation"
+    %rather than filtering the value. Under that reading upstream's
+    %examples/types_nondet.metta could not pass: `(: f (-> Type1 Type1))` beside
+    %`(: f (-> Type2 Type2))` is supposed to answer NOTHING for an argument of
+    %Type1 whose body produces a Type2, because the Type1 branch fails on its
+    %RESULT and the Type2 branch fails on its argument. Without the result half
+    %the Type1 branch answered [measured 2026-08-30: `(f T3in)` answered
+    %Tdefault here and `()` upstream].
+    %Through type_check_goal/4, the same door the argument checks below use.
+    %Emitted as a bare check_argument_type/3 it cost 35 inferences on every
+    %typed call against 3 for the same function undeclared, because the
+    %general check walks the value's types where `number/1` decides it in one
+    %VM instruction the counter does not even see
+    %[measured 2026-08-30: per-call 47.24 typed against 15.24 plain over a
+    %null-driver baseline of 12.24, and back to parity through this door;
+    %tested: test_extension_cost_rows_are_marginal].
+    (   metta_unchecked_result_type(OutType)
+    ->  OutCheck = []
+    ;   metta_argument_type_origins([OutType], [OutOrigin]),
+        type_check_goal(Out, OutType,
+                        check_argument_type(Out, OutType, OutOrigin),
+                        OutGoal),
+        OutCheck = [OutGoal]
+    ),
     %NO RESULT CONTINUATION IS EMITTED HERE, and the reason is that this engine
     %compiles where the arbiter steps. The arbiter's `eval` applies one equation
     %and hands the instantiated right-hand side to `returnsAtom`, which sends it
@@ -297,7 +351,8 @@ typed_functioncall_branch(Fun, TypeChain, T, GsH, IsPartial, Bound, Out,
     %failed check takes the whole branch down, which is how
     %`(needs-number (+ 1 "bad"))` answered nothing where the arbiter answers
     %the inner error atom.
-    place_type_checks(ArgTypes, '_', ArgChecks, OutCheck, [], AfterEval, Extra),
+    place_type_checks(ArgTypes, OutType, ArgChecks, OutCheck, [], AfterEval,
+                      Extra),
     typed_call_operands(Fun, Computed0, Guarded),
     build_call_or_partial_dl(Fun, AVsTmp, Out, CallGoals, [], Extra),
     append([AfterEval, BeforeCall, CallGoals], Checked),
@@ -406,6 +461,14 @@ occurrence_count(Occurrences, Variable, Count) :-
 %which is the only order in which a shared variable can be assigned
 %consistently [tested: examples/ch09-types/01-types.metta,
 %a_shared_type_variable_is_assigned_after_the_call].
+%The three that constrain nothing, plus an undropped variable. `Atom` is here
+%because a declared Atom result is the mask, not a filter: it says the value
+%travels as written [source: PeTTa@ae66fa8 src/translator.pl:382].
+metta_unchecked_result_type(Type) :- var(Type), !.
+metta_unchecked_result_type('%Undefined%').
+metta_unchecked_result_type('_').
+metta_unchecked_result_type('Atom').
+
 place_type_checks(ArgTypes, OutType, ArgChecks, OutCheck, InnerEval, Inner, Extra) :-
     term_variables(ArgTypes, ArgVars),
     term_variables(OutType, OutVars),
@@ -481,8 +544,19 @@ translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
       ->  Computed = More
       ;   Computed = [AV|More]
       ),
-      ( ( Origin == metatype
-        ; T == '%Undefined%' ; T == '_' ; statically_typed_literal(AV, T))
+      %An EVALUATED position is checked against its declared type whatever
+      %that type is, metatype or not. Upstream appends the same check for
+      %every declared type that is not `Atom` or `%Undefined%`
+      %[source: PeTTa@ae66fa8 src/translator.pl:392-396,
+      %`append(GsA1, [('get-type'(AV, T) *-> true ; 'get-metatype'(AV, T))])`].
+      %
+      %`Origin == metatype` used to skip it here, which was invisible while
+      %every metatype parameter was MASKED and checked on the held argument by
+      %the branch above. With `Atom` the only mask, the skip silently dropped
+      %two refusals: `(: p (-> Expression %Undefined%))` answered 3 for
+      %`(p (+ 1 2))` where upstream refuses, and atom-subst stopped refusing a
+      %second operand that is not a variable [measured 2026-08-30].
+      ( ( T == '%Undefined%' ; T == '_' ; statically_typed_literal(AV, T))
         -> AfterCheck = Checks0
       ; type_check_goal(AV, T,
                         check_argument_type(AV, T, Origin),
@@ -491,31 +565,33 @@ translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
     translate_args_by_type_dl(As, Ts, Origins, AfterArg, Goals, AVs,
                               AfterCheck, Checks, More).
 
-%THE EVALUATION MASK, and its membership is the arbiter's own, read off the
-%interpreter rather than inferred from probes. LeaTTa's `declaredTypeEvaluates`
-%is one line and it names all three members:
+%THE EVALUATION MASK. `Atom` is the SOLE unevaluated parameter type, read off
+%upstream's compiler rather than inferred from probes: translate_args_by_type/4
+%is one line of decision, `( T == 'Atom' -> AV = A, GsA = [] ; translate_expr(...)
+%...)`, so every other declared type takes the ordinary eager route and, when
+%it is not %Undefined%, carries a runtime type check besides
+%[source: PeTTa@ae66fa8 src/translator.pl:389-397].
 %
-%    metatype != Atom && metatype != Variable && metatype != Expression
+%This named three members until 2026-08-30, `Atom`, `Variable` and
+%`Expression`, which is LeaTTa's `declaredTypeEvaluates`
+%(MettaHyperonFull/Core/Modifiers.lean:118-124). The extra two are the
+%difference, and it is observable: with `Expression` masked,
+%`(map-atom (cdr-atom (a b)) $y (q $y))` answered
+%`((q cdr-atom) (q (a b)))`, mapping over the two PARTS of an unevaluated
+%call, where upstream evaluates the list first and answers `((q b))`
+%[measured 2026-08-30, ai-tmp/coll.metta under both engines]. Symbol and
+%Grounded were never members on either reading.
 %
-%[source: LeaTTa MettaHyperonFull/Core/Modifiers.lean:118-124, consumed by
-%`argMask` at MettaHyperonFull/Minimal/Interpreter.lean:3760-3784, whose own
-%docstring reads "An argument is evaluated unless its declared evaluation view
-%is `Atom`, `Variable`, or `Expression`"]. Symbol and Grounded are NOT members,
-%which is the one boundary a probe alone could have got wrong: measured
-%2026-08-24 against LeaTTa 9ea9f9d, `(: sf (-> Symbol %Undefined%))` with
-%`(= (sf $x) (quote $x))` and `(= foo bar)` answers `(quote bar)`, so a Symbol
-%parameter EVALUATES its argument.
+%type_position_modifier/3 and DontEvalType stay. They are this engine's own
+%declarative way to ask for a held position, upstream has no equivalent, and
+%no upstream program can name them, so they add a capability without moving
+%any answer upstream gives.
 %
-%DontEvalType makes the same compiler decision declarative for user types.
-%
-%The mask decides EVALUATION only. Whether the position is also type-checked is
-%unchecked_parameter_type/1 below, and the two are separate in the arbiter too:
-%`argMask` chooses the operands to evaluate and `interpret-function-check-arg`
-%checks each one against its formal
-%[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean:4760-4793].
+%The mask decides EVALUATION only. Whether the position is also type-checked
+%is unchecked_parameter_type/1 below, and upstream separates them the same
+%way: its `Atom` branch emits no goals at all, and every other type appends
+%its own `get-type` check.
 non_evaluated_parameter_type(Type) :- Type == 'Atom', !.
-non_evaluated_parameter_type(Type) :- Type == 'Variable', !.
-non_evaluated_parameter_type(Type) :- Type == 'Expression', !.
 non_evaluated_parameter_type(Type) :- type_position_modifier(Type, _, _), !.
 non_evaluated_parameter_type(Type) :-
     nonvar(Type),

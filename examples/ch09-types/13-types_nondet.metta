@@ -1,18 +1,14 @@
 (: f (-> Type1 Type1))
 (: f (-> Type2 Type2))
-;=alpha rather than ==, and the reason is this file's own subject. f is
-;declared for Type1 AND Type2, so $a arrives as either, and each comparison
-;here is against a symbol of ONE of them: (== T2in T1in) is a comparison
-;across two KNOWN and different types, which == refuses by name. =alpha is
-;the comparison that takes anything and compares structurally, which is what
-;a type-dispatch test wants. Both references refuse the == spelling too,
-;measured 2026-08-19 on this very program: hyperon 0.2.10 and the LeaTTa
-;mechanised interpreter each answer T1out and then
-;(Error (== T2in T1in) (BadArgType 2 Type2 Type1)).
+;== is the comparison here, and it takes any two operands: it is declared
+;`(-> $a $b Bool)` with two INDEPENDENT type variables, so comparing a Type2
+;symbol against a Type1 one asks a legitimate question whose answer is False.
+;This file used =alpha between 2026-08-19 and 2026-08-30, while == was
+;declared `(-> $a $a Bool)` and refused the pair by name.
 (= (f $a)
-   (if (=alpha $a T1in)
+   (if (== $a T1in)
        T1out
-       (if (=alpha $a T2in)
+       (if (== $a T2in)
            T2out
            Tdefault)))
 
@@ -26,8 +22,10 @@
 
 !(test (f T1in) T1out)
 !(test (f T2in) T2out)
-;Overload input and output choices are nondeterministic rather than correlated:
-;LeaTTa 9ea9f9d selects the Type2 result path here and answers Tdefault.
-!(test (f T3in) Tdefault)
+;NOTHING, because a declared result is CHECKED like any argument: T3in is a
+;Type1, so only the (-> Type1 Type1) branch admits it, and that branch's own
+;result check then rejects Tdefault, which is a Type2. The (-> Type2 Type2)
+;branch never runs because its argument check refuses T3in.
+!(test (f T3in) ())
 (: T3in Type2)      ;But if we make T3in also of Type2 then it is fine if output is Type2:
 !(test (f T3in) Tdefault)

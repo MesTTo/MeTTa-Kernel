@@ -105,9 +105,29 @@ metta_bad_argument_error(Operation, Arguments, Error) :-
     \+ metta_call_accepted(Operation, Arguments),
     metta_bad_argument_refusal(Operation, Arguments, Error).
 
+%THE CHEAP QUESTION FIRST. This clause exists to find a NAMED refusal, and
+%only a rule the program registered can produce one: engine/type_rules.pl
+%ships nineteen typing rules and not one of them has a `refuse` outcome, so
+%with no user rule in this module typing_rule_refusal/6 cannot succeed and
+%everything this clause does before reaching it is dead.
+%
+%What it does is not cheap. metta_named_rule_refusal/10 walks every parameter
+%and derives each argument's types through typing_refusal_actual/4, and the
+%clause below then walks the same parameters again, so metta_operation_parameters/4
+%ran twice per refused call with a full type derivation for nothing in
+%between. One indexed probe on an EMPTY predicate is what a program with no
+%typing rules pays instead.
+%
+%The saving is recorded as what it measured rather than what it looked like:
+%nilbc does not reach this path often enough to move
+%[measured 2026-08-30: 308,570,186 inferences before and after]. A refused
+%call pays it, and a refused call is exactly where an error message is being
+%built, so the work removed is work no answer depended on.
 metta_bad_argument_refusal(Operation, Arguments, Error) :-
-    metta_operation_parameters(Operation, Arguments, ParameterTypes, Origins),
     current_metta_module(Module),
+    registered_typing_rule(user, Module, _, _, _, _, _),
+    !,
+    metta_operation_parameters(Operation, Arguments, ParameterTypes, Origins),
     metta_named_rule_refusal(Module, ParameterTypes, Origins, Arguments, 1,
                              Position, Expected, Actual, Rule, Reason),
     !,
@@ -329,9 +349,35 @@ check_argument_type_in(Module, Argument, Expected, metatype) :-
 check_argument_type_in(Module, Argument, Expected, derived_variable) :-
     metta_runtime_type_candidate(Module, Argument, Actual),
     metta_derived_types_match_in(Module, Actual, Expected).
+%A BARE TYPE VARIABLE BINDS TO A CANDIDATE, it does not search for a
+%membership witness. This is the parameter whose declared type is a variable
+%the chain uses again, `(: bc (-> $a Nat $b $b))`, so the check exists to FIX
+%$b from the argument rather than to test the argument against a known type.
+%
+%Upstream emits exactly a binding for it:
+%`('get-type'(AV, T) *-> true ; 'get-metatype'(AV, T))`, and its get-type is
+%`(get_type_candidate(X, T) *-> true ; T = '%Undefined%')` -- one candidate,
+%and %Undefined% when there is none
+%[source: PeTTa@ae66fa8 src/translator.pl:392-396 and src/metta.pl:186].
+%
+%This fell to the clause below, which for an unbound Expected reaches
+%has_type_in/3 with a non-ground type and derives the argument's COMPLETE
+%widened answer set. A nested type variable already took the candidate path
+%through the derived_variable clause above; a bare one did not, and the
+%asymmetry is what made a dependent-type backward chainer pay a full type
+%derivation per recursive call. Argument checking is 99.4% of nilbc
+%[measured 2026-08-30: 306,132,002 inferences against 1,866,723 with
+%check_argument_type/3 stubbed to true].
+check_argument_type_in(Module, Argument, Expected, variable) :-
+    (   metta_runtime_type_candidate(Module, Argument, Expected)
+    *-> true
+    ;   Expected = '%Undefined%'
+    ).
+
 check_argument_type_in(Module, Argument, Expected, Origin) :-
     Origin \== metatype,
     Origin \== derived_variable,
+    Origin \== variable,
     (   metta_evaluating_type_rule
     ->  metta_argument_types_in(Module, Argument, Types),
         member(Actual, Types),
@@ -508,8 +554,56 @@ metta_types_match(Left, Right) :-
     current_metta_module(Module),
     metta_types_match_in(Module, Left, Right).
 
+%THE SHIPPED ANSWER WITHOUT THE SEARCH. This is the call site's compatibility
+%relation and the hottest type predicate the engine has; every typed argument
+%of every typed call asks it.
+%
+%The registry stays the authority and a program that registers an ordinary or
+%widening rule gets the full search. What the fast path serves is the case
+%where nothing has: engine/type_rules.pl ships exactly five ordinary rules and
+%one widening rule, and between them they accept precisely
+%  %Undefined% on either side, Atom on either side, an exact match, and
+%  BigInt against Number,
+%which is the same six-way test this relation was before the registry existed.
+%Reading them off the registry instead means decisive_typing_rule/7
+%backtracking over the family's entries and running typing_pattern_openness/2
+%and typing_rule_pattern_matches/3 per entry, where the test below is inline
+%comparisons the VM does not count.
+%
+%That change cost 5.3x on a dependent-type program: nilbc went from 44,327,926
+%inferences to 236,070,644 in one commit and has carried it since 2026-08-21,
+%because check_upstream_parity.py's drift tripwire was reading a baseline path
+%the file had moved out of and could not fail [measured 2026-08-30 at ecb213fc
+%and its parent; reverting this hunk alone at that commit restores 44,328,446].
+%
+%The two paths must answer the same thing, and that is a test rather than an
+%argument: a differential over every pair drawn from the shipped vocabulary,
+%run with no user rule and again with one registered, so the fast path is
+%checked for agreement AND for standing aside
+%[tested: typing_rules:the_shipped_fast_path_answers_what_the_registry_answers].
 metta_types_match_in(Module, Left, Right) :-
-    typing_rule_accepts(Module, ordinary, Left, Right).
+    (   metta_user_typing_rule_present(Module)
+    ->  typing_rule_accepts(Module, ordinary, Left, Right)
+    ;   metta_shipped_types_match(Left, Right)
+    ).
+
+%Whether anything can override the shipped answer here. Ordinary AND widening,
+%because typing_check_decision/7 defers an ordinary rule to widening, so a
+%user rule in either family changes what this relation answers.
+metta_user_typing_rule_present(Module) :-
+    (   registered_typing_rule(user, Module, _, ordinary, _, _, _)
+    ->  true
+    ;   registered_typing_rule(user, Module, _, widening, _, _, _)
+    ).
+
+metta_shipped_types_match(Left, Right) :-
+    (   Left == '%Undefined%' -> true
+    ;   Right == '%Undefined%' -> true
+    ;   Left == 'Atom' -> true
+    ;   Right == 'Atom' -> true
+    ;   Left == 'BigInt', Right == 'Number' -> true
+    ;   Left = Right
+    ).
 
 %A raw type variable uses Atom as an ordinary bound once another formal has
 %fixed it. The gradual unknown and numeric widening rules still apply.
@@ -529,8 +623,26 @@ metta_derived_types_match_in(Module, Left, Right) :-
 %
 %The ARGUMENTS are in the head because three of these operations word the
 %refusal differently for different arguments, and the caller has them anyway.
-metta_operation_refusal('/', _,
-    "Divide expects two numbers: dividend and divisor").
+%EVERY NUMERIC OPERATION SAYS THE SAME THING. Only `/` did, so `(/ 40 a)`
+%answered a refusal naming what it wanted while `(+ 40 a)`, `(< 1 a)` and
+%`(min 1 a)` answered the call back as written, and a program could not tell
+%those from a form that had simply not reduced yet. Upstream draws no such
+%line: every one of them reaches is/2 or a comparison and raises, so
+%`(repr (catch (+ 40 a)))` is
+%"(Error (type_error evaluable (/ a 0)) (context (: system (/ is 2)) $_0))"
+%there [measured 2026-08-30 against PeTTa@ae66fa8]. This engine ANSWERS where
+%upstream raises, which is the choice metta_operation_answer/3 above records,
+%and the answer names the operation and its operands
+%[tested: examples/he_error.metta].
+metta_operation_refusal('/', Arguments,
+                        "Divide expects two numbers: dividend and divisor") :-
+    metta_numeric_operands_settled(Arguments).
+metta_operation_refusal(Operation, Arguments, Message) :-
+    metta_numeric_binary_operation(Operation),
+    metta_numeric_operands_settled(Arguments),
+    format(string(Message), "~w expects two numbers", [Operation]).
+
+
 metta_operation_refusal('sqrt-math', _, "sqrt-math expects one argument: number").
 metta_operation_refusal('abs-math', _, "abs-math expects one argument: number").
 metta_operation_refusal('pow-math', _,
@@ -541,12 +653,11 @@ metta_operation_refusal(Operation, _, Message) :-
     metta_input_number_operation(Operation),
     format(string(Message), "~w expects one argument: input number",
            [Operation]).
-%min-atom and max-atom carry three texts for three arguments: not an
-%expression at all, an empty one, and one holding something that is not a
-%number, which upstream quotes back as it formats it
-%[source: the same file, whose STATUS names atom.rs:194,228; measured
-%2026-08-19 against the arbiter: `(min-atom 5)` and `(min-atom ())` answer the
-%first two].
+%min-atom and max-atom carry ONE text now, for a list holding something that
+%is not a number. Their other two arguments follow upstream instead: a
+%non-expression answers `()` and an empty expression answers nothing, both
+%decided in engine/metta/operators.pl beside the clauses that do it
+%[source: PeTTa@ae66fa8 src/metta.pl:85-88; measured 2026-08-30].
 %format-args words its refusal by WHICH argument is wrong: a first argument
 %that is not a format string earns the long text, and a first that is one with
 %a second that is not an expression earns the conversion's own
@@ -563,13 +674,33 @@ metta_operation_refusal(Operation, [Argument], Message) :-
     metta_numeric_expression_operation(Operation),
     (   non_list(Argument)
     ->  Message = "Atom is not an ExpressionAtom"
-    ;   Argument == []
-    ->  Message = "Empty expression"
     ;   \+ maplist(number, Argument),
         swrite(Argument, Written),
         format(string(Message), "Only numbers are allowed in expression: ~w",
                [Written])
     ).
+
+%An UNBOUND operand is not a WRONG one. The value may still arrive -- a
+%backward arithmetic mode binds it, and a partially applied numeric form waits
+%for it -- so the call stays as written until every operand is there. Only a
+%bound operand that is not a number is the refusal
+%[tested: test_python_numeric_dispatch_waits_for_every_operand].
+metta_numeric_operands_settled(Arguments) :-
+    is_list(Arguments),
+    maplist(nonvar, Arguments).
+
+%The ten that take two numbers and nothing else. `/` keeps the longer text it
+%already had, which names its two operands.
+metta_numeric_binary_operation('+').
+metta_numeric_binary_operation('-').
+metta_numeric_binary_operation('*').
+metta_numeric_binary_operation('%').
+metta_numeric_binary_operation('<').
+metta_numeric_binary_operation('>').
+metta_numeric_binary_operation('<=').
+metta_numeric_binary_operation('>=').
+metta_numeric_binary_operation(min).
+metta_numeric_binary_operation(max).
 
 metta_numeric_expression_operation('min-atom').
 metta_numeric_expression_operation('max-atom').
@@ -601,9 +732,20 @@ metta_math_operation(Operation, 1) :- metta_input_number_operation(Operation).
 %in front of the call, so the fast path pays nothing: this runs only where
 %is/2 has already raised
 %[tested: operation_answers, metta_operation_errors].
+%The NUMERIC branch hands the fault to metta_operation_recovery/4, the shared
+%classifier the grounded doors already use, rather than rethrowing it here. A
+%second copy of "what an arithmetic fault means" is how `(/ 7 0)` came to
+%answer `(Error (/ 7 0) DivisionByZero)` while `(pow-math 0 -1)` KILLED THE
+%RUN: same fault, same shape of call, two funnels, and only one of them knew
+%the rule. Nothing saw it while pow-math coerced both operands with float/1,
+%because the expression was then always floating and always saturated
+%[measured 2026-08-30: `!(pow-math 0 -1)` aborted with
+%`'pow-math': Arithmetic: evaluation error: zero_divisor` where `!(/ 7 0)`
+%answered, and upstream aborts on BOTH, having no vocabulary for either
+%(PeTTa@ae66fa8 src/metta.pl:69 is `Out is A ** B`, uncaught)].
 metta_math_recovery(Operation, Arguments, Error, Answer) :-
     (   maplist(metta_numeric_operand, Arguments)
-    ->  rethrow_metta_operation_error(Operation, Error)
+    ->  metta_operation_recovery(Operation, Arguments, Error, Answer)
     ;   metta_operation_answer(Operation, Arguments, Answer)
     ).
 
@@ -641,9 +783,13 @@ metta_math_saturating_eval(Operation, Expression, Arguments, Out) :-
     ;   metta_operation_answer(Operation, Arguments, Out)
     ).
 
-%An unbound operand counts as numeric here, so the instantiation error is
-%rethrown rather than turned into a type report: a missing value is not a
-%wrong one, which is the split metta_arith_operands/2 already draws.
+%An unbound operand counts as numeric here, so it does NOT become a type
+%report: a missing value is not a wrong one, which is the split
+%metta_arith_operands/2 already draws. It reaches metta_operation_recovery/4
+%instead, where metta_arithmetic_rethrow/2 refuses it by the operation's own
+%name as an unsolved arithmetic query -- the same answer the grounded doors
+%have always given it, rather than a second spelling for one contract
+%[tested: test_arithmetic_inverts_past_the_linear_case_or_refuses_with_the_reason].
 metta_numeric_operand(Value) :- var(Value), !.
 metta_numeric_operand(Value) :- number(Value).
 %The reader's source spellings remain evaluable atoms until is/2 consumes

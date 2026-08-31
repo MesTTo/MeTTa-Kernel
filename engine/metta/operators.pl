@@ -175,18 +175,43 @@ metta_int_solve('/', A, B, R, Verdict) :-
 %(== 1 1), (== "S" "S") and (== () ()) are True. The unknown side is what
 %makes the False cases False: nothing is known about `a`, so nothing is
 %contradicted.
-%Two numbers inline, the shape '<'/3 above already uses, because that is what
-%a loop compares and the guard must not be felt there. Numeric equality is by
-%VALUE across the integer/float constructors: LeaTTa's Ground.equiv promotes
-%the integer with Float.ofInt in both mixed cases, and Atom.equiv delegates its
-%grounded case there [source: LeaTTa MettaHyperonFull/Core/Atom.lean:47-62,
-%110-116] [tested: test_mixed_numeric_equality_answers_what_the_arbiter_answers].
-'=='(A,B,R) :- ( number(A), number(B) -> (A =:= B -> R=true ; R=false)
-                ; comparable_operands(A, B) -> (A==B -> R=true ; R=false)
-                ; metta_operation_answer('==', [A, B], R) ).
-'!='(A,B,R) :- ( number(A), number(B) -> (A =:= B -> R=false ; R=true)
-                ; comparable_operands(A, B) -> (A==B -> R=false ; R=true)
-                ; metta_operation_answer('!=', [A, B], R) ).
+%[tested: test_mixed_numeric_equality_is_term_equality].
+'=='(A,B,R) :- ( A == B -> R = true ; R = false ).
+'!='(A,B,R) :- ( A == B -> R = false ; R = true ).
+
+%TERM EQUALITY, and nothing else, which is upstream's whole definition:
+%`'=='(A,B,R) :- (A==B -> R=true ; R=false)`
+%[source: PeTTa@ae66fa8 src/metta.pl:40-41]. Two consequences were measured on
+%2026-08-30 and both are upstream's:
+%  - `(== 1 1.0)` is FALSE and `(!= 1 1.0)` is TRUE. This engine compared
+%    numbers by VALUE with =:=/2, on LeaTTa's Ground.equiv promoting the
+%    integer with Float.ofInt.
+%  - `(== 1 "s")` and `(== true 1)` answer FALSE. This engine refused them,
+%    through a comparable_operands/2 guard that asked the type declarations
+%    whenever the two operands' intrinsic kinds differed.
+%That guard, same_intrinsic_kind/2 and metta_boolean/1 went with it, and the
+%equal-operand case now settles in ONE test where the guard cost a type lookup
+%on any pair the kinds did not settle.
+%
+%NO ERROR-OPERAND CLAUSE, and the two clauses above are upstream's verbatim.
+%A hand-on for an error-shaped operand lived here until 2026-08-30, defended
+%as a superset on the ground that upstream has no answer to align with. That
+%ground holds only for a COMPUTED operand, where upstream's `+` raises
+%uncaught and kills the run; for a WRITTEN error atom upstream simply
+%compares and ANSWERS -- `!(== (Error x y) 0)` is `false` there and was
+%`(Error x y)` here, a different answer to the same call, which is the one
+%thing the superset rule does not allow
+%[measured 2026-08-30 against PeTTa@ae66fa8 through both engines' main
+%entries; fixture=ai-tmp/eqprobe2.metta].
+%
+%The computed case loses nothing: the translator's argument ladder tests a
+%computed operand BEFORE the comparison runs, so `(== 4 (+ 1 "bad"))` still
+%answers the contained `(Error (+ 1 "bad") ...)` through
+%guard_error_arguments/5, which is also why these two clauses are total --
+%their answer is `true` or `false` for every pair that reaches them, a fact
+%the translator's clean-result elisions rely on
+%[tested: test_an_error_operand_is_handed_on, which drives the full
+%pipeline; source: engine/translator/special_forms.pl].
 %The guard the declaration above states, enforced at the predicate's own door
 %rather than through typed dispatch, which is what runtime_type_guarded/1
 %means and what keeps the cost near zero: the common case is two literals and
@@ -221,48 +246,8 @@ metta_int_solve('/', A, B, R, Verdict) :-
 %is one; two literals, which is what a loop compares, never reach it and the
 %measured 0.50 inferences per comparison the tier above costs are unchanged
 %[tested: test_the_error_vocabulary_answers_what_the_arbiter_answers].
-comparable_operands(A, B) :-
-    (   same_intrinsic_kind(A, B)
-    ->  true
-    %() is a proper list, and one proper list is all the branches below need,
-    %so an operand that IS one decides this without the walk is_list/1 would
-    %spend on the other. `(== $l ())` is how a list is walked to its end, and
-    %the walk asked is_list/1 of the whole remaining list at every step, which
-    %made traversing N elements quadratic [measured 2026-08-23: 46,245
-    %microseconds for 6,400 elements against 11,883 for the same walk that
-    %threads the list without comparing it].
-    %
-    %Both readings are what the branches below answer, and neither skips the
-    %error-shape rule. With A the empty list, is_list(A) holds and
-    %error_shaped_operand([]) cannot, so the first branch reduces to the test
-    %on B. With B the empty list, is_list(B) holds, so an A that is not a
-    %proper list reaches the second branch and succeeds there, and an A that
-    %is one succeeds in the first unless it is error-shaped: either way the
-    %answer is settled by A's error shape alone, which is a constant-time
-    %question.
-    ;   A == []
-    ->  \+ error_shaped_operand(B)
-    ;   B == [], \+ error_shaped_operand(A)
-    ->  true
-    ;   is_list(A)
-    ->  \+ error_shaped_operand(A), \+ error_shaped_operand(B)
-    ;   is_list(B)
-    ->  \+ error_shaped_operand(B)
-    ;   current_metta_module(Module),
-        once(( has_type_in(Module, A, Type), has_type_in(Module, B, Type) ))
-    ).
-
 error_shaped_operand(A) :-
     nonvar(A), A = [Head|Tail], Head == 'Error', nonvar(Tail).
-
-%Fails when the kinds DIFFER and when they do not decide, so an undecided
-%pair falls through to the declarations rather than being waved past.
-same_intrinsic_kind(A, B) :- number(A), !, number(B).
-same_intrinsic_kind(A, B) :- string(A), !, string(B).
-same_intrinsic_kind(A, B) :- metta_boolean(A), !, metta_boolean(B).
-
-metta_boolean(true).
-metta_boolean(false).
 
 '='(A,B,R) :-  (A=B -> R=true ; R=false).
 '=?'(A,B,R) :- (\+ \+ A=B -> R=true ; R=false).
@@ -470,10 +455,18 @@ prolog:error_message(metta_unsolved_arithmetic(Op, no_integer_relation)) -->
 %test_real_valued_math_treats_integer_and_float_operands_alike;
 %commit=6e529fc2c08eb69c0df47e3cff7c921320a3300d].
 %
-%pow-math has one additional split from powMath: the base is always Float, an
-%integer exponent must fit signed i32, a Float exponent has no such bound, and
-%every successful result is Float. Check the base's numeric door before the
-%bound so a bad base still earns pow-math's ordinary argument refusal.
+%pow-math keeps its operands' own numeric kinds: `(pow-math 2 3)` is 8, not
+%8.0, because SWI's `**` answers an integer for two integers
+%[source: PeTTa@ae66fa8 src/metta.pl:69, `'pow-math'(A, B, Out) :- Out is A ** B.`;
+%measured 2026-08-30, `2**3` is 8 and `2.0**3` is 8.0]. It coerced both
+%operands with float/1 between commit 6e529fc2 and this change, following
+%LeaTTa's toFloat law, and answered 8.0 where upstream and its examples/math.metta
+%answer 8.
+%
+%An integer exponent must still fit signed i32; check the base's numeric door
+%before the bound so a bad base still earns pow-math's ordinary argument
+%refusal. The other real-valued operations are unchanged and need no change:
+%sqrt, log and the trig family answer binary64 for an integer operand anyway.
 'pow-math'(A, B, Out) :-
     (   maplist(metta_numeric_operand, [A, B])
     ->  metta_pow_math_numeric(A, B, Out)
@@ -487,7 +480,7 @@ metta_pow_math_numeric(A, B, Out) :-
     ->  metta_error_atom(
             'pow-math', [A, B],
             "power argument is too big, try using float value", Out)
-    ;   Expression = float(A) ** float(B),
+    ;   Expression = A ** B,
         catch(Out is Expression, Error,
               metta_math_saturating_recovery(
                   'pow-math', Expression, [A, B], Error, Out))
@@ -551,12 +544,33 @@ metta_float_unary_eval(Operation, Function, A, Out) :-
 %lists:min_list/3, which is the trade this file makes everywhere.
 %A list of numbers computes; anything else is answered by the shared door,
 %whose refusal table words min-atom and max-atom the three ways upstream does.
+%An operand that is NOT A LIST answers the empty expression rather than a
+%refusal, sharing upstream's own non_list/1 first clause for both. The two
+%refusals BELOW it are kept as supersets, measured 2026-08-30: upstream
+%fails silently on `(min-atom ())` and ABORTS THE WHOLE RUN on
+%`(min-atom (a b))` with an uncaught `lists:min_list/3: Arithmetic: `a/0'
+%is not a function`, losing every later answer in the file
+%[source: PeTTa@ae66fa8 src/metta.pl:86-89,
+%`'min-atom'(List, Out) :- non_list(List), !, Out = [].`; measured 2026-08-30,
+%its examples/atomops.metta expects `()` for `(min-atom 5)` where this engine
+%answered `(Error (min-atom 5) "Atom is not an ExpressionAtom")`].
+'min-atom'(List, Out) :- non_list(List), !, Out = [].
+%Upstream's SECOND clause is a bare `min_list(List, Out)`, and SWI's
+%min_list/2 has no clause for the empty list, so `(min-atom ())` answers
+%NOTHING there and the file carries on. This engine used to refuse it with
+%"Empty expression"; the same input has to give the same answer, so the
+%refusal goes, on the rule engine/prelude.metta:262-266 already states
+%[source: PeTTa@ae66fa8 src/metta.pl:86-89; measured 2026-08-30, upstream
+%prints no line for `!(min-atom ())` and continues].
+'min-atom'([], _) :- !, fail.
 'min-atom'(List, Out) :- ( metta_numeric_list(List) -> min_list(List, Out)
                          ; is_list(List), List \== [],
                            metta_host_numeric_arguments(List)
                            -> once(seam:grounded_numeric_operation(
                                        min, List, Out))
                          ; metta_operation_answer('min-atom', [List], Out) ).
+'max-atom'(List, Out) :- non_list(List), !, Out = [].
+'max-atom'([], _) :- !, fail.
 'max-atom'(List, Out) :- ( metta_numeric_list(List) -> max_list(List, Out)
                          ; is_list(List), List \== [],
                            metta_host_numeric_arguments(List)

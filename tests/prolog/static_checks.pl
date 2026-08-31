@@ -700,13 +700,15 @@ emitted_goal((A -> B), I) :- !, ( emitted_goal(A, I) ; emitted_goal(B, I) ).
 emitted_goal((A *-> B), I) :- !, ( emitted_goal(A, I) ; emitted_goal(B, I) ).
 emitted_goal(\+ A, I) :- !, emitted_goal(A, I).
 emitted_goal(!, _) :- !, fail.
-% A goal the emitter qualified with a CONCRETE engine module resolves there
-% no matter what any space asserts, which is the "or qualify the goal"
-% remedy this check's own message offers; system:b_setval is the fuel
-% charge's documented shape. An unbound qualifier decides at run time and
-% stays exposed, so it is still walked.
+% A goal the emitter qualified with a CONCRETE module resolves there no
+% matter what any space asserts, which is the "or qualify the goal" remedy
+% this check's own message offers; system:b_setval is the fuel charge's
+% documented shape and translator:metta_boundary_result/3 is the swapped
+% boundary door's (a dynamic door cannot ride SWI's static-procedure
+% refusal, so its emission carries the module instead). An unbound
+% qualifier decides at run time and stays exposed, so it is still walked.
 emitted_goal(M : G, I) :- !,
-    (   nonvar(M), M == system
+    (   nonvar(M), atom(M)
     ->  fail
     ;   emitted_goal(G, I)
     ).

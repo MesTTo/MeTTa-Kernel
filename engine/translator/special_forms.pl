@@ -85,9 +85,41 @@ error_reifying_form('catch').
 %return anything at all -- `(= (ignore $x) 5)` answers 5 while holding the
 %error -- so its operands are tested.
 undeclared_call_operands(Fun, _, []) :-
-    ( error_transparent_operation(Fun) ; atom(Fun), runtime_type_guarded(Fun) ),
+    (   error_transparent_operation(Fun)
+    ;   atom(Fun),
+        runtime_type_guarded(Fun),
+        %== and != no longer qualify for the exemption: since they became
+        %upstream's pure term comparison they answer false about an error
+        %operand rather than handing it on, so the ladder is what carries a
+        %computed operand's error past them now
+        %[measured 2026-08-30: `!(== 4 (+ 1 "bad"))` answered false with the
+        %exemption in place and the contained error with the ladder emitted;
+        %fixture=ai-tmp/fwdprobe.metta]. The arithmetic and ordering family
+        %keep it: their numeric doors still route a refused operand through
+        %metta_operation_answer/3, `!(< 4 (+ 1 "bad"))` measured handing the
+        %inner error on the same day.
+        \+ total_boolean_operation(Fun)
+    ),
     !.
 undeclared_call_operands(_, Computed, Computed).
+
+%The operations whose answer is `true` or `false` for EVERY argument pair,
+%with no refusal and no error path of their own: each is a pure two-clause
+%if-then-else over a host test [source: engine/metta/operators.pl:252-254 and
+%the ==/!= clauses above them; engine/metta/space_hooks.pl:1075-1086]. The
+%translator's clean-result elisions ask this: the masked-result chain, the
+%if-condition error test and the argument ladder are all dead code on a value
+%one of these produced, and every elision cites this table so the three stay
+%one decision.
+total_boolean_operation('==').
+total_boolean_operation('!=').
+total_boolean_operation('=').
+total_boolean_operation('=?').
+total_boolean_operation('=alpha').
+total_boolean_operation('is-var').
+total_boolean_operation('is-ground').
+total_boolean_operation('is-expr').
+total_boolean_operation('is-space').
 
 %Guarded holds only UNBOUND values, because the walks that build it keep no
 %other kind: a value the compiler already knows cannot become an error atom at
@@ -111,9 +143,19 @@ error_argument_chain([V|Vs], Out, Call, Chain) :-
 %is for. Unifying the head instead binds a variable an ordinary expression is
 %holding as data: `(\= (1 2 3) ($a 3 4))` answered `(Error 3 4)`, with `$a`
 %bound to the symbol Error, in examples/ch08-data/08-01-atoms-lists-and-folds/15-roman.metta. `V` itself
-%may be unbound, and then `V = [Head|_]` binds it and `Head == 'Error'` fails,
-%which undoes the binding, so no nonvar/1 guard is needed in front.
-error_atom_test(V, ( V = [Head|_], Head == 'Error' )).
+%may be unbound, and then `V = [Head|Tail]` binds it and `Head == 'Error'`
+%fails, which undoes the binding, so no nonvar/1 guard is needed in front.
+%
+%THE TAIL MUST HAVE ARRIVED, which is the same shape error_shaped_operand/1
+%requires of an operand: an error atom is the PROPER list
+%`(Error <culprit> <reason>)`, and `[Error|$x]` with an unbound tail is
+%ordinary data a program built. Without this the two tests disagreed, and the
+%improper list `(cons Error $x)` -- which is how upstream's own lib_he writes
+%`if-error`, `(= $X (cons Error $_))` -- was propagated as an error instead of
+%compared: `!(if-error 42 Error 42)` answered `([|] Error $_0)` here and 42
+%upstream [measured 2026-08-30, examples/he_error.metta;
+%source: PeTTa@ae66fa8 lib/lib_he.metta:45-47].
+error_atom_test(V, ( V = [Head|Tail], Head == 'Error', nonvar(Tail) )).
 
 %if compiles its own condition, so the same rule is written out for it. A
 %CONDITION that produced an Error decides nothing, and if answers that atom
@@ -124,7 +166,13 @@ error_atom_test(V, ( V = [Head|_], Head == 'Error' )).
 %an Error there is the answer already.
 guard_error_condition(Cond, CondValue, Out, Then, Else, Guarded) :-
     (   var(CondValue),
-        \+ error_reifying_argument(Cond)
+        \+ error_reifying_argument(Cond),
+        %A condition headed by a total boolean cannot deliver an error atom,
+        %so its not-true arm needs no test: `(if (== $n 0) ...)` pays nothing
+        %for a guard its condition can never trip, which on a comparison-led
+        %loop is the whole not-true arm's cost.
+        \+ ( nonvar(Cond), Cond = [CondHead|_], atom(CondHead),
+             total_boolean_operation(CondHead) )
     ->  error_atom_test(CondValue, Test),
         Guarded = ( CondValue == true -> Then
                   ; Test -> Out = CondValue
@@ -723,32 +771,28 @@ translate_special_dl(return, [Value], AfterHead, Goals, Out) :-
 %arbiter answers all four rows for
 %`!(chain (superpose (1 2)) $x ($x $x))` where a bind-once route answers two
 %[measured 2026-08-24].
-translate_special_dl(chain, [Nested, Binder, Template], AfterHead, Goals, Out) :-
-    var(Binder),
-    !,
-    (   nonvar(Nested), \+ embedded_operation(Nested)
-    ->  substitute_written_variable(Binder, Nested, Template, Substituted),
-        translate_expr_dl(Substituted, AfterHead, AfterTemplate, Value),
-        %chain's declared result is `%Undefined%`, so what the template produced
-        %re-enters evaluation. The substituted operand can land in a MASKED
-        %position of the template and survive there unreduced, and this is the step
-        %that then reduces it: `!(chain (+ 1 2) $x (cons-atom $x (b)))` builds
-        %`((+ 1 2) b)` and answers `(3 b)` [measured 2026-08-24 against LeaTTa
-        %9ea9f9d].
-        masked_result_goal(Value, Out, Goal),
-        AfterTemplate = [Goal|Goals]
-    ;   %A stepped operand is the protocol observer: chain asks eval for one raw
-        %machine result, so an irreducible operand reaches its continuation as the
-        %bare NotReducible mark. An eval written in any ordinary expression
-        %context retains its own call instead.
-        AfterHead = [metta_chain_step(Nested, Binder)|AfterTemplate],
-        translate_expr_dl(Template, AfterTemplate, AfterResult, Value),
-        masked_result_goal(Value, Out, Goal),
-        AfterResult = [Goal|Goals]
-    ).
-%Malformed/non-variable binders retain the ordinary let-pattern behavior so
-%the existing language-level mismatch path, rather than translation, decides
-%their result.
+%CHAIN IS LET, which is upstream's own definition: one clause serves both,
+%`(HV == let ; HV == chain), T = [Pat, Val, In] -> ... (Pv = V) ...`
+%[source: PeTTa@ae66fa8 src/translator.pl:207-210]. So the binder takes the
+%value the operand produced, once.
+%
+%This engine used to SUBSTITUTE the written operand into the template instead,
+%and fall back to a runtime `metta_chain_step/2` whenever the operand was an
+%embedded operation -- eval or evalc -- so that chain could observe eval's raw
+%NotReducible mark. That is minimal MeTTa's stepping protocol, and it cost
+%twice: it diverged, and it put a runtime translation inside every loop
+%written in that style.
+%
+%THE DIVERGENCE, measured 2026-08-30:
+%`!(chain (superpose (1 2)) $x ($x $x))` answers `(1 1) (2 2)` upstream and
+%answered `(1 1) (1 2) (2 1) (2 2)` here, because substituting a
+%nondeterministic operand into a binder used twice duplicates it. The four
+%rows are the arbiter's, recorded as such in the comment this replaces; two is
+%upstream's, and upstream is the oracle for this branch.
+%
+%THE COST: examples/he_minimalmetta.metta is `(chain (eval ...) ...)` four
+%deep inside a 70,000 iteration loop, and every one of those evals took the
+%runtime door and translated its operand again.
 translate_special_dl(chain, Args, AfterHead, Goals, Out) :-
     translate_let_dl(Args, AfterHead, AfterTemplate, Value),
     masked_result_goal(Value, Out, Goal),
@@ -802,15 +846,18 @@ translate_special_dl('forall', [Generator, Test], AfterHead, Goals, Out) :-
     GeneratorGoal = (GeneratorPrefix,
                      reduce(GeneratorList, GeneratedValue, _)),
     translate_expr_dl(Test, AfterHead, BeforeForall, TestHeadValue),
-    %Stops on FALSE, not on "anything that is not true". The example's own
-    %comment has always said so, "an item returning false breaks the loop", and
-    %the two readings only came apart once the effectful operations started
-    %answering the unit value the specification types them with: a body of
-    %`(add-atom &s (num $x))` answers `()`, which is an effect that happened and
-    %not a failed test, and requiring `true` stopped the loop after one item
+    %The test must be TRUE, which is upstream's own condition,
+    %`forall(GenGoal, (reduce(TestList, Truth), Truth == true))`
+    %[source: PeTTa@ae66fa8 src/translator.pl:228].
+    %
+    %This read `Truth \== false` between the effect operations answering unit
+    %and this change: a body of `(add-atom &s (num $x))` answered `()`, an
+    %effect that happened rather than a failed test, and requiring `true`
+    %stopped the loop after one item. Those operations answer `true` again, so
+    %the looser reading has nothing left to admit
     %[tested: examples/ch07-control-flow/07-04-bounded-and-committed-searches/02-metta4_streams.metta].
     BeforeForall = [(forall(GeneratorGoal,
-                            (reduce(TestList, Truth, _), Truth \== false))
+                            (reduce(TestList, Truth, _), Truth == true))
                      -> Out = true
                       ; Out = false)|Goals].
 translate_special_dl('foldall', [Accumulator, Generator, InitialExpr],
@@ -854,37 +901,37 @@ translate_special_dl('foldall', [Accumulator, Generator, InitialExpr],
 %examples/ch08-data/08-01-atoms-lists-and-folds/05-lambda.metta settles which is right: it binds $k outside a lambda,
 %reads it inside, and expects the value, so capturing is the specified
 %behaviour and these forms now share the predicate that implements it.
-%THE LIST AND THE SEED CROSS AS WRITTEN, which is what their declared types
-%say: `(: map-atom (-> Expression Variable Atom Expression))` and
-%`(: foldl-atom (-> Expression Atom Variable Variable Atom %Undefined%))` are
-%the arbiter's own rows, and Expression and Atom are both on the mask
-%[source: LeaTTa MettaHyperonFull/Core/Modifiers.lean:92-124,
-%`declaredTypeEvaluates`]. These three clauses evaluated both operands, so a
-%written call in the list position was REDUCED and its value mapped over,
-%where the arbiter maps over the parts of the call itself:
-%`!(map-atom (cdr-atom (a b)) $y (q $y))` is `((q cdr-atom) (q (a b)))` there
-%and was `((q b))` here, and `!(foldl-atom (1) (+ 1 2) $a $b (size-atom $a))`
-%is 3 there, the size of the held `(+ 1 2)`, and was a Number refusal here
-%[measured 2026-08-24 against LeaTTa 9ea9f9d].
+%THE LIST AND THE SEED ARE EVALUATED, which is what upstream's own three
+%clauses do: each begins `translate_expr_to_conj(List, ConjList, L)` and folds,
+%maps or filters over L rather than over the written operand
+%[source: PeTTa@ae66fa8 src/translator.pl:247-265].
 %
-%A caller that wants the value of a call in either position NAMES it first,
-%`(let $xs (collapse ...) (map-atom $xs ...))`, which is what the arbiter's own
-%stdlib writes and what this tree's corpus was rewritten to.
+%They crossed AS WRITTEN here between 2026-08-24 and this change, following
+%LeaTTa's wider evaluation mask, and the difference is visible in one line:
+%`!(map-atom (cdr-atom (a b)) $y (q $y))` answered
+%`((q cdr-atom) (q (a b)))`, mapping over the two parts of an unevaluated
+%call, where upstream evaluates the list to `(b)` first and answers `((q b))`
+%[measured 2026-08-30, ai-tmp/coll.metta under both engines].
 %
-%No goal is emitted for either operand, so this is also strictly less work than
-%the evaluation it replaces.
+%Naming a computed list first still works and is still the clearer spelling,
+%`(let $xs (collapse ...) (map-atom $xs ...))`; it is no longer the only one
+%that does.
 translate_special_dl('foldl-atom', [ListExpr, InitialExpr, AccVar, ItemVar,
                                     Body], AfterHead, Goals, Out) :-
     collection_closure([ItemVar, AccVar], Body, Closure),
-    AfterHead = [foldl(Closure, ListExpr, InitialExpr, Out)|Goals].
+    translate_expr_dl(ListExpr, AfterHead, AfterList, ListValue),
+    translate_expr_dl(InitialExpr, AfterList, AfterSeed, SeedValue),
+    AfterSeed = [foldl(Closure, ListValue, SeedValue, Out)|Goals].
 translate_special_dl('map-atom', [ListExpr, ItemVar, Body],
                      AfterHead, Goals, Out) :-
     collection_closure([ItemVar], Body, Closure),
-    AfterHead = [maplist(Closure, ListExpr, Out)|Goals].
+    translate_expr_dl(ListExpr, AfterHead, AfterList, ListValue),
+    AfterList = [maplist(Closure, ListValue, Out)|Goals].
 translate_special_dl('filter-atom', [ListExpr, ItemVar, Condition],
                      AfterHead, Goals, Out) :-
     collection_closure([ItemVar], Condition, Closure),
-    AfterHead = [include(metta_condition_holds(Closure), ListExpr, Out)|Goals].
+    translate_expr_dl(ListExpr, AfterHead, AfterList, ListValue),
+    AfterList = [include(metta_condition_holds(Closure), ListValue, Out)|Goals].
 
 translate_special_dl('|->', [Args, Body0], AfterHead, Goals, Out) :-
     %Apply every nested sealed's rename BEFORE deciding which variables are
@@ -1044,14 +1091,34 @@ translate_special_dl(reduce, [Expr], AfterHead, Goals, Out) :-
       ; Expr = [Function|Args],
         translate_args_dl(Args, AfterHead, BeforeReduce, ArgValues),
         ExprValue = [Function|ArgValues] ),
-    BeforeReduce = [reduce(ExprValue, Reduced, Status),
-                    metta_reduce_result(ExprValue, Reduced, Status, Out)|Goals].
+    %AN IRREDUCIBLE reduce ANSWERS ITS OPERAND, not the `(reduce ...)` frame.
+    %Upstream's own reducer ends `Out = [F|Args]` for a head it cannot call
+    %[source: PeTTa@ae66fa8 src/translator.pl:84-86], so `!(reduce (unknown))`
+    %is `(unknown)` there. It retained the frame here until 2026-08-30, on the
+    %previous arbiter's reading, and that consumed upstream's
+    %examples/callquoteevalreduce.metta, whose whole subject is what each of
+    %call, quote, eval and reduce does to an undefined call
+    %[measured 2026-08-30: `(reduce-before (reduce (fib 5)))` here against
+    %`(reduce-before (fib 5))` upstream].
+    BeforeReduce = [reduce(ExprValue, Reduced, _Status),
+                    Out = Reduced|Goals].
 %metta_eval_step/2 exposes the raw NotReducible mark to chain and function.  As an
 %ordinary expression, however, eval is itself an application boundary and an
 %irreducible step retains `(eval <arg>)` as written.
+%AN IRREDUCIBLE eval ANSWERS ITS OPERAND, not the `(eval ...)` frame. Upstream
+%is `eval(C, Out) :- translate_expr(C, Goals, Out), call_goals(Goals)`, so a
+%symbol with no equations translates to itself and `!(eval done)` is `done`
+%[source: PeTTa@ae66fa8 src/metta.pl:274-276; measured 2026-08-30, this engine
+%answered `(eval done)`]. The boundary predicate is unchanged; what it is
+%handed is the OPERAND rather than the written call, which is the whole
+%difference.
 translate_special_dl(eval, [Arg], AfterHead, Goals, Out) :-
+    %Qualified on purpose: the boundary door is a swapped dynamic
+    %predicate now, so an unqualified emission could be captured by a raw
+    %assert into a space module (the protection census probes exactly that);
+    %the qualified call reaches translator's door whatever a space defines.
     AfterHead = [metta_eval_step(Arg, Produced),
-                 metta_boundary_result([eval, Arg], Produced, Out)|Goals].
+                 translator:metta_boundary_result(Arg, Produced, Out)|Goals].
 %evalc hands its first argument over unevaluated, exactly as eval does, or the
 %expression would already have been reduced in the calling space before the
 %space argument could select another one. The space itself is evaluated, so a
@@ -1061,7 +1128,7 @@ translate_special_dl(evalc, [Arg, Space], AfterHead, Goals, Out) :-
     translate_restricted_guard_dl(
         metta_require_current_capability(evalc, process),
         [metta_evalc_step(Arg, SpaceValue, Produced),
-         metta_boundary_result([evalc, Arg, SpaceValue], Produced, Out)|Goals],
+         translator:metta_boundary_result([evalc, Arg, SpaceValue], Produced, Out)|Goals],
         BeforeEval).
 %Like the reference's embedded operation, metta-thread receives the atom as
 %written and runs the nested full evaluator.  Compiling it as an ordinary call
@@ -1226,13 +1293,19 @@ metta_seq_written(Operand) :-
 %compiled, and nothing in `(= (f (g $x)) $x)` says that the caller's `(g 3)`
 %will have been evaluated to something else before it arrives.
 :- multifile prolog:message//1.
-prolog:message(metta_head_pattern_note(Fun, Path, Label, type_annotation)) -->
+%The head position holds a CALL to something this engine can run, so the
+%position compiled to a GOAL: the call is evaluated and its result is what the
+%caller's argument has to equal. Nothing in the source says so, which is the
+%same complaint the two clauses around this one answer, and engine/duals.pl
+%reads the note to decide it cannot dualise the head
+%[tested: duals_refusals:a_head_holding_a_call_has_no_dual].
+prolog:message(metta_head_pattern_note(Fun, Path, Label, functional_pattern)) -->
     { head_pattern_position_text(Path, Where) },
-    [ 'the head of (= (~w ...) ...) constrains ~w with the in-place \c
-       annotation on ~w, so that position compiled to a type premise GOAL \c
-       rather than to structure. The equation this function stores no longer \c
-       holds its whole head, which is why a dual cannot be built \c
-       for it.'-[Fun, Where, Label] ].
+    [ 'the head of (= (~w ...) ...) holds the call (~w ...) at ~w, so that \c
+       position compiled to a GOAL: the call runs and the caller\'s argument \c
+       is matched against what it answers, not against the call as written. \c
+       Write the relation in the body with let if you meant to run ~w \c
+       there.'-[Fun, Label, Where, Label] ].
 prolog:message(metta_head_pattern_note(Fun, Path, Label, defined_label(Route)))
     -->
     { head_pattern_position_text(Path, Where),
@@ -1292,30 +1365,43 @@ prolog:error_message(metta_seam_expansion_as_data(Rule, Seam)) -->
        Prolog is already holding that term, so it returns (~w ...) without \c
        the quote around it.'-[Rule, Seam, Seam] ].
 
-%A Python-compiled typed let carries an internal marker around the same
-%in-place annotation used by an equation head. Source-level colon expressions
-%remain ordinary destructuring patterns, as used by ch22-a-reasoner-you-can-serve/22-01-logic-programs/04-nilbc.metta;
-%shape alone cannot distinguish those data from a Python annotation.
+%A Python-compiled typed let carries an internal MARKER around its colon form,
+%and the marker is what makes the reading unambiguous. A bare `(: $x T)`
+%anywhere a program can write it -- an equation head, a match query, a let
+%pattern -- is ordinary structure, which is how upstream reads it and what
+%ch22-a-reasoner-you-can-serve/22-01-logic-programs/04-nilbc.metta needs;
+%shape alone cannot tell those data from an annotation, so only the marker
+%does. It recognises the form here rather than through the head walk, which
+%stopped reading colons at all on 2026-08-30.
+%
 %The value must bind before its type premise runs: checking the fresh pattern
 %variable first accepts everything and then forgets the constraint. Untyped
 %lets retain the occurrence-sensitive fast path below [tested:
 %test_an_annotated_binding_emits_its_claim,
-%translator_typed_let:a_source_colon_pair_stays_a_pattern;
-%commit=c3c8ea60516dc1f45620bbe4dba3b78993ee22e3].
+%translator_typed_let:a_source_colon_pair_stays_a_pattern].
+typed_binding_constraint([Colon, Fresh, Type], Fresh,
+                         [(has_type(Fresh, Type) *-> true
+                          ; 'get-metatype'(Fresh, Type))]) :-
+    nonvar(Colon), Colon == ':',
+    var(Fresh).
+
 translate_let_dl([[__metta_typed_binding__, Pattern], Value, In],
                  AfterHead, Goals, Out) :-
-    constrain_args(Pattern, ConstrainedPattern, TypeGoals),
-    TypeGoals \== [],
+    typed_binding_constraint(Pattern, ConstrainedPattern, TypeGoals),
     translate_expr_dl(ConstrainedPattern, AfterHead, AfterPattern,
                       PatternValue),
     translate_eager_argument_dl(Value, AfterPattern, AfterValue, ValueResult),
-    AfterValue = [unify_with_occurs_check(PatternValue, ValueResult)|AfterUnify],
+    AfterValue = [PatternValue = ValueResult|AfterUnify],
     append(TypeGoals, AfterTypes, AfterUnify),
     translate_expr_dl(In, AfterTypes, Goals, Out).
 
-%A let unifies its pattern with its value under an occurs check, so a binding
-%cannot build a term that contains itself. Where that check is emitted decides
-%whether it can fire at all.
+%A let binds its pattern to its value RAW, upstream PeTTa's own emission: a
+%self-containing binding is a legal rational tree, not a refusal. Measured on
+%the upstream engine, `!(let $x (f $x) worked)` answers [worked] and the
+%rational tree itself flows out when the body mentions it; the occurs check
+%this replaces was the LeaTTa arbiter's law and left with the arbiter,
+%taking the demotion pass with it: nothing emits an occurs check to demote
+%any more. Where the binding is emitted still decides WHEN it runs.
 %
 %Emitted before the goals that compute the value, which is where it used to
 %go, it runs on a result that is still an unbound variable, and two fresh
@@ -1364,9 +1450,9 @@ translate_let_dl([Pattern, Value, In], AfterHead, Goals, Out) :-
        ; shares_variable(Pattern, Value)
       -> translate_expr_dl(Pattern, AfterHead, AfterPattern, PatternValue),
          translate_eager_argument_dl(Value, AfterPattern, AfterValue, ValueResult),
-         AfterValue = [unify_with_occurs_check(PatternValue, ValueResult)|AfterUnify]
+         AfterValue = [PatternValue = ValueResult|AfterUnify]
        ; ( var(Value)
-           -> EarlyUnify = unify_with_occurs_check(PatternValue, ValueResult)
+           -> EarlyUnify = (PatternValue = ValueResult)
             ; EarlyUnify = (ValueResult = PatternValue) ),
          AfterHead = [EarlyUnify|BeforeValue],
          translate_eager_argument_dl(Value, BeforeValue, BeforePattern,
@@ -1375,105 +1461,6 @@ translate_let_dl([Pattern, Value, In], AfterHead, Goals, Out) :-
                            PatternValue) ),
     translate_expr_dl(In, AfterUnify, Goals, Out).
 
-%An occurs check whose left side is a variable that has appeared NOWHERE
-%earlier in the clause cannot fail. That variable is unbound when the goal
-%runs, and it cannot occur inside the value, because it has not yet been
-%anywhere that could have put it there. Those become =/2.
-%
-%What this removes is not small and the inference counter cannot see it, since
-%it counts both as one goal. unify_with_occurs_check/2 walks the whole value,
-%so NAMING a term costs time proportional to the term's SIZE. A let* chain of
-%four bindings over one list, 20,000 times, measured 2026-08-15 at 0.0081s for
-%a 10 element list, 0.0931s for 200 and 0.8730s for 2000; with the safe checks
-%demoted it is a flat 0.0025s at every size. O(n) becomes O(1).
-%
-%translate_let_dl/4 below already avoids what it can by emitting the check
-%before the value's goals, where the value is still unbound. That does nothing
-%when the value IS an already-bound variable, which is what (let $y $l ...)
-%over an argument compiles to, and it is the common shape.
-%Cost, since the counter gate measures compilation. The first version built a
-%seen-SET eagerly, calling term_variables/2 per goal, and cost 12,001
-%inferences of source-load. Guarding it behind a scan for the functor made that
-%worse rather than better: the scan alone accounted for the whole remaining
-%regression, because it walks every clause body while only a few contain a let.
-%Threading the prefix as a list of goals and inspecting it only when an occurs
-%check is actually found leaves source-load at its baseline and run-source
-%+998 over 1000 directives, which is one inference per compiled clause and the
-%floor for any post-pass [measured 2026-08-15].
-%Found comes back bound when the body holds a negation, so quantify_negations/2
-%walks only the clauses that have one. It is threaded through this pass rather
-%than tested for separately because a separate test is not free: a predicate
-%call costs one inference and flag/3 costs two, while comparing an argument
-%costs none [measured 2026-08-15, 100,000 iterations: bare loop 100002
-%inferences, the same loop plus X == [] 100002, plus a dynamic call 300002,
-%plus flag/3 400003]. One inference per compiled clause is what the last
-%post-pass here cost, and this one costs zero.
-demote_safe_occurs_checks(Head, Body0, Body, Found) :-
-    demote_occurs(Body0, Body, [Head], _, Found).
-
-%Prefix is the clause head plus every goal that can run before this one,
-%newest first. It is inspected ONLY when an occurs check is actually found, so
-%an ordinary goal costs one cons rather than a term_variables/2 walk. Building
-%the set eagerly instead cost 5,004 inferences of source-load on its own.
-demote_occurs(Goal, Goal, Prefix0, [Goal|Prefix0], _) :- var(Goal), !.
-demote_occurs((A0, B0), (A, B), Prefix0, Prefix, Found) :- !,
-    demote_occurs(A0, A, Prefix0, Prefix1, Found),
-    demote_occurs(B0, B, Prefix1, Prefix, Found).
-%The else branch runs only when the condition FAILED, which undid the
-%condition's bindings, so it starts from where the condition started.
-demote_occurs((C0 -> T0 ; E0), (C -> T ; E), Prefix0, Prefix, Found) :- !,
-    demote_occurs(C0, C, Prefix0, PrefixC, Found),
-    demote_occurs(T0, T, PrefixC, _, Found),
-    demote_occurs(E0, E, Prefix0, _, Found),
-    Prefix = [(C0 -> T0 ; E0)|Prefix0].
-demote_occurs((C0 *-> T0 ; E0), (C *-> T ; E), Prefix0, Prefix, Found) :- !,
-    demote_occurs(C0, C, Prefix0, PrefixC, Found),
-    demote_occurs(T0, T, PrefixC, _, Found),
-    demote_occurs(E0, E, Prefix0, _, Found),
-    Prefix = [(C0 *-> T0 ; E0)|Prefix0].
-demote_occurs((C0 -> T0), (C -> T), Prefix0, Prefix, Found) :- !,
-    demote_occurs(C0, C, Prefix0, PrefixC, Found),
-    demote_occurs(T0, T, PrefixC, _, Found),
-    Prefix = [(C0 -> T0)|Prefix0].
-demote_occurs((A0 ; B0), (A ; B), Prefix0, Prefix, Found) :- !,
-    demote_occurs(A0, A, Prefix0, _, Found),
-    demote_occurs(B0, B, Prefix0, _, Found),
-    Prefix = [(A0 ; B0)|Prefix0].
-%Wrappers whose argument is an ordinary goal. Bindings made inside findall/3
-%and \+/1 do not escape, so counting their variables as possibly bound
-%afterwards is conservative: it costs an optimisation, never soundness.
-demote_occurs(findall(T, G0, L), findall(T, G, L), Prefix0, Prefix, Found) :- !,
-    demote_occurs(G0, G, Prefix0, _, Found),
-    Prefix = [findall(T, G0, L)|Prefix0].
-demote_occurs(forall(C0, A0), forall(C, A), Prefix0, Prefix, Found) :- !,
-    demote_occurs(C0, C, Prefix0, PrefixC, Found),
-    demote_occurs(A0, A, PrefixC, _, Found),
-    Prefix = [forall(C0, A0)|Prefix0].
-demote_occurs(\+ G0, \+ G, Prefix0, Prefix, Found) :- !,
-    demote_occurs(G0, G, Prefix0, _, Found),
-    Prefix = [\+ G0|Prefix0].
-demote_occurs(once(G0), once(G), Prefix0, Prefix, Found) :- !,
-    demote_occurs(G0, G, Prefix0, _, Found),
-    Prefix = [once(G0)|Prefix0].
-demote_occurs(unify_with_occurs_check(Pattern, Value), Out, Prefix0, Prefix, _) :- !,
-    (   var(Pattern),
-        \+ occurs_in(Pattern, Prefix0),
-        \+ occurs_in(Pattern, Value)
-    ->  Out = (Pattern = Value)
-    ;   Out = unify_with_occurs_check(Pattern, Value)
-    ),
-    Prefix = [unify_with_occurs_check(Pattern, Value)|Prefix0].
-%A negation is the only goal this pass reports rather than rewrites. Its own
-%functor gives it an index bucket of its own, so recognising it costs the
-%goals that are not negations nothing.
-demote_occurs(metta_negation(L, S, T, D, O), metta_negation(L, S, T, D, O),
-              Prefix0, [metta_negation(L, S, T, D, O)|Prefix0], Found) :- !,
-    ( var(Found) -> Found = found ; true ).
-%Anything else is opaque. Its own goals are left alone and every variable it
-%mentions counts as possibly bound from here on.
-demote_occurs(Goal, Goal, Prefix0, [Goal|Prefix0], _).
-
-occurs_in(Var, Term) :- term_variables(Term, Vars), memberchk_eq(Var, Vars).
 
 %Rewrite every (sealed <vars> <expr>) inside a term so its named variables are
 %renamed apart, and report the variables that rename produced. Renaming the
@@ -1669,6 +1656,25 @@ unify_branch(Written, true, Value, Out, Branch) :-
     masked_result_goal(Value, Out, Branch).
 unify_branch(_, Conj, Value, Out, Branch) :-
     build_branch(Conj, Value, Out, Branch).
+
+%THE FORMS WHOSE COMPILATION READS term_variables/2 OF THEIR OPERAND, declared
+%here beside the clauses that do it. `sealed` builds a copy_term/4 over the
+%operand's variables and `|->` excludes its arguments from the body's to find
+%the closure's free ones, so BOTH decide what they compile from the variable
+%SET a subterm carries.
+%
+%engine/translator/analysis.pl's literal_sensitive_form/1 reads this before
+%translation_skeleton/2 abstracts a literal into a variable: doing so inside
+%one of these forms would add a member to the set it captures, and
+%`(sealed ($x) 5)` would seal a fresh variable in place of the 5
+%[tested: translator_sealed:sealing_a_ground_atom_returns_that_atom].
+%
+%This list is the STATIC half. A translator rule is literal-sensitive too, for
+%a different reason -- it is a macro that RUNS at compile time -- and it is a
+%registry a program adds to, so literal_sensitive_form/1 asks the registry
+%rather than extending this list.
+variable_capturing_form(sealed).
+variable_capturing_form('|->').
 
 %THE EMBEDDED-OPERATION VOCABULARY, transcribed from the reference's own list
 %rather than inferred: the twelve reflected minimal forms plus the interpreter

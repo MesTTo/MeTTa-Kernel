@@ -22,11 +22,33 @@
 % migration rather than following from it]. Under copy() it compounded: the
 % clone regenerated what it had already been handed, so a space of four atoms
 % cloned to six and answered three times.
+:- dynamic metta_any_segment_equation/0.
 :- dynamic fun_meta_clause/4.
 :- dynamic fun_meta_clause_types/5.
 
+%THE SEGMENT QUESTION IS ASKED ONCE PER EQUATION, not once per call. Every
+%call used to reach metta_segment_equation_in/3, which walks a function's
+%equation heads with metta_seq_present/1 looking for a sequence variable, and
+%a program that uses none paid that walk for the whole search: on
+%examples/tilepuzzle.metta it was 7.4% of self time in
+%metta_seq_present_items/1 and metta_seq_surface_gap/3, plus the 6.5% in
+%fun_meta_clause/4 the walk drives, for a feature the file never mentions
+%[measured 2026-08-30, SWI profile over 181,441 states]. Upstream has no
+%sequence variables at all, so this is a superset feature and it is now
+%pay-per-use: one indexed lookup that fails for a program without one.
+%
+%Conservative on removal. Retracting the last segment equation leaves the
+%flag set, so the walk comes back and the answer stays right; nothing reads
+%the flag for anything but skipping work.
 record_fun_meta(F, Args, Body) :-
     current_metta_module(Module),
+    (   metta_seq_present(Args)
+    ->  (   metta_any_segment_equation
+        ->  true
+        ;   assertz(metta_any_segment_equation)
+        )
+    ;   true
+    ),
     asserta(fun_meta_clause(Module, F, Args, Body), Ref),
     record_source_assertion(Ref),
     (   nb_current('$metta_queued_equation_types', queued(QF, QTypes)),
@@ -176,16 +198,16 @@ clear_fun_meta(Module, F) :-
     retractall(head_pattern_note(Module, F, _, _, _)).
 
 % WHAT THE COMPILER DECIDED ABOUT A HEAD PATTERN POSITION, one row per
-% position, and both decisions it can take there are recorded because both are
-% invisible in the source.
+% position, and every decision it can take there is recorded because all of
+% them are invisible in the source.
 %
-%   type_annotation    the position compiled to a GOAL rather than to
-%                      structure: (= (f (: $x Number)) $x) compiles to
-%                      f(A, A) :- has_type(A, 'Number'). The retained equation
-%                      no longer holds the whole head, so anything reading
-%                      equations back has to know, and engine/duals.pl refuses
-%                      to build a dual for such a function rather than negate a
-%                      head it cannot see.
+%   functional_pattern the position holds a CALL and compiled to a GOAL rather
+%                      than to structure: (= (f (g $x)) $x) runs g and matches
+%                      the caller's argument against what it answers. The
+%                      retained equation no longer holds the whole head, so
+%                      anything reading equations back has to know, and
+%                      engine/duals.pl refuses to build a dual for such a
+%                      function rather than negate a head it cannot see.
 %   defined_label(R)   the label at that position HAS MEANING, through
 %                      equations (R = function) or through the translator
 %                      (R = translated). The position is still matched
@@ -263,7 +285,8 @@ clear_fun_meta(Module, F) :-
 head_pattern_notes_for(Module, [=, [F|Args], _]) :-
     (   member(Argument, Args),
         compound(Argument)
-    ->  constrain_children(Args, 1, [], _, _, Positions, []),
+    ->  constrain_head_arguments(Args, 1, Module, F, definition_local, _, _,
+                                 Positions),
         (   Positions == []
         ->  true
         ;   forall(( member(head_position(RevPath, Label, Kind), Positions),
@@ -281,7 +304,12 @@ record_head_pattern_notes(F, Positions) :-
                                  Reason) ),
            note_head_pattern(Module, F, RevPath, Label, Reason)).
 
-head_pattern_reason(_, _, _, _, _, type_annotation, type_annotation).
+%A functional pattern is the OTHER head argument that compiles to a goal, so
+%it reports unconditionally for the same reason: engine/duals.pl reads these
+%notes to decide which heads it cannot dualise, and a constraint it cannot
+%see is one it would silently claim past
+%[tested: duals_refusals:a_head_holding_a_call_has_no_dual].
+head_pattern_reason(_, _, _, _, _, functional_pattern, functional_pattern).
 %THE LABEL QUESTION FIRST, and the order is what the two questions cost rather
 %than taste. head_meaning_route/3 reads Prolog facts, metta_special_form/1,
 %translator_rule/2 and fun/1, and fails at once for a label that means nothing,
@@ -371,7 +399,7 @@ note_head_pattern(Module, F, RevPath, Label, Reason) :-
 %`nested-argument-evaluated` there and answered BOTH here [measured 2026-08-19:
 %LeaTTa/tests/semantics/types-meta/19_atom_parameter_outer_call.metta and
 %15_atom_parameter_nested_parametric.metta, through
-%tests/conformance/leatta_run.pl].
+%tests/conformance/answer_groups.pl].
 %
 %The relational reading is not lost, it is written where it runs: a `let` in
 %the body says the same thing and answers the same answers
@@ -383,14 +411,15 @@ note_head_pattern(Module, F, RevPath, Label, Reason) :-
 %keys, typed lets and case duals all compile a pattern and none of them is an
 %equation head, so the positions the walk reports go nowhere and no question is
 %ever asked about them.
-constrain_args(In, Out, Goals) :- constrain_args(In, Out, Goals, [], _, _).
+constrain_args(In, Out, Goals) :-
+    constrain_args(In, Out, Goals, [], _, _, structural).
 
-%% constrain_args(+Pattern, -Constrained, -Goals, +ReversedPath, -Positions, ?PositionsTail) is det.
+%% constrain_args(+Pattern, -Constrained, -Goals, +ReversedPath, -Positions, ?PositionsTail, +Invert) is det.
 %Positions is a DIFFERENCE LIST, ending in the tail the caller supplies, for
 %the reason translate_expr_dl/4's goals are: a walk that appended what its
 %children reported charged every compiled equation for the append, whether or
 %not anything was reported.
-constrain_args(X, X, [], _, Positions, Positions) :- (var(X); atomic(X)), !.
+constrain_args(X, X, [], _, Positions, Positions, _) :- (var(X); atomic(X)), !.
 %QUOTE IS A SCOPE HERE, exactly as it is in a body. A body's `(quote X)` holds
 %X and compiles nothing inside it
 %[source 2026-08-21: engine/translator.pl,
@@ -407,80 +436,76 @@ constrain_args(X, X, [], _, Positions, Positions) :- (var(X); atomic(X)), !.
 %the body's scope is one argument too: `(quote a b)` is not the scope form on
 %either side [tested: translator_quote_scope,
 %test_quote_is_a_scope_in_head_position_too; commit=4465fc492071932eab0b2818a4ccd46f01f0d6aa].
-constrain_args([Quote, Expr], [Quote, Expr], [], _, Positions, Positions) :-
+constrain_args([Quote, Expr], [Quote, Expr], [], _, Positions, Positions, _) :-
     nonvar(Quote), Quote == quote, !.
-%An IN-PLACE TYPE ANNOTATION in a head parameter position: `(: $x T)` matches
-%anything whose type includes T and binds $x to it, and `(: $x $t)` binds $t to
-%each applicable type, one branch each. hyperon-experimental issue #177's
-%dynamic half, the point being to put a type where it can PRUNE rather than
-%only in a top-level declaration.
+%A COLON FORM IN A HEAD IS ORDINARY STRUCTURE, matched like any other list.
 %
-%It desugars to a plain variable plus a type premise, and the premise is not a
-%new relation: it is the SAME acceptance the engine already compiles for a
-%typed argument position, `(has_type(V,T) *-> true ; get-metatype(V,T))`. So
-%`(: $x T)` means exactly what a declared parameter of type T means, and anyone
-%who knows one knows the other.
+%It was an IN-PLACE TYPE ANNOTATION until 2026-08-30: `(: $x T)` in a head
+%parameter desugared to a plain variable plus the type premise
+%`(has_type(V,T) *-> true ; get-metatype(V,T))`, which is
+%hyperon-experimental issue #177's dynamic half and a feature the previous
+%arbiter implemented. Upstream has no such reading, and the two disagree on
+%BOTH calls rather than on an edge: with `(= (fann (: $x Number)) $x)`,
+%upstream answers nothing for `(fann 5)` and `5` for `(fann (: 5 Number))`,
+%and the annotation reading answered exactly the other way round
+%[measured 2026-08-30 against PeTTa@ae66fa8].
 %
-%That shape is also what makes the two fixtures work for the same reason. A
-%declared type wins where there is one, `(: $x Person)` accepting Ann and
-%refusing Rex; and a METATYPE restriction works because has_type/2 fails on a
-%symbol with no declaration, so `(: $c Symbol)` falls through to get-metatype/2
-%and accepts any symbol. Symbol, Variable, Grounded and Expression are subtypes
-%of Atom, so that fallback is what makes the annotation reach all four atom
-%kinds and not only declared types. Nondeterminism is native and free: with the
-%type a VARIABLE, has_type/2 enumerates, so `(: $x $t)` gives one branch per
-%declared type and the shared form `(: $x $t) (: $y $t)` constrains the two
-%parameters to agree.
+%It is not a corner. The reading swallows every `(: A B)` head pattern, so a
+%program whose SUBJECT is `(: proof theorem)` terms cannot destructure one in
+%a head at all: upstream's examples/nilbc.metta compiles
+%`(= (bc $kb $_ (: $proof $theorem)) (match $kb (: $proof $theorem) ...))` to
+%`bc(A, B, C) :- (has_type(B, E) *-> true ; get-metatype(B, E)), match(A, [:,
+%B, E], ...)`, which asks the knowledge base for the argument's TYPE instead
+%of matching the query, and the file's first proof search answered nothing.
+%The note that shipped the feature recorded the cost as "It needed ONE clause
+%changed" in that file; a semantics the corpus has to be edited for is the
+%wrong semantics.
 %
-%`:` AND NOT A NEW SPELLING, which is the whole difficulty and was got wrong
-%here twice before it was got right. Issue #177 raises the collision and
-%proposes `::` "when position cannot distinguish the two uses"; this tree tried
-%`::` and then `:>`, and both are worse than the collision they avoid. `::` is
-%what metta-lang.dev's tutorials use as an ordinary cons constructor, in
-%`(= (length (:: $x $xs)) (+ 1 (length $xs)))` and 63 places after it, so it
-%silently reinterpreted anyone's list code into a non-terminating recursion.
-%`:>` collides with nothing and reads as a SUBTYPE bound to anyone who has met
-%Scala's `<:` and `>:`, which is a different lie.
-%
-%Position CAN distinguish the two uses, and LeaTTa proved it by implementing
-%exactly this against a mechanised Hyperon semantics. Two gates:
-%
-%  1. a pattern that IS a colon expression stays structural, so
-%     `(match &self (: $x Human) $x)` still retrieves stored declarations;
-%  2. below that, only `(: $variable expected)` is an annotation, and a colon
-%     whose value slot is not a variable is data the walk does not look inside.
-%
-%[source: LeaTTa/ai-report-inplace-annotations.md, Design]. That is enough for
-%this corpus. examples/ch22-a-reasoner-you-can-serve/22-01-logic-programs/04-nilbc.metta is a backward-chaining proof
-%search whose subject matter IS `(: proof theorem)` terms, 134 of them, and
-%gate 2 covers every one whose value slot is an expression while gate 1 covers
-%its knowledge-base queries. It needed ONE clause changed, a base case that
-%destructures its query in the body instead of the head
-%[tested: translator_inplace_annotations, a_cons_list_is_ordinary_structure,
-%examples/ch22-a-reasoner-you-can-serve/22-01-logic-programs/04-nilbc.metta].
-constrain_args([Colon, Var, Type], Var,
-               [(has_type(Var, Type) *-> true ; 'get-metatype'(Var, Type))],
-               Path, [head_position(Path, ':', type_annotation)|Positions],
-               Positions) :-
-    nonvar(Colon), Colon == ':', var(Var), !.
-%GATE TWO: a colon form whose VALUE slot is not a variable is ordinary data,
-%and the walk does not descend into it either. Both halves are load-bearing.
-%LeaTTa needed the second for single_sided.metta's binary-tree constructor
-%`(: (Sym (: (Sym (: $x $a)) $b)) $c)`, whose inner colons are structure inside
-%a value slot: a recognizer that kept descending changed the constructor
-%[source: LeaTTa/ai-report-inplace-annotations.md, Design]. It earns its keep
-%here too: nilbc.metta's `(bc $kb (S $d) (: ($rule $premise) $theorem))` has an
-%expression in the value slot and stays the proof term it is.
-constrain_args([Colon, Value, Type], [Colon, Value, Type], [], _,
-               Positions, Positions) :-
-    nonvar(Colon), Colon == ':', nonvar(Value), !.
-constrain_args([F, A, B], Out, Goals, Path, Positions, Rest) :-
+%A program that wants a type where it can PRUNE writes the premise in the
+%body, which is what upstream's own corpus does.
+constrain_args([F, A, B], Out, Goals, Path, Positions, Rest, Invert) :-
     nonvar(F),
     F == cons,
-    constrain_args(A, A1, G1, [1|Path], Positions, AfterA),
-    constrain_args(B, B1, G2, [2|Path], AfterA, Rest),
+    constrain_args(A, A1, G1, [1|Path], Positions, AfterA, Invert),
+    constrain_args(B, B1, G2, [2|Path], AfterA, Rest, Invert),
     Out = [A1|B1],
     append(G1, G2, Goals), !.
+%CURRY'S FUNCTIONAL PATTERN. A head argument that is a CALL to a defined
+%function becomes a fresh variable plus a prefix goal that runs the function,
+%so `(= (f (g $x)) $x)` compiles to `f(A, B) :- g(B, A)` and constrains the
+%argument by running g BACKWARDS. It is the mechanism upstream calls
+%constrain_args/3 and the whole point of its functionhead examples: `(= (cat
+%(animal $X)) ...)` admits only the $X that `animal` produces, and `(= (h
+%(myfunc (10) $B) $C) ($B $C))` solves $B from the value the caller passed
+%[source: PeTTa@ae66fa8 src/translator.pl:9-12, `constrain_args([F|Args], Var,
+%Goals) :- atom(F), fun(F), !, translate_expr([F|Args], GoalsExpr, Var)`].
+%The name is Curry's: a functional pattern is a left-hand-side call solved by
+%narrowing rather than matched as a constructor term.
+%
+%This engine dropped it on 2026-08-19 because LeaTTa's matching relation has
+%no case for it, and rewrote five examples to say the same thing with a `let`
+%in the body. That reasoning was sound for LeaTTa and does not survive the
+%move to upstream as the only oracle: functionhead, functionhead2,
+%functionhead3, patrick_test and tilepuzzle all need it and all diverged
+%without it [measured 2026-08-30, tests/conformance/petta].
+%
+%ONLY WHERE THE ARGUMENT IS A VALUE. Invert is `structural` for a position
+%carrying the evaluation mask, because such a position receives its argument
+%AS WRITTEN: asking which input makes a function PRODUCE a given piece of
+%syntax is not what any author meant, and this engine's own prelude depends on
+%it, `(= (union (superpose $a) (superpose $b)) ...)` under `(: union (-> Atom
+%Atom %Undefined%))` matching the literal call. Upstream never meets the
+%collision -- `fun(union)` is false there, its lib has no such equation -- so
+%gating costs nothing against upstream and keeps the prelude working
+%[measured 2026-08-30: fun(superpose) is true on BOTH engines, so the fun/1
+%test alone does not separate them].
+constrain_args([F|Args], Var, Goals, Path,
+               [head_position(Path, F, functional_pattern)|Positions],
+               Positions, invert) :-
+    atom(F),
+    fun(F),
+    !,
+    translate_expr([F|Args], Goals, Var).
 %Numbered from ZERO here and from one in translate_clause/3, because a nested
 %sub-pattern carries its own label at the front and an equation head's argument
 %list does not: `(= (f (h (g $x))) ...)` puts `(g $x)` at head argument 1,
@@ -494,21 +519,22 @@ constrain_args([F, A, B], Out, Goals, Path, Positions, Rest) :-
 %[measured 2026-08-21: a clause whose body is this if-then-else measures the
 %same inference count as one whose body is `true`, and a clause that calls a
 %helper instead measures one more].
-constrain_args(In, Out, Goals, Path, Positions, Rest) :-
+constrain_args(In, Out, Goals, Path, Positions, Rest, Invert) :-
     (   In = [Label|_], atom(Label)
     ->  Positions = [head_position(Path, Label, label)|ChildPositions]
     ;   Positions = ChildPositions
     ),
-    constrain_children(In, 0, Path, Out, NestedGoalsList, ChildPositions, Rest),
+    constrain_children(In, 0, Path, Out, NestedGoalsList, ChildPositions, Rest,
+                       Invert),
     flatten(NestedGoalsList, Goals), !.
 
 %A sub-pattern's children, numbered from one so a note can say WHICH child of
 %which argument it is about. maplist/4 cannot count.
-constrain_children([], _, _, [], [], Positions, Positions).
-constrain_children([C|Cs], I, Path, [O|Os], [G|Gs], Positions, Rest) :-
-    constrain_args(C, O, G, [I|Path], Positions, AfterC),
+constrain_children([], _, _, [], [], Positions, Positions, _).
+constrain_children([C|Cs], I, Path, [O|Os], [G|Gs], Positions, Rest, Invert) :-
+    constrain_args(C, O, G, [I|Path], Positions, AfterC, Invert),
     J is I + 1,
-    constrain_children(Cs, J, Path, Os, Gs, AfterC, Rest).
+    constrain_children(Cs, J, Path, Os, Gs, AfterC, Rest, Invert).
 
 %The predicates the ENGINE emits into a compiled clause body, and the reason
 %they have to be named somewhere.
@@ -631,14 +657,13 @@ seam:engine_emitted(switch_runtime/3).
 seam:engine_emitted(metta_evaluation_fuel/1).
 seam:engine_emitted(metta_fuel_exhausted/1).
 seam:engine_emitted(function_overapplication/3).
+seam:engine_emitted(declared_arity_refusal/3).
 seam:engine_emitted(metta_bad_argument_error/3).
 seam:engine_emitted(dispatch_mismatch_result/3).
 seam:engine_emitted(dispatch_no_match_result/3).
 seam:engine_emitted(dispatch_policy_execute/5).
 seam:engine_emitted(metta_application_result/3).
 seam:engine_emitted(metta_application_result/4).
-seam:engine_emitted(metta_boundary_result/3).
-seam:engine_emitted(metta_reduce_result/4).
 seam:engine_emitted(metta_eval_step/2).
 seam:engine_emitted(metta_evalc_step/3).
 seam:engine_emitted(metta_evaluate_argument/2).
@@ -698,6 +723,11 @@ translate_restricted_guard_dl(Guard, Tail, Goals) :-
 
 :- multifile seam:function_changed/1.
 seam:function_changed(Fun) :-
+    %Muted during a space release: the dying world's own super users die
+    %with it and cross-world users cannot exist, so recompiling here only
+    %ever resolved super inside a half-dead world
+    %[source: engine/spaces/lifecycle.pl, metta_release_space/1].
+    \+ nb_current('$metta_space_releasing', true),
     super_call_compiled(Fun),
     findall(User,
             ( translated_from(_, [=, [User|_], Body]),
@@ -782,7 +812,7 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
     translate_equation_head(F, Args0, ConstrainArgs, Args1, GoalsPrefix),
     record_fun_meta(F, Args1, BodyExpr),
     metta_seq_head_plan(Args1, HeadPlan),
-    translate_segment_body_plan(F, Args1, BodyExpr, GoalsPrefix, BodyPlan),
+    translate_segment_body_plan(F, BodyExpr, GoalsPrefix, BodyPlan),
     same_length(Args1, CallArgs),
     append(CallArgs, [Out], FinalArgs),
     compiled_function_name(F, Predicate),
@@ -798,7 +828,7 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
     normalize_equation_result(F, CallArgs, RawOut, Out, MergedRawBody,
                               BodyConj0),
     merge_branch_returns(Head, BodyConj0, BodyConj1),
-    demote_safe_occurs_checks(Head, BodyConj1, BodyConj, HasNegation),
+    defer_application_protocol(BodyConj1, BodyConj, HasNegation),
     (   HasNegation == found
     ->  quantify_negations(Head, BodyConj)
     ;   true
@@ -808,7 +838,7 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
                                                translate_equation_head(F, Args0, ConstrainArgs,
                                                                        Args1, GoalsPrefix),
                                                record_fun_meta(F, Args1, BodyExpr),
-                                               translate_equation_body_result(F, Args1, BodyExpr,
+                                               translate_equation_body_result(F, BodyExpr,
                                                                               GoalsBody, ExpOut),
                                                (  nonvar(ExpOut) , ExpOut = partial(Base,Bound)
                                                -> length(Bound, N),
@@ -836,7 +866,7 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
                                                normalize_equation_result(F, HeadArgs, RawOut, Out,
                                                                          MergedRawBody, BodyConj0),
                                                merge_branch_returns(Head, BodyConj0, BodyConj1),
-                                               demote_safe_occurs_checks(Head, BodyConj1, BodyConj, HasNegation),
+                                               defer_application_protocol(BodyConj1, BodyConj, HasNegation),
                                                ( HasNegation == found
                                                  -> quantify_negations(Head, BodyConj)
                                                   ; true ).
@@ -969,15 +999,45 @@ direct_self_equation_goal(Goal0, Caller, Produced, Out, Goal) :-
 %[tested: tests/prolog/suites/reader/segment_equations.plt and
 %tests/prolog/suites/translator/translator.plt:translator_inplace_annotations;
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+%THE ONE DOOR THAT INVERTS. Every other constrain_args/3 caller compiles a
+%pattern that is not an equation head -- case keys, typed lets, case duals,
+%the specializer's normalized head -- and a functional pattern there would
+%turn a key into a call [source: PeTTa@ae66fa8 src/specializer.pl:54, which
+%passes ConstrainArgs=false for the same reason this engine does].
+%Per ARGUMENT, because the evaluation mask decides a whole argument and so
+%decides every subterm inside it, which is the rule head_pattern_reason/7
+%already applies to the notes.
 translate_equation_head(F, Args0, true, Args1, GoalsPrefix) :-
     !,
-    constrain_children(Args0, 1, [], Args1, GoalsA, Positions, []),
+    current_metta_module(Module),
+    constrain_head_arguments(Args0, 1, Module, F, governing, Args1, GoalsA,
+                             Positions),
     flatten(GoalsA, GoalsPrefix),
     (   Positions == []
     ->  true
     ;   record_head_pattern_notes(F, Positions)
     ).
 translate_equation_head(_, Args, false, Args, []).
+
+%Argument by argument, so each one is asked whether its own position carries
+%the mask before its pattern is walked.
+%The TIER is the caller's, because the two doors ask at different moments:
+%bulk ingestion records notes before register_fun_in/2 and so reads the
+%equation owner's local declarations, while the compiler asks the governing
+%selector after ownership is registered. Both must reach the SAME verdict on
+%whether a position inverts, or the note would describe a clause the compiler
+%did not write
+%[tested: translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask].
+constrain_head_arguments([], _, _, _, _, [], [], []).
+constrain_head_arguments([A0|As0], Index, Module, F, Tier, [A|As], [G|Gs],
+                         Positions) :-
+    (   unevaluated_head_argument(Tier, Module, F, Index)
+    ->  Invert = structural
+    ;   Invert = invert
+    ),
+    constrain_args(A0, A, G, [Index], Positions, Rest, Invert),
+    Next is Index + 1,
+    constrain_head_arguments(As0, Next, Module, F, Tier, As, Gs, Rest).
 
 %An equation head containing `(:seg $x)` cannot be represented by Prolog's
 %fixed-arity head unification alone.  Compile its body exactly once, retain the
@@ -986,12 +1046,12 @@ translate_equation_head(_, Args, false, Args, []).
 %clause; calls at another arity use metta_segment_dispatch/4 over the retained
 %source equations [tested: tests/prolog/suites/reader/segment_equations.plt;
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-translate_segment_body_plan(F, Args, BodyExpr, GoalsPrefix, BodyPlan) :-
+translate_segment_body_plan(F, BodyExpr, GoalsPrefix, BodyPlan) :-
     (   metta_seq_present(BodyExpr)
     ->  metta_seq_body_plan(BodyExpr, ParsedBody),
         goals_list_to_conj(GoalsPrefix, PrefixConj),
         BodyPlan = spliced(PrefixConj, ParsedBody)
-    ;   translate_equation_body_result(F, Args, BodyExpr, GoalsBody, ExpOut),
+    ;   translate_equation_body_result(F, BodyExpr, GoalsBody, ExpOut),
         append(GoalsPrefix, GoalsBody, Goals),
         goals_list_to_conj(Goals, GoalsConj),
         BodyPlan = compiled(GoalsConj, ExpOut)
@@ -1003,151 +1063,119 @@ translate_segment_body_plan(F, Args, BodyExpr, GoalsPrefix, BodyPlan) :-
 %keeps the existing continuation rule [source: LeaTTa
 %MettaHyperonFull/Minimal/Interpreter.lean:348-368 and :3786-3799;
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
-translate_equation_body_result(F, Args, BodyExpr, GoalsBody, ExpOut) :-
+translate_equation_body_result(F, BodyExpr, GoalsBody, ExpOut) :-
     (   declared_output_type(F, 'Atom'),
         \+ function_frame_body(BodyExpr)
     ->  GoalsBody = [],
         ExpOut = BodyExpr
-    ;   translate_equation_body(F, Args, BodyExpr, GoalsBody0, ExpOut0),
-        (   GoalsBody0 == []
-        ->  equation_result_continuation(BodyExpr, ExpOut0, GoalsBody, ExpOut)
-        ;   GoalsBody = GoalsBody0,
-            ExpOut = ExpOut0
-        )
+    ;   translate_expr(BodyExpr, GoalsBody, ExpOut)
     ).
 
-%A variable in an equation body normally denotes an argument value that the
-%caller's mask has already evaluated.  The exception is a head variable that
-%occurs only in held (`Atom`, `Variable` or `Expression`) positions.  Remember
-%those identities while compiling this one body so a later unmasked use can
-%perform the deferred evaluation.  Restricting the marker to that origin keeps
-%ordinary relational variables transparent to CLP operations and to the
-%purity analyser.
-translate_equation_body(Fun, Args, Body, Goals, Out) :-
-    held_head_variables(Fun, Args, Held),
-    setup_call_cleanup(
-        install_held_head_variables(Held, Saved),
-        translate_expr(Body, Goals, Out),
-        restore_held_head_variables(Saved)).
+%NO RESULT CONTINUATION, which is upstream's whole rule: the two branches
+%above are `( declared_output_type(F, 'Atom') -> GoalsBody = [], ExpOut =
+%BodyExpr ; translate_expr(BodyExpr, GoalsBody, ExpOut) )` there and nothing
+%more [source: PeTTa@ae66fa8 src/translator.pl:25-28]. A body that compiled to
+%no goals used to take equation_result_continuation/4, which re-entered
+%evaluation on the arbiter's `returnsAtom` rule
+%[LeaTTa MettaHyperonFull/Minimal/Interpreter.lean:3786-3799]. It became
+%observable once a masked parameter could carry something unreduced, and it
+%DIVERGED: `(: wu1 (-> Number Atom %Undefined%))` with
+%`(= (wu1 $a $b) (42 $a $b))` answers `(42 6 (+ 4 2))` upstream and answered
+%`(42 6 6)` here, which is upstream's examples/functiontypes.metta
+%[measured 2026-08-30]. Upstream compiles that equation to the FACT
+%`wu1(A, B, [42, A, B])`.
+%
+%The chain and unify-branch sites keep masked_result_goal/3, and that is not
+%an inconsistency: chain SUBSTITUTES written syntax into its template here
+%where upstream binds a value, so its result genuinely holds a redex that
+%upstream never built. `(chain (+ 1 2) $x (quote $x))` is 3 on both engines
+%with the walk and `(+ 1 2)` here without it [measured 2026-08-30;
+%fixture=ai-tmp/petta-align/chain2.metta].
 
-held_head_variables(Fun, Args, Held) :-
-    length(Args, Arity),
-    findall(Index,
-            ( catch_recover(governing_type_declaration(Fun, Chain), fail),
-              present_type_chain(Chain, Arity, [->|Presented]),
-              append(Types, [_], Presented),
-              nth1(Index, Types, Type),
-              non_evaluated_parameter_type(Type) ),
-            Masked0),
-    sort(Masked0, Masked),
-    findall(Index,
-            ( catch_recover(governing_type_declaration(Fun, Chain), fail),
-              present_type_chain(Chain, Arity, [->|Presented]),
-              append(Types, [_], Presented),
-              nth1(Index, Types, Type),
-              \+ non_evaluated_parameter_type(Type) ),
-            Evaluated0),
-    sort(Evaluated0, Evaluated),
-    variables_at_positions(Args, Masked, MaskedVariables),
-    variables_at_positions(Args, Evaluated, EvaluatedVariables),
-    exclude(variable_member(EvaluatedVariables), MaskedVariables, Held).
+%THE APPLICATION PROTOCOL, PAID ONLY WHERE IT IS READ. Every compiled call to
+%a MeTTa equation ends in metta_application_result/4, whose first clause tests
+%`Produced == '$metta_not_reducible'` and whose second is `Out = Produced`. The second
+%is the answer for every ordinary call, and reaching it cost the two CALL
+%TERMS being built first: for `(fib (- $n 1))` that is `[fib, [-, A, 1]]` and
+%[fib, J]`, seven heap cells handed to a predicate that reads neither.
+%
+%Moving the goal inside the branch that reads it makes SWI build those terms
+%only there, and leaves the common case as one comparison and one
+%unification. Measured in isolation over a million calls: 3,000,003
+%inferences and 0.074s CPU against 2,000,003 and 0.033s, a third of the
+%inferences and 2.24x the CPU
+%[measured 2026-08-30; fixture=ai-tmp/petta-align/micro.pl].
+%
+%The relation is unchanged in every mode, which is what makes this a rewrite
+%rather than a fast path: an unbound Produced fails this `==` exactly as it
+%fails the first clause's, and reaches the same `Out = Produced`.
+%
+%LAST, after normalize_equation_tail/5 has run, because that pass FUSES the
+%protocol away entirely for a proven direct self-tail call and matches the
+%bare goal to do it. Deferring earlier would hide the shape it looks for and
+%trade a removal for a deferral.
+%Found comes back bound when the walk met a negation, so quantify_negations/2
+%runs only on the clauses that have one. It rides THIS pass because this pass
+%already walks the whole body: the previous carrier was the occurs-check
+%demotion, which the petta alignment deleted (nothing emits an occurs check
+%any more), and asking the question in a walk of its own measured +3,935
+%inferences over 49 compiled functions. A separate test is not free; a
+%threaded argument is [measured 2026-08-31; command=engine/bench.py].
+defer_application_protocol(Goal0, Goal) :-
+    defer_application_protocol(Goal0, Goal, _).
 
-variables_at_positions(_, [], []).
-variables_at_positions(Args, [Index|Indices], Variables) :-
-    nth1(Index, Args, Argument),
-    term_variables(Argument, Here),
-    variables_at_positions(Args, Indices, Rest),
-    append_new_variables(Here, Rest, Variables).
+defer_application_protocol(Goal, Goal, _) :- var(Goal), !.
+defer_application_protocol((A0, B0), (A, B), F) :- !,
+    defer_application_protocol(A0, A, F),
+    defer_application_protocol(B0, B, F).
+defer_application_protocol((C0 -> T0 ; E0), (C -> T ; E), F) :- !,
+    defer_application_protocol(C0, C, F),
+    defer_application_protocol(T0, T, F),
+    defer_application_protocol(E0, E, F).
+defer_application_protocol((C0 *-> T0 ; E0), (C *-> T ; E), F) :- !,
+    defer_application_protocol(C0, C, F),
+    defer_application_protocol(T0, T, F),
+    defer_application_protocol(E0, E, F).
+defer_application_protocol((L0 ; R0), (L ; R), F) :- !,
+    defer_application_protocol(L0, L, F),
+    defer_application_protocol(R0, R, F).
+defer_application_protocol((C0 -> T0), (C -> T), F) :- !,
+    defer_application_protocol(C0, C, F),
+    defer_application_protocol(T0, T, F).
+defer_application_protocol((C0 *-> T0), (C *-> T), F) :- !,
+    defer_application_protocol(C0, C, F),
+    defer_application_protocol(T0, T, F).
+defer_application_protocol(\+ G0, \+ G, F) :- !,
+    defer_application_protocol(G0, G, F).
+defer_application_protocol(once(G0), once(G), F) :- !,
+    defer_application_protocol(G0, G, F).
+defer_application_protocol(findall(T, G0, L), findall(T, G, L), F) :- !,
+    defer_application_protocol(G0, G, F).
+defer_application_protocol(metta_application_result(S, R, Produced, Out),
+                           (   Produced == '$metta_not_reducible'
+                           ->  metta_application_result(S, R, Produced, Out)
+                           ;   Out = Produced
+                           ), _) :- !.
+defer_application_protocol(metta_application_result(W, Produced, Out),
+                           (   Produced == '$metta_not_reducible'
+                           ->  metta_application_result(W, Produced, Out)
+                           ;   Out = Produced
+                           ), _) :- !.
+%A negation is the only goal this pass reports rather than rewrites. Its own
+%functor gives it an index bucket, so the goals that are not negations pay
+%nothing for the question.
+defer_application_protocol(metta_negation(L, S, T, D, O),
+                           metta_negation(L, S, T, D, O), F) :- !,
+    ( var(F) -> F = found ; true ).
+defer_application_protocol(Goal, Goal, _).
 
-append_new_variables([], Variables, Variables).
-append_new_variables([Variable|Variables], Tail, Out) :-
-    ( variable_member(Tail, Variable)
-    -> append_new_variables(Variables, Tail, Out)
-    ;  Out = [Variable|More],
-       append_new_variables(Variables, Tail, More)
-    ).
-
+%Membership by IDENTITY, not unification: two distinct fresh variables unify
+%but are not the same variable, and every caller here is asking which one it
+%has.
 variable_member(Variables, Variable) :-
     member(Candidate, Variables),
     Candidate == Variable,
     !.
-
-install_held_head_variables(Held, saved(Previous)) :-
-    nb_current('$metta_held_head_variables', Previous),
-    !,
-    nb_linkval('$metta_held_head_variables', Held).
-install_held_head_variables(Held, none) :-
-    nb_linkval('$metta_held_head_variables', Held).
-
-restore_held_head_variables(saved(Previous)) :- !,
-    nb_linkval('$metta_held_head_variables', Previous).
-restore_held_head_variables(none) :-
-    nb_delete('$metta_held_head_variables').
-
-held_head_variable(Variable) :-
-    nb_current('$metta_held_head_variables', Held),
-    variable_member(Held, Variable).
-
-%A BODY THAT COMPILED TO NO GOALS EVALUATED NOTHING, and a declared result
-%other than `Atom` says the answer re-enters evaluation, so that is where the
-%round the arbiter performs has to be made up. Every other body already made
-%it: compiling a call IS one application plus the result rule, which is why the
-%typed call site emits nothing [source: LeaTTa
-%MettaHyperonFull/Minimal/Interpreter.lean:3786-3799, `returnsAtom`, applied to
-%what one `eval` step produced].
-%
-%The shape this reaches is a body that hands back what an argument brought in,
-%which only became observable once a masked parameter could bring in something
-%unreduced: `(: rf (-> Atom Expression))` with `(= (rf $x) $x)` answers `(3)`
-%for `!(rf ((+ 1 2)))` on the arbiter [measured 2026-08-24 against LeaTTa
-%9ea9f9d].
-%
-%TWO TESTS, and both are exact rather than cautious.
-%
-%The body's value must BE the body: a form that rewrote its body to something
-%else has already applied its own result rule, whatever goals it did or did not
-%emit. `noeval` is the case that proves it necessary. Its declared `Atom`
-%result says its answer is data, it compiles to no goal because handing the
-%argument back IS the whole implementation, and the engine's own prelude uses
-%it to carry a translator rule's expansion: re-entering evaluation there ran
-%the expansion instead of returning it, and `!(collapse (unique (superpose
-%(a b c d d))))` answered one element [measured 2026-08-24]. A lambda is
-%excluded by the same test, its value being the partial application the
-%eta-expansion below reads at compile time.
-%
-%A GROUND body is skipped because it has no unreduced part an argument could
-%have supplied, so `(= (f) 42)` compiles to what it always did and pays
-%nothing.
-%Reached only for a body that compiled to NO GOALS, which the caller tests
-%inline: every other equation is the common case and must not pay a call to
-%learn that it is.
-equation_result_continuation(BodyExpr, ExpOut0, GoalsBody, ExpOut) :-
-    (   ExpOut0 == BodyExpr,
-        \+ ground(BodyExpr),
-        \+ body_result_is_final(BodyExpr)
-    ->  masked_result_goal(ExpOut0, ExpOut, Goal),
-        GoalsBody = [Goal]
-    ;   GoalsBody = [],
-        ExpOut = ExpOut0
-    ).
-
-%A body whose own declared result is the metatype `Atom` has ALREADY settled
-%the result rule: `Atom` is what says an answer is final. `quote` is the shape
-%that proves it necessary, `(: quote (-> Atom Atom))`, and its whole purpose is
-%to hand a term back untouched; sending that term round again would be asking
-%the one form built to stop evaluation to resume it.
-%
-%Both registers are read, because the body's head may be a builtin the engine
-%declares rather than a name the program did.
-body_result_is_final(BodyExpr) :-
-    nonvar(BodyExpr),
-    BodyExpr = [Head|_],
-    atom(Head),
-    (   declared_output_type(Head, 'Atom')
-    ->  true
-    ;   seam:builtin_type_declaration(Head, [->|Types]),
-        append(_, ['Atom'], Types)
-    ).
 
 %The eta-expansion above gives the clause MORE arguments than its equation's
 %head has, so the arity the loader registered from the source shape names a
@@ -1194,7 +1222,19 @@ compiled_function_name(F, F).
 %a stored definition can be recompiled when the function arrives late, an already
 %executed expression cannot, so late registration repairs the former and warns on the latter.
 :- dynamic symbol_head/2.
-:- thread_local translating_runnable/0.
+%A BACKTRACKABLE GLOBAL, not a thread_local fact. This flag is set and cleared
+%around EVERY runnable translation, and `eval` translates at run time, so a
+%program that evaluates in a loop paid an assertz/2 and an erase/1 per
+%iteration: on a 2,800-step `(chain (eval ...))` loop the flag alone was 6.9%
+%of self time, and its setup_call_cleanup/3 machinery -- sig_atomic/1,
+%assertz/2, erase/1 -- another 7.7% [measured 2026-08-30, SWI profile].
+%A global variable costs neither clause allocation nor the logical update
+%view, and engine/metta/control.pl's fuel scope already uses the same shape
+%for the same reason. Per-THREAD, which is what thread_local gave it, because
+%SWI's global variables are per-thread.
+:- thread_initialization(nb_setval('$metta_translating_runnable', false)).
+
+translating_runnable :- b_getval('$metta_translating_runnable', true).
 %The names an importer form in the runnable being compiled registers, so the
 %check after it runs knows whether the expression is worth walking at all.
 :- thread_local runnable_import/1.
@@ -1228,9 +1268,88 @@ normalize_translation_key(Term, Normalized) :-
     copy_term(Term, Normalized),
     numbervars(Normalized, 0, _, [singletons(true)]).
 
+%THE TEMPLATE ABSTRACTS ITS LITERAL LEAVES, so one translation serves every
+%call of the same SHAPE. `(eval (- $x $y))` inside a loop hands this predicate
+%`(- 350000 5)`, then `(- 349995 5)`, and so on: a copy_term/2 template keys on
+%the constants, so every iteration missed and re-translated. The skeleton
+%`(- A B)` keys once.
+%
+%SOUND, and measured rather than argued. Translating with an unbound operand
+%produces the GENERAL code for that position -- a runtime type check where a
+%literal would have discharged one at compile time -- so an instance of the
+%skeleton computes the same answer, never a different one
+%[measured 2026-08-30: `(- 350000 5)` translated ground answers 349995; the
+%skeleton `(- A B)` translated once and then bound answers 349995 and, bound
+%again, 349990; fixture=ai-tmp/petta-align/skel.pl].
+%
+%NUMBERS AND STRINGS ONLY, and never in head position. A symbol decides what
+%the translation IS -- whether the head names a function, a special form or
+%data -- so abstracting one would key two different programs to one entry. A
+%number or a string can be neither, so nothing the translator asks about a
+%head can be affected by replacing one.
+%
+%AND NEVER INSIDE A FORM THAT CAPTURES ITS OPERAND'S VARIABLES. `sealed`
+%compiles to a copy_term/4 over `term_variables(Expr)` and `|->` computes its
+%closure's free variables the same way, so a literal turned into a variable
+%there JOINS the set they capture: `(sealed ($x) 5)` would seal a fresh
+%variable in place of the 5 and answer it unbound
+%[measured 2026-08-30: translator_sealed:sealing_a_ground_atom_returns_that_atom
+%and examples/ch07-control-flow/07-03-let-and-sequencing/08-sealed.metta both
+%fail without this]. The property is declared beside those forms in
+%engine/translator/special_forms.pl so the two cannot drift.
+%
+%The dependency index is unchanged by this: it records every SYMBOL of the
+%written form, and the skeleton keeps all of them, so
+%invalidate_translated_forms/1 still evicts exactly what it did.
 translation_template(Source, Template, Key) :-
-    copy_term(Source, Template),
+    copy_term(Source, Copy),
+    translation_skeleton(Copy, Template),
     normalize_translation_key(Template, Key).
+
+%The head stays; the arguments are walked. A bare literal at the top is left
+%alone because there is nothing to reuse in it.
+translation_skeleton(Term, Skeleton) :-
+    (   is_list(Term),
+        Term = [Head|Arguments],
+        \+ ( atom(Head), literal_sensitive_form(Head) )
+    ->  maplist(translation_skeleton_argument, Arguments, Abstracted),
+        Skeleton = [Head|Abstracted]
+    ;   Skeleton = Term
+    ).
+
+%A form whose compilation reads more than the SHAPE of its arguments, so
+%abstracting a literal out of it would compile something the call did not
+%write.
+%
+%Two kinds, and they are declared differently because they ARE different. A
+%variable-capturing form decides what it compiles from the variable set a
+%subterm carries, and the two that do it are named beside the clauses that do
+%it (engine/translator/special_forms.pl).
+%
+%A TRANSLATOR RULE is the other kind, and it is a registry rather than a list
+%because a program adds to it. A rule is a MACRO: apply_translator_rule_dl/6
+%calls the rule's own compiled predicate at compile time and takes its answer
+%as the expansion, so an expansion COMPUTED from the arguments is computed
+%from whatever the skeleton put there. Abstracting a literal hands the rule an
+%unbound variable, and an expansion that reaches a grounded operation then
+%runs it backwards: the gallery's
+%`(= (MM (T (T $l)) $r) (gallery-gemm $l $r))`, lowered through
+%add-translator-rule!, called NumPy on `(Matrix (Row $_0 $_1))` and failed
+%with "a Python operation runs forwards only"
+%[measured 2026-08-30;
+% fixture=extensions/python/examples/gallery/symbolic_tensors.py].
+literal_sensitive_form(Head) :- variable_capturing_form(Head), !.
+literal_sensitive_form(Head) :- translator_rule(Head, _).
+
+translation_skeleton_argument(Term, Skeleton) :-
+    (   var(Term)
+    ->  Skeleton = Term
+    ;   ( number(Term) ; string(Term) )
+    ->  Skeleton = _
+    ;   is_list(Term)
+    ->  translation_skeleton(Term, Skeleton)
+    ;   Skeleton = Term
+    ).
 
 %A one-shot giant value is cheaper to translate than to copy, normalize and
 %retain. The bound is a node budget rather than a byte estimate, so it stops
@@ -1256,10 +1375,15 @@ cache_args_budget(Index, Arity, Term, Budget0, Budget) :-
     Next is Index + 1,
     cache_args_budget(Next, Arity, Term, Budget1, Budget).
 
+%SUBSUMPTION, not variance. The stored form is a skeleton, so it must be
+%GENERAL ENOUGH for the call rather than identical to it; unifying then binds
+%its variables to this call's literals, which is the template instantiation
+%the cache was always doing -- a dynamic clause is copied on retrieval, so the
+%goals handed back are this call's own.
 translated_form_hit(Module, Key, Source, Goals, Out) :-
     translated_form_cache(Module, Key, _, StoredSource, Goals, Out),
-    Source =@= StoredSource,
-    Source = StoredSource,
+    subsumes_term(StoredSource, Source),
+    StoredSource = Source,
     !.
 
 cache_translated_form(Module, Key, Source, Goals, Out) :-

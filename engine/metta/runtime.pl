@@ -37,8 +37,6 @@ prolog:error_message(metta_test_failed(Actual, Expected)) -->
 prolog:error_message(metta_assertion_failed(Goal)) -->
     { sdisplay(Goal, Written) },
     [ 'MeTTa assertion failed: ~w'-[Written] ].
-prolog:error_message(metta_test_no_answer) -->
-    [ 'MeTTa test expression produced no answer'-[] ].
 
 %The three formals above are the program saying something FALSE, which is a
 %different event from the engine breaking, and a harness has to be able to
@@ -57,7 +55,6 @@ prolog:error_message(metta_test_no_answer) -->
 %conversion belongs to that boundary and not to the engine.
 metta_assertion_failure(error(metta_test_failed(Actual, Expected), _),
                         test, Actual, Expected).
-metta_assertion_failure(error(metta_test_no_answer, _), test, _, _).
 metta_assertion_failure(error(metta_assertion_failed(Goal), _), assert, Goal, _).
 
 prolog:error_message(metta_not_a_prolog_module(File)) -->
@@ -236,9 +233,21 @@ test(A,B,true) :- (A =@= B -> E = '✅' ; E = '❌'),
                   ; throw(error(metta_test_failed(A, B),
                                 context(test/3, 'MeTTa test values differ'))) ).
 
-test_answer_value([], _) :-
-    throw(error(metta_test_no_answer,
-                context(test/3, 'expected a value but expression produced no answer'))).
+%ZERO ANSWERS COMPARE AS `()`, which is upstream's own shape: its test form is
+%`findall(Val, Conj, Results), (Results = [Actual] -> true ; Actual = Results)`,
+%and `[] = [Actual]` fails, so an expression that answered nothing is compared
+%as the empty expression [source: PeTTa@ae66fa8 src/translator.pl:146-152].
+%This engine threw metta_test_no_answer here instead, which made
+%`!(test (f T3in) ())` unwritable -- and that line is upstream's
+%examples/types_nondet.metta, where a type mismatch is SUPPOSED to answer
+%nothing and the test says so. Nothing is lost by not throwing: a test whose
+%expression answers nothing when a value was wanted still prints
+%`is (), should <value>. ❌` and still fails the run.
+%test-no-answer/2 stays, and is not a synonym for `(test X ())`: it compares
+%the raw answer LIST, so it distinguishes zero answers from one answer that is
+%itself the empty expression, which this predicate deliberately conflates
+%exactly as upstream conflates them.
+test_answer_value([], []) :- !.
 test_answer_value([Actual], Actual) :- !.
 test_answer_value(Results, Results).
 
@@ -532,9 +541,39 @@ undocumented(Name) :- current_metta_space(Space),
 %[tested: builtin_exists_file].
 'exists_file'(Path, Result) :-
     (   ( atom(Path) ; string(Path) )
-    ->  ( exists_file(Path) -> Result = true ; Result = false )
+    ->  ( system:exists_file(Path) -> Result = true ; Result = false )
     ;   throw_metta_type_error(exists_file, 'a path as a symbol or string', Path)
     ).
+
+%The ZERO-INPUT spelling is the same test read backwards. The engine takes a
+%registered predicate's LAST argument as the output, so (exists_file) hands its
+%only argument back, and a let* binding whose pattern variable already holds a
+%path passes that path IN:
+%
+%  (let* (($file "./data.txt") ($file (exists_file))) $file)
+%
+%That is how lib_import.metta guards a file before consulting it, and it is the
+%only spelling upstream has, because there the name reaches SWI's own
+%exists_file/1 and nothing declares a second arity
+%[source: PeTTa-upstream/lib/lib_import.metta:3, commit=WORKTREE].
+%
+%Defining it HERE rather than inheriting SWI's is what keeps both properties at
+%once. Inheriting it made `!(exists_file)` abort the whole runnable with
+%exists_file/1: Arguments are not sufficiently instantiated, measured on this
+%tree, which is the host-abort that
+%test_an_underapplied_operation_answers_instead_of_aborting exists to forbid;
+%the engine's own clause answers instead. The arity is ours, so
+%retract_unrelated_system_arities/0 leaves it alone: its test is
+%predicate_property(built_in), and a redefined predicate is not built_in
+%[tested: builtin_exists_file_reverse_mode].
+%
+%An UNBOUND slot is the under-applied call rather than the reverse-mode one,
+%and it answers the same partial application every other under-applied
+%operation answers, because the output slot is the only argument there is
+%[tested: test_an_underapplied_operation_answers_instead_of_aborting].
+:- redefine_system_predicate(exists_file(_)).
+'exists_file'(Path) :- var(Path), !, Path = partial(exists_file, []).
+'exists_file'(Path) :- 'exists_file'(Path, true).
 
 %%% Time control: %%%
 %Suspend this evaluation. In a thread, only this thread waits.

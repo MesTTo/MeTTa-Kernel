@@ -98,8 +98,10 @@ test(a_segment_name_projects_in_an_ordinary_head_position,
          (= (pl-seg-mixed ((:seg $xs) tag $xs)) yes)", _),
     segment_source("!(pl-seg-mixed (a b tag (a b)))", [yes]),
     segment_source("!(pl-seg-mixed (tag ()))", [yes]),
-    segment_source("!(pl-seg-mixed (a b tag (a c)))",
-                   [['pl-seg-mixed', [a, b, tag, [a, c]]]]).
+    %A call that matches no equation FAILS rather than answering itself, so
+    %the non-matching row has no answer at all [source: PeTTa@ae66fa8, whose
+    %equations compile to Prolog clauses; measured 2026-08-30].
+    segment_source("!(pl-seg-mixed (a b tag (a c)))", []).
 
 test(the_compiled_and_variable_headed_doors_answer_alike,
      [ cleanup(forget_segment_function('pl-seg-doors')) ]) :-

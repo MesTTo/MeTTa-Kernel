@@ -13,13 +13,15 @@
        (a list not a number)))
 
 ; wu1's SECOND parameter is `Atom`, so `(+ 4 2)` reaches the equation as
-; written; its `%Undefined%` RESULT then sends the tuple the body built back
-; through evaluation, and that is where the sum reduces. Both halves of the
-; rule are the arbiter's own and it answers the same
-; [measured 2026-08-24: `!(wu1 (+ 2 4) (+ 4 2))` is `(42 6 6)` on LeaTTa
-; 9ea9f9d]. Declaring the result `Atom` instead is what keeps the operand
-; unreduced all the way out, which wu1b below shows.
-!(test (wu1 (+ 2 4) (+ 4 2)) (42 6 6))
+; written and stays that way all the way out: a RESULT does not re-enter
+; evaluation, so the tuple the body built is the answer. The result type does
+; not change that, which wu1b shows by declaring `Atom` and answering the same
+; thing [measured 2026-08-30: both spellings are `(42 6 (+ 4 2))` on this
+; engine and upstream, byte-identical; source: PeTTa@ae66fa8
+; src/translator.pl:25-28, whose equation compiler emits no result
+; continuation at all]. The engine re-entered evaluation here until then, on
+; the arbiter's returnsAtom rule, and answered `(42 6 6)` for wu1.
+!(test (wu1 (+ 2 4) (+ 4 2)) (noeval (42 6 (+ 4 2))))
 
 (: wu1b (-> Number Atom Atom))
 (= (wu1b $a $b)

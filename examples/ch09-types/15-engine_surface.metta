@@ -21,12 +21,12 @@
 !(test (get-type match) (-> SpaceType Atom Atom %Undefined%))
 ;map-atom carries two declared arrows, one per surface it offers: the
 ;three-argument template form and the two-argument callable form. Both are
-;the reference's own rows, and both hold the list AS WRITTEN, which is what
-;`Expression` in a parameter position means
-;[source: LeaTTa MettaHyperonFull/Minimal/Stdlib.lean, the two (: map-atom ...)
-;lines of preludeSrc; measured 2026-08-24 on LeaTTa 9ea9f9d, both are what
-;`!(get-type map-atom)` answers and `!(map-atom (cdr-atom (a b)) $y (q $y))`
-;maps over the two parts of the unrun call].
+;the two spellings of one operation. The list is EVALUATED in both, which is
+;what upstream does: its map-atom clause begins by translating the list
+;[source: PeTTa@ae66fa8 src/translator.pl:254-258, and
+;`!(map-atom (cdr-atom (a b)) $y (q $y))` is `((q b))` there, the cdr taken
+;first; measured 2026-08-30]. `Expression` in a parameter position is a TYPE
+;here, not a hold: only `Atom` holds.
 !(test (collapse (get-type map-atom))
        ((-> Expression Variable Atom Expression)
         (-> Expression Expression Expression)))
@@ -34,9 +34,9 @@
 ;; Expression structure, from the reference corelib dump.
 !(test (get-type car-atom) (-> Expression %Undefined%))
 !(test (get-type cdr-atom) (-> Expression Expression))
-!(test (get-type cons-atom) (-> Atom Expression Atom))
+!(test (get-type cons-atom) (-> %Undefined% %Undefined% Atom))
 !(test (get-type size-atom) (-> Expression Number))
-!(test (get-type index-atom) (-> Expression Number Atom))
+!(test (get-type index-atom) (-> %Undefined% Number Atom))
 
 ;; MeTTa's own, with no dump entry to take.
 ;sort-atom sorts a VALUE, so its parameter cannot carry the evaluation mask:

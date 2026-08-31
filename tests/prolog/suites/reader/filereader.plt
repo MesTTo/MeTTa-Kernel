@@ -792,18 +792,15 @@ test(wildcard_removal_does_not_make_reimport_duplicate_data) :-
                                          ['plunit-import-triple', _, _]),
                         Before),
           % Nothing removed, and that is the assertion. A wildcard of the
-          % wrong SHAPE matches nothing, and BOTH doors say so: this used to
-          % report `true` unconditionally, so the counts below were the only
-          % evidence that nothing had been removed.
-          %
-          % The two doors word it differently on purpose. The language-facing
-          % one answers the absence error a MeTTa program can branch on, and
-          % metta_remove_atom/3 answers the plain boolean the engine's own
-          % callers read, which is the same split 'add-atom'/3 draws against
-          % metta_add_atom/3.
-          user:'remove-atom'(Space, [_, _], Refused),
-          Refused = ['Error', ['remove-atom', Space, [_, _]],
-                     "remove-atom: atom is not in the space"],
+          % wrong SHAPE matches nothing, and the two doors say so differently
+          % on purpose. The language-facing one answers True whether or not
+          % anything went, which is upstream's law
+          % [source: PeTTa@ae66fa8 src/spaces.pl:43-44], so the counts below
+          % are what carry the claim through it. metta_remove_atom/3 answers
+          % the plain boolean the engine's own callers read, and THAT is the
+          % door that still reports absence, which is the same split
+          % 'add-atom'/3 draws against metta_add_atom/3.
+          user:'remove-atom'(Space, [_, _], true),
           user:metta_remove_atom(Space, [_, _], false),
           aggregate_all(count,
                         user:'get-atoms'(Space,

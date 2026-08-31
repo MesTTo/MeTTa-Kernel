@@ -422,7 +422,9 @@ prolog:error_message(metta_impure_goal(Name/Arity)) -->
     [ 'caching refuses ~w/~w: it is not classified pureStructural, and a \c
        cached answer would hide its effect. Declare (effect ~w \c
        pureStructural) only when it inspects its arguments without observing \c
-       mutable state, or do not cache this function'
+       mutable state; or, if the staleness is what you want, declare the \c
+       function you are caching (cache <function> unchecked), which caches it \c
+       on your word and skips this walk; or do not cache it'
       -[Name, Arity, Name] ].
 
 %%%% The five-rank operation-effect lattice %%%%

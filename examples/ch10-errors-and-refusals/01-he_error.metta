@@ -6,16 +6,17 @@
            $result))
        42)
 
-;An operand whose type RULES THE CALL OUT is an error atom already, so
-;if-error sees one with no catch in between: `a` here is declared a String and
-;the arrow says Number.
+;An operand an arithmetic operation cannot use is an error atom already, so
+;if-error sees one with no catch in between. That holds whether the operand's
+;type RULES THE CALL OUT -- `a` here is declared a String and the arrow says
+;Number -- or merely fails to decide, because the two are the same event:
+;upstream reaches is/2 for both and raises
+;`type_error(evaluable, undeclared-operand/0)`
+;[measured 2026-08-30 against PeTTa@ae66fa8]. This engine answers instead of
+;raising, so the form after it still runs.
 (: a String)
 !(test (if-error (+ 40 a) Error fine) Error)
-
-;An operand whose type merely does not DECIDE is not an error. The call is
-;left as written, which is what upstream's NoReduce does, so if-error takes
-;its second branch.
-!(test (if-error (+ 40 undeclared-operand) Error fine) fine)
+!(test (if-error (+ 40 undeclared-operand) Error fine) Error)
 
 ;catch is for a HOST error, the kind the language has no atom for. Two unbound
 ;arithmetic operands are one.

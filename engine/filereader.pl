@@ -428,7 +428,7 @@ load_metta_file_impl(Filename, Results, Space) :-
 %above deliberately loses: a program wants every answer and nothing else, and
 %two callers want to know which form produced which. `include` needs the LAST
 %group, because the results of a module's last directive are the results of
-%including it, and tests/conformance/leatta_run.pl needs every group, because
+%including it, and tests/conformance/answer_groups.pl needs every group, because
 %the arbiter records one bracketed line per form and the grouping IS the
 %observation. It ran its own copy of this until include needed one too.
 %
@@ -1267,7 +1267,12 @@ record_translated_supports(_, _).
 forget_translated_from(Module, Ref, [=, [G|_], _]) :-
     !,
     retractall(translated_from(Ref, _)),
-    support_forget(translated_form(Module, Ref)),
+    %The node carries the stable id, not the reference; resolve it first
+    %[source: engine/support_graph.pl, support_translated_form_node/3].
+    (   support_graph:support_translated_form_id(Ref, Module, NodeId)
+    ->  support_forget(translated_form(Module, NodeId))
+    ;   true
+    ),
     (   translated_equation_of(G, OtherRef, _),
         clause_property(OtherRef, module(Module))
     ->  true
@@ -1473,32 +1478,28 @@ process_loader_form(_, In, _) :-
 print_expression_form(_) :- silent(true), !.
 print_expression_form(Term) :-
     swrite(Term, STerm),
-    ansi_format([fg(yellow)], "--> metta sexpr -->~n", []),
-    ansi_format([fg(cyan)], "~w~n", [STerm]),
-    ansi_format([fg(yellow)], "^^^^^^^^^^^^^^^^^^^~n", []).
+    (   stream_property(current_output, tty(true))
+    ->  format("\e[33m--> metta sexpr -->~n\e[36m~w~n\e[33m^^^^^^^^^^^^^^^^^^^~n\e[0m", [STerm])
+    ;   format("--> metta sexpr -->~n~w~n^^^^^^^^^^^^^^^^^^^~n", [STerm])
+    ).
 
+%One format per banner group, which is upstream's own shape and a seventh of
+%the ansi_format/3 calls this path carried; the colour escapes are chosen by
+%whether a terminal is reading, because piped loader output is contractually
+%escape-free. Upstream's own escapes are unconditional; the conditional is
+%this tree's pipe contract
+%[tested: nonterminal_loader_output_has_no_ansi_escapes; commit=WORKTREE]
+%[source: PeTTa-base@43705f5 src/filereader.pl:26-45, 2026-08-30; commit=WORKTREE].
 print_runnable_form(_, _) :- silent(true), !.
 print_runnable_form(FormStr, Goals) :-
-    ansi_format([fg(yellow)], "--> metta runnable  -->~n", []),
-    ansi_format([fg(cyan)], "!~w~n", [FormStr]),
-    ansi_format([fg(yellow)], "-->  prolog goal  -->", []),
-    ansi_format([fg(magenta)], " ~n", []),
-    %Module-qualified on purpose: ansi_format/4 (library(ansi_term)) calls a
-    %~@ goal argument from ITS OWN module context, not this file's, so an
-    %unqualified portray_clause here resolves (or fails to) as
-    %ansi_term:portray_clause/N. ansi_term.pl does not declare its own
-    %dependency on library(listing), relying on autoload the same way
-    %library(prolog_clause) relies on it for nth1/3 (metta.pl's Dependencies
-    %section has that finding in full); with autoload=false the unqualified
-    %spelling raised existence_error(procedure,ansi_term:portray_clause/1)
-    %for EVERY runnable form this prints, i.e. most of the example corpus
-    %[measured 2026-08-18: examples/ch05-equations-and-evaluation/05-03-the-number-library/01-math.metta under NO_AUTOLOAD=1].
-    %Naming the predicate's real home module sidesteps the gap in
-    %ansi_term.pl entirely, rather than trying to patch a library this repo
-    %does not ship.
-    forall(member(G, Goals),
-           ansi_format([fg(magenta)], "~@", [prolog_listing:portray_clause((:- G))])),
-    ansi_format([fg(yellow)], "^^^^^^^^^^^^^^^^^^^^^^^~n", []).
+    (   stream_property(current_output, tty(true))
+    ->  format("\e[33m--> metta runnable  -->~n\e[36m!~w~n\e[33m-->  prolog goal  -->\e[35m ~n", [FormStr]),
+        forall(member(G, Goals), prolog_listing:portray_clause((:- G))),
+        format("\e[33m^^^^^^^^^^^^^^^^^^^^^^^~n\e[0m")
+    ;   format("--> metta runnable  -->~n!~w~n-->  prolog goal  --> ~n", [FormStr]),
+        forall(member(G, Goals), prolog_listing:portray_clause((:- G))),
+        format("^^^^^^^^^^^^^^^^^^^^^^^~n")
+    ).
 
 %An arriving equation is recorded and translated when something reaches it.
 %The clause trace is the only thing at load time that looks at the translated
@@ -1520,14 +1521,16 @@ store_metta_equation(_, Module, _, BoundTerm, FormStr) :-
 
 print_function_form(_, _) :- silent(true), !.
 print_function_form(FormStr, Ref) :-
-    ansi_format([fg(yellow)], "--> metta function -->~n", []),
-    ansi_format([fg(cyan)], "~w~n", [FormStr]),
-    ansi_format([fg(yellow)], "--> prolog clause -->~n", []),
     clause(Head, Body, Ref),
     ( Body == true -> Show = Head ; Show = (Head :- Body) ),
-    %Same ansi_format/module trap as print_runnable_form/2 above.
-    ansi_format([fg(green)], "~@", [prolog_listing:portray_clause(current_output, Show)]),
-    ansi_format([fg(yellow)], "^^^^^^^^^^^^^^^^^^^^^^~n", []).
+    (   stream_property(current_output, tty(true))
+    ->  format("\e[33m--> metta function -->~n\e[36m~w~n\e[33m--> prolog clause -->~n\e[32m", [FormStr]),
+        prolog_listing:portray_clause(current_output, Show),
+        format("\e[33m^^^^^^^^^^^^^^^^^^^^^^~n\e[0m")
+    ;   format("--> metta function -->~n~w~n--> prolog clause -->~n", [FormStr]),
+        prolog_listing:portray_clause(current_output, Show),
+        format("^^^^^^^^^^^^^^^^^^^^^^~n")
+    ).
 
 %Top-level comments are layout too. Count their terminating newline for source
 %diagnostics while consuming their text without constructing another code list.

@@ -1,12 +1,17 @@
 ;Purpose: executable standard-library checks for numeric math operations.
-;Guarantees: real-valued math promotes integers, and pow returns Float while
-;enforcing the signed-i32 bound only for integer exponents [tested:
-;test_real_valued_math_treats_integer_and_float_operands_alike].
+;Guarantees: real-valued math promotes integers, while POW KEEPS ITS OPERANDS'
+;OWN KINDS -- `(pow-math 2 3)` is the integer 8, as upstream's `Out is A ** B`
+;answers -- and enforces the signed-i32 bound only for integer exponents
+;[tested: test_real_valued_math_treats_integer_and_float_operands_alike;
+;source: PeTTa@ae66fa8 src/metta.pl:69].
 
-!(test (pow-math 2 3) 8.0)
+!(test (pow-math 2 3) 8)
 !(test (isnan-math (sqrt-math -1)) True)
-!(test (isinf-math (pow-math 0 -1)) True)
-!(test (pow-math 1 2147483648.0) 1.0)
+!(test (isinf-math (pow-math 0.0 -1.0)) True)
+;SWI's `**` special-cases base 1 and answers the INTEGER 1, exponent's kind
+;notwithstanding, which is what upstream answers here too
+;[measured 2026-08-30: `X is 1 ** 2147483648.0` is 1, and `2 ** 3.0` is 8.0].
+!(test (pow-math 1 2147483648.0) 1)
 !(test (sqrt-math 9) 3.0)
 !(test (abs-math -5) 5)
 !(test (log-math 10 100) 2.0)

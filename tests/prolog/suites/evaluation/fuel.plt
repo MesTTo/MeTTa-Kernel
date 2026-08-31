@@ -68,6 +68,55 @@ test(an_exhausted_branch_records_its_culprit_and_fails) :-
     assertion(Charged == false),
     assertion(Recorded == [the_culprit]).
 
+%WITHOUT a max-stack-depth the budget is off, and the first step LATCHES that
+%so no later reduction in the runnable re-reads the pragma table. The engine
+%used to default to the LeaTTa runner's 100000 here, which capped every program
+%at 25,000 charged reductions and stopped six upstream examples that upstream
+%completes
+%[source: PeTTa@ae66fa8 src/metta.pl, which has no budget; measured 2026-08-30,
+%`!(fib 22)` answered `(Error 4 StackOverflow)` under the old default and
+%answers 17711 now].
+%The balance CANNOT be the scope marker once the budget is opt-in, because an
+%absent pragma latches it to `off` mid-scope and `off` is also what no scope at
+%all reads. A nested run then opened its own scope, and its close deleted the
+%error list the outer replay clause reads.
+test(a_nested_run_inside_an_unbounded_scope_keeps_the_outer_error_list) :-
+    setup_call_cleanup(
+        'pragma!'('max-stack-depth', none, _),
+        (   metta_open_fuel_scope,
+            charge(probe, 1),
+            b_getval('$metta_fuel_remaining', Latched),
+            once(metta_run_with_fuel(inner, _, true)),
+            (   catch(nb_getval('$metta_fuel_errors', E), Raised,
+                      (E = raised(Raised), true))
+            ->  true
+            ;   E = failed
+            ),
+            metta_close_fuel_scope
+        ),
+        true),
+    assertion(Latched == off),
+    assertion(E == []).
+
+test(an_absent_pragma_does_not_bound_evaluation) :-
+    setup_call_cleanup(
+        'pragma!'('max-stack-depth', none, _),
+        (   metta_open_fuel_scope,
+            b_getval('$metta_fuel_remaining', AtOpen),
+            charge(probe, 1),
+            b_getval('$metta_fuel_remaining', AfterFirst),
+            charge(probe, 1),
+            b_getval('$metta_fuel_remaining', AfterSecond),
+            metta_close_fuel_scope
+        ),
+        true),
+    %The scope still opens lazily, so a with-pragma! inside it is still read.
+    assertion(AtOpen == unstarted),
+    %...but an absent pragma resolves to `off` and stays there, which is the
+    %one-comparison path every later step then takes.
+    assertion(AfterFirst == off),
+    assertion(AfterSecond == off).
+
 test(the_limit_is_read_on_the_first_step_rather_than_at_scope_open) :-
     setup_call_cleanup(
         true,

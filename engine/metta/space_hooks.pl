@@ -19,6 +19,14 @@
 %   observation frame back on success, failure, and throw [tested:
 %   test_a_speculative_journal_write_is_neither_persisted_nor_published;
 %   commit=3ded7552797b66d78e666141eb51f3bc14686bd2].
+%   every enlisted provider of an outermost transaction leaves the commit
+%   phase committed or rolled back, never neither, and which of them made
+%   their writes durable is recorded for the owner of those writes to read
+%   through metta_foreign_writes_lost/2 [tested:
+%   foreign_commit_phase:a_refused_commit_rolls_back_the_participants_it_never_reached,
+%   foreign_commit_phase:the_commit_phase_records_which_participants_lost_their_writes,
+%   foreign_commit_phase:a_commit_that_only_fails_is_named_rather_than_failing_the_finish;
+%   commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -570,15 +578,98 @@ metta_notified_transaction_result(threw(Error), _, _, _) :- !,
 metta_notified_transaction_result(failed, Outcome, _, _) :-
     throw(error(metta_transaction_notification_failed(Outcome), _)).
 
+%The commit phase takes the participants one at a time, because what a
+%caller may believe about its own writes depends on WHICH participant carried
+%them and the batch cannot answer that. Three things are settled per
+%participant:
+%
+%  - a commit that FAILS is a refusal like any other and is named. The
+%    forall/2 this replaces propagated a bare failure out of
+%    metta_finish_foreign/3, leaving Result unbound, so a durable transaction
+%    became a goal that merely failed and said nothing.
+%  - a participant the refusal never reached is ROLLED BACK. It used to be
+%    left neither committed nor rolled back, and the next transaction's begin
+%    then staged its uncommitted rows as though they had been durable, so a
+%    rolled-back write became permanent [measured 2026-08-30: two providers,
+%    the second refusing, left `(kept one)` in the first and a later
+%    successful transaction made it durable; command=ai-tmp/saga-worker/
+%    probe_abandoned.py] [tested:
+%    a_refused_commit_rolls_back_the_participants_it_never_reached].
+%  - the durable outcome is RECORDED per participant. Two-phase commit stays
+%    out of scope, so a partial commit remains possible; what changes is that
+%    it stops being invisible to the owner of the writes, which is the whole
+%    of what a saga needs to avoid compensating an effect that never landed.
+%
+%The refusing participant itself is not rolled back. Its own commit decides
+%what became of its rows, the way an XA resource manager's state after a
+%failed xa_commit is the resource manager's to report, and asking a store
+%that has just failed to interpret a second verb invents an answer.
 metta_finish_foreign(committed, Enlisted, Result) :- !,
-    catch(( forall(member(Space, Enlisted), seam:foreign_commit(Space)),
-            Result = ok ),
-          Error,
-          Result = threw(Error)).
+    metta_commit_participants(Enlisted, [], Durable, Result, Lost),
+    metta_record_foreign_outcome(commit, Durable, Lost).
 metta_finish_foreign(_, Enlisted, ok) :-
-    forall(member(Space, Enlisted),
+    metta_rollback_participants(Enlisted),
+    metta_record_foreign_outcome(discard, [], Enlisted).
+
+metta_commit_participants([], Durable0, Durable, ok, []) :-
+    reverse(Durable0, Durable).
+metta_commit_participants([Space|Rest], Durable0, Durable, Result, Lost) :-
+    metta_commit_participant(Space, Outcome),
+    (   Outcome == committed
+    ->  metta_commit_participants(Rest, [Space|Durable0], Durable, Result, Lost)
+    ;   Outcome = refused(Error),
+        reverse(Durable0, Durable),
+        Result = threw(Error),
+        Lost = [Space|Rest],
+        metta_rollback_participants(Rest)
+    ).
+
+metta_commit_participant(Space, Outcome) :-
+    catch(( seam:foreign_commit(Space)
+          ->  Outcome = committed
+          ;   Outcome = refused(error(metta_foreign_commit_failed(Space),
+                                      none))
+          ),
+          Error,
+          Outcome = refused(Error)).
+
+metta_rollback_participants(Spaces) :-
+    forall(member(Space, Spaces),
            catch(seam:foreign_rollback(Space), RollbackError,
                  print_message(error, RollbackError))).
+
+%What the last finished outermost transaction did to each enlisted provider.
+%Phase is commit when the local database committed and the providers were
+%asked to commit, and discard when everything was rolled back or thrown away.
+%It is RECORDED rather than handed back because the writer that needs it sits
+%on the far side of metta_transaction_notified/3, whose two notifications
+%carry no arguments and whose caller has already returned by the time the
+%question is worth asking.
+metta_record_foreign_outcome(Phase, Durable, Lost) :-
+    nb_setval('$metta_tx_foreign_outcome',
+              foreign_outcome(Phase, Durable, Lost)).
+
+%The providers, other than Journal, whose writes the last finished outermost
+%transaction did not make durable, and only where the local database DID
+%commit: a transaction that rolled back wholly lost nothing it had promised.
+%Fails when there are none, so one question answers the whole matter.
+%
+%Journal is excluded because a receipt that did not become durable is a state
+%its owner recovers from by reading its own journal, while ANOTHER
+%participant's lost writes leave the step partly applied with nothing in the
+%receipt saying which half [tested:
+%test_a_lost_participant_leaves_the_saga_in_doubt_rather_than_compensating].
+metta_foreign_writes_lost(Journal, Lost) :-
+    nb_current('$metta_tx_foreign_outcome',
+               foreign_outcome(commit, _Durable, Lost0)),
+    exclude(==(Journal), Lost0, Lost),
+    Lost \== [].
+
+:- multifile prolog:error_message//1.
+prolog:error_message(metta_foreign_commit_failed(Space)) -->
+    [ '~w failed its commit without saying why: a provider that cannot land \c
+       its batch owes its caller a reason, and a bare failure here would \c
+       leave the transaction reporting no outcome at all'-[Space] ].
 
 %Foreign providers finish before observers run, so a callback reads the
 %committed state on both sides of the seam. If a single-coordinator provider
@@ -1004,6 +1095,7 @@ pure_engine_helper(metta_arith_operands).
 pure_engine_helper(metta_bad_argument_error).
 pure_engine_helper(check_argument_type).
 pure_engine_helper(function_overapplication).
+pure_engine_helper(declared_arity_refusal).
 pure_engine_helper(throw_metta_type_error).
 pure_engine_helper(rethrow_metta_operation_error).
 pure_engine_helper(non_list).
@@ -1074,4 +1166,11 @@ pure_inspection(has_type).       pure_inspection(metatype_of).
 'is-var'(A,R) :- var(A) -> R=true ; R=false.
 'is-ground'(A,R) :- ground(A) -> R=true ; R=false.
 'is-expr'(A,R) :- list_shaped(A) -> R=true ; R=false.
-'is-space'(A,R) :- metta_space_name(A) -> R=true ; R=false.
+%The PREFIX, not the doors' wider test: upstream answers false here for a
+%bare symbol its own match/4 will happily read from
+%[source: PeTTa@ae66fa8 src/metta.pl:208]. A space HANDLE still answers
+%true, which is this engine's own species and nothing upstream contradicts.
+'is-space'(A, R) :-
+    (   metta_space_prefixed_name(A)
+    ;   metta_space_operand(A)
+    ) -> R = true ; R = false.

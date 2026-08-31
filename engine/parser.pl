@@ -413,7 +413,8 @@ sread_with_names_mode(Mode, Text, Term, VarMap) :-
 %Its refusal names the same culprit, so the error term keeps one definition
 %here.
 swrite(Term, String) :-
-    (   metta_c_strict_writer,
+    (   acyclic_term(Term),
+        metta_c_strict_writer,
         metta_c_write(Term, strict, Result),
         Result \== declined
     ->  metta_c_string(Result, String)
@@ -435,11 +436,23 @@ swrite_prolog(Term, String) :-
 %answer is unified in the CALL rather than tested afterwards: a decline simply
 %does not unify with written(_) and the DCG runs.
 sdisplay(Term, String) :-
-    (   metta_c_writer_active,
-        metta_c_write(Term, display, written(Written))
-    ->  String = Written
-    ;   sdisplay_prolog(Term, String)
+    (   acyclic_term(Term)
+    ->  (   metta_c_writer_active,
+            metta_c_write(Term, display, written(Written))
+        ->  String = Written
+        ;   sdisplay_prolog(Term, String)
+        )
+    ;   metta_cyclic_display(Term, String)
     ).
+
+%Presentation for a rational tree: legal as a VALUE under the petta
+%alignment (a let may bind one), impossible as finite S-expression text,
+%and every walker below, the C writer's list walk included, would follow
+%the cycle forever. Display answers SWI's factorized cycle form, the same
+%shape the upstream toplevel presents; serialization (swrite/2) still
+%refuses the value as outside the inverse domain.
+metta_cyclic_display(Term, String) :-
+    term_string(Term, String, [cycles(true)]).
 
 sdisplay_prolog(Term, String) :-
     stable_print_term(Term, Printable),
@@ -452,8 +465,11 @@ sdisplay_prolog(Term, String) :-
 %must render host-only values and non-finite floats the way the command
 %line's sdisplay/2 answers already do.
 sdisplay_with_names(Term, Names, String) :-
-    named_print_term(Term, Names, Printable),
-    metta_printable_string(Printable, display, String).
+    (   acyclic_term(Term)
+    ->  named_print_term(Term, Names, Printable),
+        metta_printable_string(Printable, display, String)
+    ;   metta_cyclic_display(Term, String)
+    ).
 
 %Emit a term the naming pass already numbered. The C writer's numbered modes
 %read '$metta_variable'(N) and '$metta_named_variable'(A) as the variables
@@ -701,11 +717,29 @@ swrite_mode(Atom, strict) --> { atom(Atom), metta_symbol_writable(Atom) }, !,
 swrite_mode(Atom, display) --> { atom(Atom) }, !, atom(Atom).
 swrite_mode(List, Mode) --> { is_list(List), List = [_|_] }, !,
                             "(", seq_mode(List, Mode), ")".
+%An IMPROPER list prints as the cons that BUILT it, so the text reads back as
+%the same term. `(cons Error $x)` builds `[Error|$x]`, whose tail is a
+%variable rather than a list, and upstream writes exactly that
+%[source: PeTTa@ae66fa8 src/parser.pl:35-36,
+%`swrite_exp([H|T], C0, C) --> { \+ is_list([H|T]) }, !, "(", atom(cons) ...`].
+%Without this clause the general compound rule below reached it and printed
+%SWI's own list functor: `!(cons Error $x)` answered `([|] Error $_0)` here
+%and `(cons Error $_0)` upstream [measured 2026-08-30].
+swrite_mode([H|T], Mode) --> { \+ is_list([H|T]) }, !,
+                             "(", atom(cons), " ", swrite_mode(H, Mode), " ",
+                             swrite_mode(T, Mode), ")".
 swrite_mode([], _)    --> !, "()".
 %A Janus tuple is -/N. Python-looking text belongs only to display mode because
 %`(1, 2)` reads as the symbol `1,` beside the number 2, and -() reads as [].
 swrite_mode(Term, display) --> { seam:grounded_text(Term, Text) }, !,
                                { string_codes(Text, Cs) }, Cs.
+%The EMPTY Janus tuple is the empty expression. `-()` is a compound of arity
+%zero rather than a list, so the general compound clause below printed it as
+%`(-)`, its functor in parentheses, where the reader turns `()` into [] and
+%bridge.pl hands `-()` across as that same empty tuple
+%[tested: parser_display:a_zero_arity_compound_keeps_a_presentation_shape].
+swrite_mode(Term, display) --> { compound(Term),
+                                 compound_name_arity(Term, -, 0) }, !, "()".
 swrite_mode(Term, display) --> { compound(Term),
                                  compound_name_arguments(Term, F, Args) }, !,
                                "(", atom(F),
@@ -1415,7 +1449,17 @@ metta_unwritable_list_tail([Head|Tail], Bad) :- !,
     ).
 metta_unwritable_list_tail(Bad, Bad).
 
+%The cycle test comes FIRST because everything after it walks: rational
+%trees are legal VALUES under the petta alignment (a let may bind one), but
+%they sit outside the inverse domain, since no finite S-expression reads
+%back as one, and both the unwritable walk below and the C writer's list
+%walk would follow the cycle forever [tested:
+%a_self_referential_binding_answers_a_rational_tree].
 metta_text_writable(Term) :-
+    (   acyclic_term(Term)
+    ->  true
+    ;   metta_refuse_text(Term)
+    ),
     (   metta_unwritable_symbol(Term, Bad)
     ->  metta_refuse_text(Bad)
     ;   true

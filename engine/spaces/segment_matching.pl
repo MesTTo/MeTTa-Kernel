@@ -863,8 +863,7 @@ metta_seq_native_candidate(Module, Space, Parsed, Candidate) :-
     functor(Head, Space, Arity),
     metta_seq_index_head(Parsed, Head),
     call(Module:Head),
-    Head =.. [_|Candidate],
-    acyclic_term(Candidate).
+    Head =.. [_|Candidate].
 
 %How many children a candidate must have at least: every non-gap child counts
 %one and every gap counts zero, since a gap may consume nothing.

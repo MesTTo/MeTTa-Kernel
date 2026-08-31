@@ -39,6 +39,15 @@
 !(test (twin 1 1) (twin 1 1))
 !(test (unpack (wrap (box (a b c)))) (unpack (wrap (box (a b c)))))
 
+;The measure holds at every door, not only for the written call. A call that
+;arrives as DATA -- built by a program and handed to eval, or stepped by
+;reduce -- reaches the same equations, and the same cost comparison blocks
+;the same up-rewrite there. The engine asked only at the compile-time door
+;until 2026-08-30, and `(eval (twin 1 1))` answered `(unpack (wrap (box 1)))`,
+;a rewrite UP that the written spelling of the very same call refused.
+!(test (eval (twin 1 1)) (twin 1 1))
+!(test (reduce (twin 1 1)) (twin 1 1))
+
 ;Withdrawing the rule withdraws the derived equation with it, so the inverse
 ;never outlives the declaration that produced it.
 !(remove-translator-rule! unpack)

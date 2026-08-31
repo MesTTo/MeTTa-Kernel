@@ -240,13 +240,28 @@ test(test_real_valued_math_treats_integer_and_float_operands_alike) :-
     'asin-math'(2.0, AsinFloatNan), 'isnan-math'(AsinFloatNan, true),
     'acos-math'(2, AcosIntNan), 'isnan-math'(AcosIntNan, true),
     'acos-math'(2.0, AcosFloatNan), 'isnan-math'(AcosFloatNan, true),
-    'pow-math'(2, 3, Power), Power == 8.0,
-    'pow-math'(1, -2147483648, LowerBound), LowerBound == 1.0,
-    'pow-math'(1, 2147483647, UpperBound), UpperBound == 1.0,
-    'pow-math'(0, -1, InfinitePower),
-    'isinf-math'(InfinitePower, true),
+    %pow-math is NOT one of the float-promoting family: it keeps its operands'
+    %own numeric kinds, so two integers answer an integer. Every value below
+    %was measured on BOTH engines on 2026-08-30 and agrees
+    %[source: PeTTa@ae66fa8 src/metta.pl:69; ai-tmp/pw.metta].
+    'pow-math'(2, 3, Power), Power == 8,
+    'pow-math'(1, -2147483648, LowerBound), LowerBound == 1,
+    'pow-math'(1, 2147483647, UpperBound), UpperBound == 1,
+    %A float exponent does not make the answer a float when the base is 1:
+    %SWI answers the integer 1 for `1 ** 2147483648.0`, and so does upstream.
     'pow-math'(1, 2147483648.0, UnboundedFloatPower),
-    UnboundedFloatPower == 1.0,
+    UnboundedFloatPower == 1,
+    %`0 ** -1` is a zero divisor for two integers, and it answers in the SAME
+    %vocabulary `(/ 7 0)` answers in, above. It briefly raised instead, because
+    %pow-math reached metta_math_recovery/4 while `/` reached
+    %metta_operation_recovery/4 and only the second knew the rule; the two
+    %funnels are one now. Upstream has no vocabulary for either and aborts the
+    %whole run on both [measured 2026-08-30: `!(/ 7 0)` kills upstream's run
+    %before its second form]. The FLOAT arm still saturates to infinity.
+    'pow-math'(0, -1, ZeroDivisor),
+    ZeroDivisor == ['Error', ['pow-math', 0, -1], 'DivisionByZero'],
+    'pow-math'(0.0, -1.0, FloatInfinity),
+    'isinf-math'(FloatInfinity, true),
     'pow-math'(2, 2147483648, TooBig),
     TooBig == ['Error', ['pow-math', 2, 2147483648],
                "power argument is too big, try using float value"],
@@ -258,10 +273,12 @@ test(test_real_valued_math_treats_integer_and_float_operands_alike) :-
     IntegerExp =:= FloatExp.
 
 %The guarded operators refuse a non-number argument themselves rather than
-%letting is/2 coerce it, and the refusal is an ANSWER: `invalid_number` is an
-%undeclared symbol, so its type decides nothing and the call is left as
-%written, which is upstream's NoReduce. Only `/` names itself instead
-%[source: LeaTTa tests/semantics/grounded/07-partial-core.metta].
+%letting is/2 coerce it, and the refusal is an ANSWER where upstream raises
+%[measured 2026-08-30 against PeTTa@ae66fa8: `(repr (catch (+ 40 a)))` is
+%"(Error (type_error evaluable (/ a 0)) (context (: system (/ is 2)) $_0))"].
+%Every one of them names itself; `/` did alone until 2026-08-30, and a caller
+%could not tell the others' unreduced call from a form that had simply not
+%reduced yet.
 number_operand_case('+', '+'(1, invalid_number, R), R).
 number_operand_case('-', '-'(1, invalid_number, R), R).
 number_operand_case('*', '*'(1, invalid_number, R), R).
@@ -276,9 +293,11 @@ number_operand_case(max, max(1, invalid_number, R), R).
 test(arithmetic_answers_a_non_number_argument_rather_than_raising,
      [forall(number_operand_case(Operation, Goal, Result))]) :-
     findall(Result, call(Goal), Answers),
-    Answers == [[Operation, 1, invalid_number]].
+    format(string(Message), "~w expects two numbers", [Operation]),
+    Answers == [['Error', [Operation, 1, invalid_number], Message]].
 
-test(divide_refuses_by_name_where_the_others_leave_the_call) :-
+%`/` keeps the longer text it already had, which names its two operands.
+test(divide_names_its_two_operands) :-
     findall(R, '/'(1, invalid_number, R), Answers),
     Answers == [['Error', ['/', 1, invalid_number],
                  "Divide expects two numbers: dividend and divisor"]].
@@ -327,11 +346,13 @@ test(test_a_string_operand_to_math_refuses_instead_of_answering_its_char_code) :
              Answer = ['Error', [Operation|Arguments],
                        ['BadArgType', Position, 'Number', 'String']] )).
 
-%min-atom and max-atom carry three texts for three arguments, and the third
-%quotes the offending expression back the way upstream formats it.
-expression_refusal_case('min-atom'(5, R), R, "Atom is not an ExpressionAtom").
-expression_refusal_case('max-atom'(5, R), R, "Atom is not an ExpressionAtom").
-expression_refusal_case('min-atom'([], R), R, "Empty expression").
+%min-atom and max-atom carry ONE text, for a list holding a non-number, and it
+%quotes the offending expression back the way upstream formats it. Their other
+%two argument shapes follow upstream instead of refusing: a non-list answers
+%`()` and an empty list answers nothing, both tested just below
+%[source: PeTTa@ae66fa8 src/metta.pl:86-89; tested below by
+%a_non_expression_operand_answers_the_empty_expression and
+%an_empty_operand_answers_nothing_at_all].
 expression_refusal_case('min-atom'([1, u, 3], R), R,
                         "Only numbers are allowed in expression: (1 u 3)").
 expression_refusal_case('max-atom'([1, u, 3], R), R,
@@ -342,6 +363,31 @@ test(the_numeric_expression_operations_answer_their_own_refusal,
     findall(Result, call(Goal), Answers),
     Answers = [['Error', _, Reason]],
     Reason == Message.
+
+%A non-list operand answers `()` rather than refusing, which is what upstream
+%answers and what its examples/atomops.metta expects
+%[source: PeTTa@ae66fa8 src/metta.pl:86-89; measured 2026-08-30].
+%An EMPTY list answers nothing at all, because upstream's second clause is a
+%bare min_list/2 and SWI's has no empty-list clause. The refusal this engine
+%used to give there was an extra answer for an input upstream already decides,
+%so it went
+%[source: PeTTa@ae66fa8 src/metta.pl:86-89; measured 2026-08-30, upstream
+%prints no line for `!(min-atom ())` and carries on with the file].
+test(an_empty_operand_answers_nothing_at_all) :-
+    findall(L, 'min-atom'([], L), Least),
+    assertion(Least == []),
+    findall(G, 'max-atom'([], G), Greatest),
+    assertion(Greatest == []).
+
+test(a_non_expression_operand_answers_the_empty_expression) :-
+    'min-atom'(5, Least),
+    assertion(Least == []),
+    'max-atom'(5, Greatest),
+    assertion(Greatest == []),
+    %A real list still computes, so the new clause takes only the shape it
+    %names.
+    'min-atom'([3, 1, 2], Smallest),
+    assertion(Smallest == 1).
 
 %A cell NAME is a symbol, and bind! says so itself rather than letting a host
 %predicate say it about a key: the message names the operation and what a name
@@ -788,8 +834,8 @@ test(a_one_element_expression_is_not_a_character_code) :-
     % (+ 1 (g)) answered 104, the character code of g.
     findall(R, '+'(1, [g], R), Plus),
     findall(R, '*'(2, [z], R), Times),
-    Plus == [['+', 1, [g]]],
-    Times == [['*', 2, [z]]].
+    Plus == [['Error', ['+', 1, [g]], "+ expects two numbers"]],
+    Times == [['Error', ['*', 2, [z]], "* expects two numbers"]].
 
 test(a_string_is_not_a_character_code) :-
     findall(R, '+'(1, "s", R), Answers),
@@ -799,13 +845,13 @@ test(a_string_is_not_a_character_code) :-
 test(an_evaluable_atom_does_not_outrank_a_metta_definition) :-
     % SWI's pi answered 3.14159 over a user's own (= pi 3.14).
     findall(R, '+'(1, pi, R), Answers),
-    Answers == [['+', 1, pi]].
+    Answers == [['Error', ['+', 1, pi], "+ expects two numbers"]].
 
 test(comparisons_refuse_the_same_operands) :-
     findall(R, '<'(1, [f, 2], R), Less),
     findall(R, max([a], 1, R), Max),
-    Less == [['<', 1, [f, 2]]],
-    Max == [[max, [a], 1]].
+    Less == [['Error', ['<', 1, [f, 2]], "< expects two numbers"]],
+    Max == [['Error', [max, [a], 1], "max expects two numbers"]].
 
 test(numbers_still_compute) :-
     '+'(1, 2, Three), Three == 3,
@@ -879,17 +925,26 @@ test(the_shape_decides_what_is_an_expression) :-
 test(an_unbound_term_is_not_an_expression, [fail]) :-
     list_shaped(_).
 
-%The tail's declared type is Expression, and a tail that is decidedly not one is
-%refused rather than built into a cons the engine cannot print: (cons-atom a 1)
-%used to answer [a|1], which swrite/2 then refused as a term whose printed form
-%would read back as a different value.
-test(a_non_expression_tail_is_refused) :-
+%A tail that is not an expression leaves the call INERT, which is what upstream
+%does: its `'cons-atom'(H, T, [H|T])` is a bare predicate with no declaration
+%to refuse against, and `!(cons-atom a 1)` comes back as the written call on
+%both engines [source: PeTTa@ae66fa8 src/metta.pl:111; measured 2026-08-30,
+%ai-tmp/tail.metta].
+%
+%The tail was declared `Expression` here until 2026-08-30 and a Number tail
+%earned a BadArgType refusal. The refusal existed because an earlier engine
+%BUILT the improper cons `[a|1]`, which swrite/2 then refused as a term whose
+%printed form would read back as a different value; leaving the call inert
+%avoids that term without inventing an answer upstream does not give.
+test(a_non_expression_tail_is_left_inert) :-
     'cons-atom'(a, 1, Out),
-    Out == ['Error', ['cons-atom', a, 1],
-            ['BadArgType', 2, 'Expression', 'Number']],
+    Out == ['cons-atom', a, 1],
     cons(a, "s", Out2),
-    Out2 == ['Error', [cons, a, "s"],
-             ['BadArgType', 2, 'Expression', 'String']].
+    Out2 == [cons, a, "s"],
+    %The improper term is still never built, which is the property the refusal
+    %was protecting: a proper list is exactly what swrite/2 can print back.
+    assertion(is_list(Out)),
+    assertion(is_list(Out2)).
 
 %A tail whose type is not DECIDED, an undeclared symbol, is left unreduced. The
 %result is the ordinary three-element expression, so the invariant holds there
@@ -1262,16 +1317,20 @@ test(metta_registration_arities,
     sort(Arities, Sorted),
     assertion(Sorted == [3]).
 
-%A wrong arity is an ordinary MeTTa error and an ANSWER, not a raise, and the
-%operator it names is the one the program wrote
-%[source: LeaTTa tests/semantics/eval-core/empty-argument-arity.metta;
-%measured 2026-08-19 against the arbiter, which answers
-%`(Error (+ 1 2 3) IncorrectNumberOfArguments)`].
+%Too many arguments RAISE, and the raise names the arities the operator HAS
+%beside the one the call asked for, so a caller reads both numbers off the
+%error instead of only the call
+%[measured 2026-08-30 against PeTTa@ae66fa8, where
+%`(repr (catch (+ 1 2 3)))` is
+%"(Error (domain_error (function_input_arities + (2)) 3) none)"].
 test(metta_arity_errors_name_the_operator,
      [forall(member(Operator, ['/', '+', '-', '*', min, max]))]) :-
-    findall(Answer, reduce([Operator, 1, 2, 3], Answer, _), Answers),
-    assertion(Answers == [['Error', [Operator, 1, 2, 3],
-                           'IncorrectNumberOfArguments']]).
+    catch(( reduce([Operator, 1, 2, 3], _, _), Raised = no_error ),
+          Ball,
+          Raised = Ball),
+    assertion(Raised == error(domain_error(
+                                  function_input_arities(Operator, [2]), 3),
+                              none)).
 
 test(builtin_exists_file) :-
     library('lib_builtin_types.metta', Present),
@@ -1373,24 +1432,30 @@ test(a_program_declaration_is_answered_before_the_engines,
 
 :- end_tests(metta_builtin_type_surface).
 
-%comparable_operands/3 at the predicate's own door, where the answer is a
-%Prolog one and no MeTTa reduction stands between the operands and the
-%verdict.
-:- begin_tests(comparable_operands).
+%== and != at the predicate's own door, where the answer is a Prolog one and
+%no MeTTa reduction stands between the operands and the verdict.
+:- begin_tests(equality_operands).
 
-%The refusal names the position, the type the first operand fixed and the type
-%the second carries, which is what `(-> $a $a Bool)` says and what the arbiter
-%answers [source: LeaTTa tests/semantics/grounded/07-partial-core.metta,
-%`(== 1 a)` with `(: a String)` is `(BadArgType 2 Number String)`].
-test(two_known_and_different_kinds_are_refused,
-     [forall(member(A-B-Reason,
-                    [1-"s"-['BadArgType', 2, 'Number', 'String'],
-                     true-1-['BadArgType', 2, 'Bool', 'Number'],
-                     "s"-1-['BadArgType', 2, 'String', 'Number'],
-                     1-true-['BadArgType', 2, 'Number', 'Bool']]))]) :-
+%TWO DIFFERENT KINDS ANSWER FALSE, and no type question is asked to get there.
+%These four were REFUSED with `(BadArgType 2 <expected> <actual>)` until
+%2026-08-30, through a comparable_operands/2 guard written for LeaTTa's
+%one-variable `(-> $a $a Bool)`. Upstream declares two independent variables
+%and its whole definition is term equality
+%[source: PeTTa@ae66fa8 src/metta.pl:40-41 and lib/lib_builtin_types.metta:17;
+%measured 2026-08-30, both engines answer false for all four].
+test(two_known_and_different_kinds_answer_false,
+     [forall(member(A-B, [1-"s", true-1, "s"-1, 1-true]))]) :-
     findall(R, '=='(A, B, R), Answers),
-    Answers = [['Error', _, Actual]],
-    assertion(Actual == Reason).
+    assertion(Answers == [false]).
+
+%The integer and the float are different TERMS.
+test(mixed_numeric_operands_are_not_equal) :-
+    '=='(1, 1.0, Equal),
+    assertion(Equal == false),
+    '!='(1, 1.0, Different),
+    assertion(Different == true),
+    '=='(1, 1, Same),
+    assertion(Same == true).
 
 test(a_pair_of_one_kind_is_compared,
      [forall(member(A-B-R, [1-1-true, 1-2-false, "s"-"s"-true,
@@ -1413,13 +1478,14 @@ test(an_expression_operand_is_never_refused,
     '=='(A, B, Answer),
     assertion(Answer == R).
 
-%Deciding WHETHER two operands are comparable must not walk them. One proper
-%list is all the list branches need, and () is one, so an operand that is ()
-%settles the question without is_list/1 walking the other. `(== $l ())` is how
-%a list is walked to its end, so asking is_list/1 of the whole remaining list
-%at every step made traversing N elements quadratic: the walk cost 13,538
-%microseconds at 3,200 elements and 137,949 at 12,800, 10.2x per 4x, against
-%5,048 and 26,883 now [measured 2026-08-23].
+%Comparing a long list against () must not WALK it. `(== $l ())` is how a list
+%is walked to its end, and a guard that asked is_list/1 of the whole remaining
+%list at every step made traversing N elements quadratic: 13,538 microseconds
+%at 3,200 elements and 137,949 at 12,800, 10.2x per 4x [measured 2026-08-23].
+%That guard is gone and ==/3 is now `A == B`, which SWI decides on the two
+%principal functors, so the property holds by construction rather than by
+%careful branch ordering. The lane stays because the property is the one a
+%program depends on, not the mechanism that provides it.
 %
 %The test is TIMED rather than counted. is_list/1 is one C builtin call and
 %reads as a single inference whatever the length of the list it walks, so the
@@ -1440,13 +1506,23 @@ test(comparing_against_the_empty_list_does_not_walk_the_other_operand) :-
     comparison_cost(6400, Wide),
     assertion(Wide < Narrow * 4).
 
-test(the_refusal_names_the_metta_operation) :-
-    catch('=='(1, "s", _), error(_, Context), true),
-    assertion(Context = context('==', _)),
-    catch('!='(1, "s", _), error(_, NeContext), true),
-    assertion(NeContext = context('!=', _)).
+%The PREDICATE compares anything, error atoms included, which is upstream's
+%own two-clause definition: `!(== (Error x y) 0)` is `false` there, and the
+%hand-on this engine carried answered the error atom instead -- a different
+%answer to the same call [measured 2026-08-30;
+%fixture=ai-tmp/eqprobe2.metta]. Containment for a COMPUTED error operand is
+%the translator's argument ladder's job and still holds through the full
+%pipeline [tested: test_an_error_operand_is_handed_on].
+test(an_error_operand_compares_as_the_term_it_is) :-
+    Error = ['Error', ['+', 1, "bad"], ['BadArgType', 2, 'Number', 'String']],
+    findall(R, '=='(4, Error, R), Answers),
+    assertion(Answers == [false]),
+    findall(N, '!='(4, Error, N), NeAnswers),
+    assertion(NeAnswers == [true]),
+    '=='(Error, Error, Identical),
+    assertion(Identical == true).
 
-:- end_tests(comparable_operands).
+:- end_tests(equality_operands).
 
 
 :- begin_tests(metta_constraint_domains).
@@ -2241,14 +2317,21 @@ test(badargtype_multiplicity_and_order,
             Reasons),
     Reasons == Expected.
 
-%An argument whose type does not DECIDE is not an error: the call is left as
-%written, which is upstream's NoReduce, and only an operation with its own
-%message answers one instead [source: LeaTTa
-%tests/semantics/grounded/07-partial-core.metta, `[(+ 1 b)]` against
-%`[((Error (/ 2 b) Divide expects two numbers: dividend and divisor))]`].
-test(an_undecided_argument_leaves_the_call_unreduced) :-
+%An argument whose type does not DECIDE still refuses when the operation has
+%its own message, and every numeric operation has one: nothing will make an
+%undeclared symbol a number, and upstream says so by raising from is/2. An
+%operation with NO message is the case that leaves the call as written, which
+%is upstream's NoReduce.
+test(an_undecided_argument_refuses_by_name) :-
     findall(A, metta_operation_answer('+', [1, 'plunit-undeclared'], A), Answers),
-    Answers == [['+', 1, 'plunit-undeclared']].
+    Answers == [['Error', ['+', 1, 'plunit-undeclared'],
+                 "+ expects two numbers"]].
+
+test(an_operation_with_no_message_leaves_the_call_unreduced) :-
+    findall(A, metta_operation_answer('plunit-no-message',
+                                      [1, 'plunit-undeclared'], A),
+            Answers),
+    Answers == [['plunit-no-message', 1, 'plunit-undeclared']].
 
 test(an_operation_with_its_own_message_answers_it) :-
     findall(A, metta_operation_answer('/', [2, 'plunit-undeclared'], A), Answers),
@@ -2256,11 +2339,21 @@ test(an_operation_with_its_own_message_answers_it) :-
                  "Divide expects two numbers: dividend and divisor"]].
 
 %A chain naming one type variable twice reports the type its FIRST argument
-%fixed, not the variable [source: the same file, `(== 1 a)` is
-%`(BadArgType 2 Number String)` with `(: a String)`].
-test(a_shared_type_variable_reports_what_the_first_argument_fixed) :-
-    findall(A, metta_operation_answer('==', [1, "text"], A), Answers),
-    Answers == [['Error', ['==', 1, "text"],
+%fixed, not the variable. This was exercised on `==` until 2026-08-30, when
+%its declaration became upstream's `(-> $a $b Bool)` -- two INDEPENDENT
+%variables, so it constrains nothing and no longer refuses anything. The
+%property is the refusal table's, not that operator's, so the test declares
+%its own shared-variable chain instead of borrowing one.
+test(a_shared_type_variable_reports_what_the_first_argument_fixed,
+     [ setup(( retractall(silent(_)), assertz(silent(true)),
+               'add-atom'('&self',
+                          [':', 'plunit-same-type', ['->', V, V, 'Bool']],
+                          _) )),
+       cleanup(( 'remove-atom'('&self', [':', 'plunit-same-type', _], _),
+                 retractall(silent(_)), assertz(silent(false)) )) ]) :-
+    findall(A, metta_operation_answer('plunit-same-type', [1, "text"], A),
+            Answers),
+    Answers == [['Error', ['plunit-same-type', 1, "text"],
                  ['BadArgType', 2, 'Number', 'String']]].
 
 %An argument whose DECLARED type is already wrong is refused where it stands,
@@ -2311,7 +2404,7 @@ test(an_undecided_operand_still_runs,
        cleanup(remove_sexp('&self', ['ew-undef-ran'])) ]) :-
     process_metta_string("!(collapse (+ 1 (ew-undef EW-MARK)))", [[Answer]]),
     swrite(Answer, Text),
-    assertion(Text == "(+ 1 ew-u)"),
+    assertion(Text == "(Error (+ 1 ew-u) \"+ expects two numbers\")"),
     assertion(get_native_atom('&self', ['ew-undef-ran'])).
 
 :- end_tests(operation_answers).

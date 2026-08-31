@@ -40,6 +40,9 @@ user:plunit_pi_double(X, Y) :- Y is X * 2.
 user:plunit_pi_pick(X, Y) :- member(Y, [X, X, X]).
 user:plunit_pi_scale(X, Y) :- Y is X * 10.
 user:plunit_pi_known(X, Y, Z) :- Z is X + Y.
+%Stands in for a builtin whose clauses a consulted file has taken over:
+%the recorded boot source and the file it is really in disagree.
+user:plunit_pi_moved(X, X).
 user:plunit_pi_first(X, X).
 user:plunit_pi_second(X, X).
 user:'plunit-p119-translated'(_, translated).
@@ -135,6 +138,20 @@ test(a_predicate_outside_user_is_refused,
 % same shape cost the same per call, and both cost a fraction of a Python
 % operation [measured 2026-08-15: 8.15 inferences for Prolog against 26.15 for
 % a Python op, 3.2x].
+% The ceiling is 30. The orientation gate reduce/3 crosses is
+% metta_reduce_result/5, a swapped door that holds a body that never asks
+% the rule table while no cost-ordered translator rule is registered, so
+% the gate a rule-free program pays is the door call alone: 29.001 per
+% call, three consecutive processes identical, against 30.0015 when the
+% gate was an inline probe of the empty table (a dynamic-predicate miss
+% retires 2 inferences) and 28.0015 with the probe replaced by an inline
+% fail [measured 2026-08-30, same tree, warm 200-call preamble]. The gate
+% is a correctness obligation, not overhead to argue away: reduce/3 is the
+% one evaluation door that does not cross metta_boundary_result/3, and
+% without its own gate `!(test (reduce (twin 1 1)) (twin 1 1))` answered
+% the bidirectional rule's up-rewrite `(unpack (wrap (box 1)))`
+% [tested: examples/ch20-extending-the-engine/20-01-translator-rules/02-translatorrule_direction.metta,
+%  tests/prolog/suites/translator/translator.plt:rule_gate_swap].
 test(a_registered_predicate_costs_no_more_than_a_metta_function) :-
     import_prolog_function(plunit_pi_double, true),
     statistics(inferences, I0),
@@ -186,9 +203,29 @@ test(a_registration_records_arities_for_a_name_that_is_already_a_function,
 % process, so a library registering a predicate named + made !(+ 1 2) answer
 % whatever the library said. The only diagnostic was SWI's redefinition
 % warning on stderr and the API reported success.
-test(a_builtin_name_is_refused,
-     [throws(error(permission_error(register, metta_builtin, '+'), _))]) :-
-    import_prolog_function('+', true).
+%
+% The hazard is that REPLACEMENT, not the name, and the two cases are told
+% apart by the file the name's clauses come from now against the one recorded
+% when the engine booted. Refusing on the name alone stopped a library that
+% asks for a superset of what it provides: upstream's lib_import.metta asks
+% for (static-import! git-import! use-module!) in one call and this engine
+% ships git-import! itself.
+test(a_builtin_the_engine_still_backs_is_a_no_op) :-
+    import_prolog_function('+', true),
+    metta_self_module(Self),
+    with_metta_module(Self, reduce([+, 1, 2], Out, _)),
+    assertion(Out == 3).
+
+test(a_builtin_whose_clauses_moved_is_refused,
+     [ setup(( assertz(user:builtin_fun(plunit_pi_moved)),
+               assertz(user:builtin_function_source(plunit_pi_moved,
+                                                    'plunit/never_loaded.pl')) )),
+       cleanup(( retractall(user:builtin_fun(plunit_pi_moved)),
+                 retractall(user:builtin_function_source(plunit_pi_moved, _)),
+                 forget_pi_name(plunit_pi_moved) )),
+       throws(error(permission_error(register, metta_builtin,
+                                     plunit_pi_moved), _)) ]) :-
+    import_prolog_function(plunit_pi_moved, true).
 
 % Special forms are tried BEFORE function dispatch, so a registration under
 % one of their names compiles nothing and can never be reached. Accepting it
@@ -356,11 +393,16 @@ test(a_declared_export_publishes_only_its_declared_arity,
     assertion(Sorted == [2]),
     reduce(['plunit-ex-scale', 3], Declared, _),
     assertion(Declared == 30),
-    %and the internal overload is refused by name, as an ANSWER: the exported
-    %arity is declared, so the wrong one is IncorrectNumberOfArguments
-    findall(Refused, reduce(['plunit-ex-scale', 3, 7], Refused, _), Answers),
-    assertion(Answers == [['Error', ['plunit-ex-scale', 3, 7],
-                           'IncorrectNumberOfArguments']]).
+    %and the internal overload is unreachable: only the declared arity was
+    %published, so calling the other one is too many arguments and raises with
+    %the published arity beside the one asked for.
+    catch(( reduce(['plunit-ex-scale', 3, 7], _, _), Raised = no_error ),
+          Ball,
+          Raised = Ball),
+    assertion(Raised == error(domain_error(
+                                  function_input_arities('plunit-ex-scale',
+                                                         [1]), 2),
+                              none)).
 
 test(an_undeclared_helper_is_not_published,
      [setup(setup_export_library), cleanup(cleanup_export_library)]) :-

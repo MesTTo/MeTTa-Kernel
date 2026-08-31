@@ -84,20 +84,147 @@ build_branch(Con, Val, Out, (Val = Out, Con)).
 %runtime unification (Out = V) keeps a tail-recursive loop from running in
 %constant stack, since the recursive call is no longer last. The first pass
 %records each variable's total occurrences and first/last traversal positions.
-%The second pass knows each branch's position interval, so two AVL lookups prove
-%that V is absent from the head, confined to this branch, and produced before
-%the final unification. No branch re-scans the whole clause.
+%The second pass knows each branch's position interval, so two O(1) attribute
+%reads prove that V is absent from the head, confined to this branch, and
+%produced before the final unification. No branch re-scans the whole clause.
 %
-%Unbound variables are valid assoc keys while their standard-order relation is
-%unchanged. All return bindings are therefore delayed until every lookup has
-%finished: https://www.swi-prolog.org/pldoc/doc/_SWI_/library/assoc.pl
+%THE STATS LIVE ON THE VARIABLES THEMSELVES, as attributes, not in an AVL.
+%This pass runs on every compiled clause, and the specializer compiles clauses
+%at RUN time, so its constant is a per-clause tax the whole corpus pays: on
+%examples/ch05-equations-and-evaluation/05-02-changing-the-equations/04-specialize.metta
+%the assoc spelling was 26,171 inferences of compare/3, insert and rebalance
+%that put_attr/get_attr do in O(1) each -- 16.3% of the file's whole silent
+%load [measured 2026-08-30, the assoc and attribute spellings on one tree].
+%A cheaper spine scan skips the walks entirely for a straight-line body,
+%which cannot hold a branch return at all.
+%
+%The attribute discipline, in one place. Head variables are MARKED (the
+%atom `head`) in the same walk that used to build HeadStats, and a marked
+%variable's body occurrences update nothing, which is exactly the old
+%\+ get_assoc(V, HeadStats, _) exclusion one step earlier. Attributes are
+%backtrackable, so a throw unwinds them with the trail. They are STRIPPED
+%before the return bindings run: copy_term/2 copies attributes, and a later
+%pass or the translation cache copying a body must not carry compiler
+%scratch into a stored term; stripping first also means the V = Out below
+%never fires the unify hook at all. The hook still exists and succeeds,
+%because any unification against an attributed variable would otherwise
+%fail into silent misbehaviour.
 merge_branch_returns(Head, Body0, Body) :-
-    empty_assoc(Empty),
-    mbr_collect_stats(Head, 0, _HeadEnd, Empty, HeadStats),
-    mbr_collect_stats(Body0, 0, End, Empty, Stats),
-    mbr_goal(Body0, HeadStats, Stats, 0, WalkEnd, Body, Bindings, []),
-    WalkEnd =:= End,
+    (   mbr_control_spine_branches(Body0)
+    ->  merge_branch_returns_walk(Head, Body0, Body)
+    ;   Body = Body0
+    ).
+
+%The C analyzer rides beside the engine as mbr.c, compiled to mbr.so by
+%engine/build.sh, and is consulted exactly the way parser.pl consults the C
+%reader: artifact present and loadable, METTA_C_MBR=off keeps the Prolog
+%pass, METTA_C_MBR=differential runs BOTH and throws on any disagreement,
+%which is what the translator suite's generator fuzzer exercises. A C-side
+%FAILURE (the variable-table cap, a malformed control node) falls back to
+%the Prolog pass per clause, so the cap degrades to the specification
+%rather than to a miscompile.
+%shlib exists to load mbr.so; a refused shlib is the same absence as a
+%missing artifact, parser.pl's own reasoning for its reader and writer.
+:- catch(use_module(library(shlib)), _, true).
+:- dynamic metta_c_mbr_active/0.
+:- dynamic metta_mbr_artifact/1.
+:- prolog_load_context(directory, MbrDir),
+   directory_file_path(MbrDir, 'mbr.so', MbrSo),
+   assertz(metta_mbr_artifact(MbrSo)).
+
+%Keep the load in a named directive, matching parser.pl's reader and writer
+%loaders. Besides making the artifact path inspectable, this preserves the
+%activation step when translator.pl is served from translator.qlf; the former
+%anonymous compound directive ran only while that QLF was compiled, leaving a
+%later engine process on the Prolog fallback despite a present mbr.so [tested:
+%swipl -q -g "ensure_loaded('engine/qlf_boot.pl'),ensure_loaded('engine/metta'),translator:metta_c_mbr_active,halt";
+%commit=WORKTREE].
+metta_try_load_c_mbr :-
+   (   \+ getenv('METTA_C_MBR', off),
+       metta_mbr_artifact(MbrSo),
+       exists_file(MbrSo),
+       catch(load_foreign_library(MbrSo), _, fail),
+       current_predicate(metta_c_mbr_analyze/4)
+   ->  assertz(metta_c_mbr_active)
+   ;   metta_c_mbr_stub
+   ).
+
+%The stub keeps the foreign name defined for the engine's
+%undefined-predicate gate when the artifact is absent, parser.pl's reader
+%and writer arrangement; the metta_c_mbr_active/0 guard on the one caller
+%makes it unreachable.
+metta_c_mbr_stub :-
+    (   current_predicate(metta_c_mbr_analyze/4)
+    ->  true
+    ;   assertz((metta_c_mbr_analyze(_, _, _, _) :- fail))
+    ).
+
+:- metta_try_load_c_mbr.
+
+merge_branch_returns_walk(Head, Body0, Body) :-
+    metta_c_mbr_active,
+    (   getenv('METTA_C_MBR', differential)
+    ->  merge_branch_returns_differential(Head, Body0, Body)
+    ;   metta_c_mbr_analyze(Head, Body0, Body, Bindings),
+        mbr_bind_returns(Bindings)
+    ),
+    !.
+merge_branch_returns_walk(Head, Body0, Body) :-
+    merge_branch_returns_prolog(Head, Body0, Body).
+
+%Both passes on one clause, compared BEFORE either binding set runs, then
+%the Prolog result carries: variance on the rewritten bodies and on the
+%binding pairs is the whole contract.
+merge_branch_returns_differential(Head, Body0, Body) :-
+    metta_c_mbr_analyze(Head, Body0, CBody, CBindings),
+    copy_term(Head-Body0, CopiedHead-CopiedBody0),
+    merge_branch_returns_check(CopiedHead, CopiedBody0, PBody, PBindings),
+    (   CBody-CBindings =@= PBody-PBindings
+    ->  true
+    ;   throw(error(metta_c_mbr_divergence(CBody-CBindings, PBody-PBindings),
+                    context(merge_branch_returns/3, differential)))
+    ),
+    mbr_bind_returns(CBindings),
+    Body = CBody.
+
+%Only the control spine can hold a branch: mbr_goal/6 walks conjunctions and
+%the three branch forms and nothing else, so anything deeper is data to it.
+mbr_control_spine_branches(G) :- var(G), !, fail.
+mbr_control_spine_branches((A , B)) :- !,
+    ( mbr_control_spine_branches(A) -> true ; mbr_control_spine_branches(B) ).
+mbr_control_spine_branches((_ ; _)).
+mbr_control_spine_branches((_ -> _)).
+
+merge_branch_returns_prolog(Head, Body0, Body) :-
+    merge_branch_returns_check(Head, Body0, Body, Bindings),
     mbr_bind_returns(Bindings).
+
+%The analysis half alone, bindings handed back unbound, so the differential
+%can compare the two implementations' DECISIONS before either commits them.
+merge_branch_returns_check(Head, Body0, Body, Bindings) :-
+    mbr_mark_head(Head),
+    mbr_collect_stats(Body0, 0, End),
+    mbr_goal(Body0, 0, WalkEnd, Body, Bindings, []),
+    WalkEnd =:= End,
+    mbr_strip_attributes(Body0, Head).
+
+attr_unify_hook(_, _).
+
+mbr_mark_head(T) :-
+    ( var(T) -> put_attr(T, translator, head)
+    ; compound(T) -> functor(T, _, N), mbr_mark_head_args(1, N, T)
+    ; true ).
+
+mbr_mark_head_args(I, N, _) :- I > N, !.
+mbr_mark_head_args(I, N, T) :-
+    arg(I, T, Arg), mbr_mark_head(Arg), I1 is I + 1, mbr_mark_head_args(I1, N, T).
+
+mbr_strip_attributes(Body, Head) :-
+    term_variables(Body-Head, Vs),
+    mbr_del_attrs(Vs).
+
+mbr_del_attrs([]).
+mbr_del_attrs([V|Vs]) :- ( var(V) -> del_attr(V, translator) ; true ), mbr_del_attrs(Vs).
 
 %A variable goal is opaque and can only be walked as a term, which is what the
 %catch-all clause at the bottom does. It needs saying here because a variable
@@ -107,39 +234,44 @@ merge_branch_returns(Head, Body0, Body) :-
 %2026-08-15: an unbound goal exceeded a depth limit of 3000 where `true`
 %finishes at depth 2, and importing a library whose body held one exhausted the
 %7.5Gb stack at 24,403,140 frames.
-mbr_goal(Goal, _, _, P0, P, Goal, Bs, Bs) :- var(Goal), !,
+mbr_goal(Goal, P0, P, Goal, Bs, Bs) :- var(Goal), !,
     mbr_advance_term(Goal, P0, P).
-mbr_goal((A , B), H, Stats, P0, P, (A1 , B1), Bs0, Bs) :- !,
-    mbr_goal(A, H, Stats, P0, P1, A1, Bs0, Bs1),
-    mbr_goal(B, H, Stats, P1, P, B1, Bs1, Bs).
-mbr_goal((C -> T ; E), H, Stats, P0, P, (C -> T1 ; E1), Bs0, Bs) :- !,
+mbr_goal((A , B), P0, P, (A1 , B1), Bs0, Bs) :- !,
+    mbr_goal(A, P0, P1, A1, Bs0, Bs1),
+    mbr_goal(B, P1, P, B1, Bs1, Bs).
+mbr_goal((C -> T ; E), P0, P, (C -> T1 ; E1), Bs0, Bs) :- !,
     mbr_advance_term(C, P0, P1),
-    mbr_branch(T, H, Stats, P1, P2, T1, Bs0, Bs1),
-    mbr_branch(E, H, Stats, P2, P, E1, Bs1, Bs).
-mbr_goal((A ; B), H, Stats, P0, P, (A1 ; B1), Bs0, Bs) :- !,
-    mbr_branch(A, H, Stats, P0, P1, A1, Bs0, Bs1),
-    mbr_branch(B, H, Stats, P1, P, B1, Bs1, Bs).
-mbr_goal((C -> T), H, Stats, P0, P, (C -> T1), Bs0, Bs) :- !,
+    mbr_branch(T, P1, P2, T1, Bs0, Bs1),
+    mbr_branch(E, P2, P, E1, Bs1, Bs).
+mbr_goal((A ; B), P0, P, (A1 ; B1), Bs0, Bs) :- !,
+    mbr_branch(A, P0, P1, A1, Bs0, Bs1),
+    mbr_branch(B, P1, P, B1, Bs1, Bs).
+mbr_goal((C -> T), P0, P, (C -> T1), Bs0, Bs) :- !,
     mbr_advance_term(C, P0, P1),
-    mbr_branch(T, H, Stats, P1, P, T1, Bs0, Bs).
-mbr_goal(G, _, _, P0, P, G, Bs, Bs) :-
+    mbr_branch(T, P1, P, T1, Bs0, Bs).
+mbr_goal(G, P0, P, G, Bs, Bs) :-
     mbr_advance_term(G, P0, P).
 
-mbr_branch(B0, H, Stats, P0, P, B, Bs0, Bs) :-
-    mbr_goal(B0, H, Stats, P0, P, B1, Bs0, Bs1),
-    ( mbr_merge_candidate(B0, H, Stats, P0, P, V, Out)
+mbr_branch(B0, P0, P, B, Bs0, Bs) :-
+    mbr_goal(B0, P0, P, B1, Bs0, Bs1),
+    ( mbr_merge_candidate(B0, P0, P, V, Out)
       -> mbr_split(B1, B, _),
          Bs1 = [V-Out|Bs]
     ; B = B1,
       Bs1 = Bs ).
 
-mbr_merge_candidate(B0, HeadStats, Stats, P0, P, V, Out) :-
+mbr_merge_candidate(B0, P0, P, V, Out) :-
+    %An unbound arm is never a candidate, and asking mbr_split/3 about one
+    %with the pattern pre-bound UNIFIED the arm with (Out = V) and walked the
+    %manufactured structure to a 1.0Gb overflow; the C twin already answers
+    %no-candidate for it, and this is what keeps the two agreeing
+    %[tested: mbr_split_variable_arm:a_variable_branch_arm_is_walked_as_opaque].
+    nonvar(B0),
     mbr_split(B0, _Prefix, (Out = V)),
     var(V),
     var(Out),
     V \== Out,
-    \+ get_assoc(V, HeadStats, _),
-    get_assoc(V, Stats, var_stat(Count, First, Last)),
+    get_attr(V, translator, var_stat(Count, First, Last)),
     Count > 1,
     First >= P0,
     Last < P.
@@ -149,31 +281,44 @@ mbr_bind_returns([V-Out|Bindings]) :-
     V = Out,
     mbr_bind_returns(Bindings).
 
-%Split a conjunction into everything-but-last and its last conjunct:
+%Split a conjunction into everything-but-last and its last conjunct.
+%The variable clause is FIRST for the reason mbr_goal/6's is: an unbound
+%goal unifies with (A , B), binds itself to a fresh conjunction whose left
+%is again unbound, and the walk manufactures conjunctions until the stack
+%goes -- 1.0Gb measured from a probe using a raw variable as a branch arm
+%[measured 2026-08-30; recorded in ai-tmp/codex-mbr-suite/ai-findings.md].
+%It serves only the generic all-outputs mode; the candidate probe calls with
+%its pattern PRE-BOUND and guards itself with nonvar/1 above, because this
+%clause would otherwise bind the arm to the pattern.
+mbr_split(G, true, G) :- var(G), !.
 mbr_split((A , B), Prefix, Last) :- !,
     ( mbr_split(B, P1, Last), ( P1 == true -> Prefix = A ; Prefix = (A , P1) ) ).
 mbr_split(G, true, G).
 
-%Collect every variable's occurrence count and traversal interval in one pass.
-mbr_collect_stats(T, P0, P, Stats0, Stats) :-
+%Collect every variable's occurrence count and traversal interval in one
+%pass. A head-marked variable keeps its mark and gathers no stats, which is
+%the head exclusion; every variable still advances the position by one so
+%the intervals the second pass reads are unchanged.
+mbr_collect_stats(T, P0, P) :-
     ( var(T)
-      -> ( get_assoc(T, Stats0, var_stat(Count0, First, _))
-           -> Count is Count0 + 1,
-              put_assoc(T, Stats0, var_stat(Count, First, P0), Stats)
-         ; put_assoc(T, Stats0, var_stat(1, P0, P0), Stats) ),
+      -> ( get_attr(T, translator, S0)
+           -> ( S0 = var_stat(Count0, First, _)
+                -> Count is Count0 + 1,
+                   put_attr(T, translator, var_stat(Count, First, P0))
+              ; true )
+         ; put_attr(T, translator, var_stat(1, P0, P0)) ),
          P is P0 + 1
     ; compound(T)
       -> functor(T, _, N),
-         mbr_collect_stats_args(1, N, T, P0, P, Stats0, Stats)
-    ; P = P0,
-      Stats = Stats0 ).
+         mbr_collect_stats_args(1, N, T, P0, P)
+    ; P = P0 ).
 
-mbr_collect_stats_args(I, N, _, P, P, Stats, Stats) :- I > N, !.
-mbr_collect_stats_args(I, N, T, P0, P, Stats0, Stats) :-
+mbr_collect_stats_args(I, N, _, P, P) :- I > N, !.
+mbr_collect_stats_args(I, N, T, P0, P) :-
     arg(I, T, Arg),
-    mbr_collect_stats(Arg, P0, P1, Stats0, Stats1),
+    mbr_collect_stats(Arg, P0, P1),
     I1 is I + 1,
-    mbr_collect_stats_args(I1, N, T, P1, P, Stats1, Stats).
+    mbr_collect_stats_args(I1, N, T, P1, P).
 
 %Advance over the same depth-first variable positions without rebuilding the
 %association. This pass also reconstructs only the control nodes it changes.
@@ -202,7 +347,7 @@ case_default_pair(Cases, DefaultExpr, Rest) :-
 %Translate case expression recursively into nested if:
 translate_case([], _, _, fail, []) :- !.
 translate_case([[K,VExpr]|Rs], Kv, Out, Goal, KGo) :- translate_expr_to_conj(VExpr, ConV, VOut),
-                                                      constrain_args(K, Kc, Gc),
+                                                      constrain_args(K, Kc, Gc, [], _, _, invert),
                                                       metta_pattern_match_goal(Kc, Kv, Decide),
                                                       build_branch(ConV, VOut, Out, Then),
                                                       ( Rs == [] -> Goal = (Decide -> Then), KGi=[]
@@ -452,14 +597,21 @@ metta_minimal_equation_step(Module, [Fun|Args], Out) :-
     !,
     (   metta_minimal_equation_body(Module, Fun, Args, Body)
     *-> metta_minimal_equation_result(Module, Body, Out)
-    ;   Out = 'NotReducible'
+    ;   Out = '$metta_not_reducible'
     ).
 
 metta_minimal_equation_body(Module, Fun, Args, Body) :-
     dispatch_meta_clauses(Module, Fun, Clauses),
     member(dispatch_clause(Head0, Body0, _), Clauses),
     copy_term(Head0-Body0, Head-Body1),
-    (   metta_seq_present(Head)
+    %The flag first, because this runs PER CALL and the walk behind it is a
+    %scan of the equation head. Safe to read at call time: the flag is set
+    %when a segment equation is recorded, so a later definition turns the walk
+    %back on for the calls after it. The compile-time askers of
+    %metta_seq_present/1 are deliberately NOT gated -- a goal built while the
+    %flag was false would be wrong once a segment equation arrived.
+    (   metta_any_segment_equation,
+        metta_seq_present(Head)
     ->  metta_seq_head_plan(Head, HeadPlan),
         metta_seq_body_plan(Body1, BodyPlan),
         metta_seq_head_match(HeadPlan, Args),
@@ -515,6 +667,7 @@ metta_segment_spliced_result(Fun, Instantiated, Out) :-
 %rule [tested: tests/prolog/suites/reader/segment_equations.plt;
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 metta_segment_dispatch(Module, Fun, Args, Out) :-
+    metta_any_segment_equation,
     fun_meta_module(Module, Fun, Owner),
     findall(Head0-Body0,
             ( fun_meta_clause(Owner, Fun, Head0, Body0),
@@ -525,7 +678,7 @@ metta_segment_dispatch(Module, Fun, Args, Out) :-
     copy_term(Head0-Body0, Head-Body),
     with_metta_module(Module,
                       translator:( metta_seq_head_plan(Head, HeadPlan),
-                                   translate_segment_body_plan(Fun, Head, Body,
+                                   translate_segment_body_plan(Fun, Body,
                                                                [], BodyPlan) )),
     metta_segment_rule_result(Module, Fun, HeadPlan, BodyPlan, Args, Out).
 
@@ -534,14 +687,28 @@ metta_segment_equation(Fun) :-
     metta_segment_equation_in(Module, Fun, _).
 
 metta_segment_equation_in(Module, Fun, Owner) :-
+    metta_any_segment_equation,
     fun_meta_module(Module, Fun, Owner),
     fun_meta_clause(Owner, Fun, Head, _),
     metta_seq_present(Head),
     !.
 
-%NotReducible is a control result, not an ordinary symbol result.  A normal
-%application consumes it by retaining the call as written.  `eval` installs
-%the one root allowed to observe the marker itself, which is what lets a
+%THE MARKER IS PRIVATE, and its name is why. It used to be the symbol
+%`NotReducible`, which a MeTTa program can WRITE: `(= (f $x) NotReducible)`
+%then answered `(f q)` here, the retained call, where upstream answers the
+%symbol the equation returned. Upstream has no NotReducible of any kind --
+%grep its whole src/ and lib/ -- so the name was ours leaking into the
+%program's own vocabulary [measured 2026-08-30: `!(c2-pl-nr q)` is
+%`NotReducible` upstream and was `(c2-pl-nr q)` here; and
+%`!(collapse (eval ()))` is `(())` upstream].
+%
+%`$metta_not_reducible` cannot collide, because MeTTa's reader takes `$` as
+%the start of a VARIABLE -- `var_symbol(V,E0,E) --> "$", token(Cs)` -- so no
+%source text can produce this symbol
+%[source: PeTTa@ae66fa8 src/parser.pl:71].
+%
+%A normal application consumes the marker by retaining the call as written.
+%`eval` installs the one root allowed to observe it, which is what lets a
 %minimal-MeTTa `chain (eval ...)` distinguish an irreducible call from a value.
 metta_application_result(Written, Produced, Out) :-
     metta_application_result(Written, Written, Produced, Out).
@@ -552,13 +719,13 @@ metta_application_result(Written, Produced, Out) :-
 %`(f 3)`, while an explicit eval still recognizes the source `(f (+ 1 2))` as
 %its root and exposes the marker to chain.
 metta_application_result(Source, Runtime, Produced, Out) :-
-    Produced == 'NotReducible',
+    Produced == '$metta_not_reducible',
     !,
     (   Source = [Frame, _], nonvar(Frame), Frame == function
-    ->  Out = 'NotReducible'
+    ->  Out = '$metta_not_reducible'
     ;   nb_current('$metta_not_reducible_root', Root),
         Root == Source
-    ->  Out = 'NotReducible'
+    ->  Out = '$metta_not_reducible'
     ;   Out = Runtime
     ).
 metta_application_result(_, _, Produced, Produced).
@@ -566,8 +733,179 @@ metta_application_result(_, _, Produced, Produced).
 %The outer runnable consumes the marker too, but retains its own written
 %boundary.  Thus `!(eval (f))` keeps `(eval (f))`, while the same eval nested
 %in chain exposes the bare marker to the continuation.
-metta_boundary_result(Written, Produced, Out) :-
-    ( Produced == 'NotReducible' -> Out = Written ; Out = Produced ).
+%THE ORIENTATION OF A COST-ORDERED REWRITE, asked once at the boundary every
+%evaluated call crosses.
+%
+%A bidirectional rule and the inverse it derives are one equation read both
+%ways, so a step is applied only in the direction that strictly lowers the
+%form's cost; engine/translator_rules.pl states the measure and its ground in
+%ordered rewriting. The measure belongs to the rewrite RELATION rather than to
+%any one door, and asking it door by door had already missed one: the derived
+%inverse is installed as an ORDINARY equation, so it compiles to a clause of
+%the produced head that a plain call reaches with no gate in between, and
+%`(eval (twin 1 1))` answered `(unpack (wrap (box 1)))` -- rewriting UP --
+%where the same call written in source answered itself
+%[measured 2026-08-30; fixture=ai-tmp/petta-align/tr9.py].
+%
+%THE ASKER FOR EVERY PATH THAT ENDS HERE: eval, evalc, the flat Python door
+%and its fast path all cross this boundary. reduce/3 is the one door that
+%does NOT -- the translator compiles `(reduce X)` to a direct reduce/3 call
+%whose answer feeds the caller with no boundary in between -- so reduce/3
+%keeps its own gate at its two dispatch sites. Removing them on the belief
+%that this boundary covered reduce let `!(test (reduce (twin 1 1))
+%(twin 1 1))` answer `(unpack (wrap (box 1)))`, an up-rewrite, and the
+%direction example's own probes are what caught it
+%[tested: examples/ch20-extending-the-engine/20-01-translator-rules/02-translatorrule_direction.metta].
+%The registered-predicate dispatch cost stays under the 30 the interface
+%claims because THAT path never enters reduce/3's gated branches
+%[tested: tests/prolog/suites/host/prolog_interface.plt:
+%a_registered_predicate_costs_no_more_than_a_metta_function].
+%
+%A blocked step leaves the form in normal form, and a form no rewrite applies
+%to evaluates to itself, which is the answer this predicate already gives for
+%a call that did not reduce. So the orientation reuses that branch rather than
+%adding an outcome. Failing instead was measured and is wrong: a compiled
+%equation that does not apply has no answer by construction, so the decline
+%took the rule's FORWARD direction down with it [measured 2026-08-30, same
+%fixture: all four probes answered nothing].
+%
+%NOT SHORT-CIRCUITED ON A NON-COMPOUND RESULT, and the reason is worth leaving
+%here because the shortcut looks free and is wrong. `compound(Produced)` in
+%front costs nothing and halves this test's price, on the reasoning that a
+%non-list form costs 1 while a written call `[Name|Args]` costs at least 2, so
+%the measure would already be satisfied. It is not: a rule may DECLARE its
+%head's cost, `translator_rule_declaration([cost, Cost], ...)`, and a declared
+%0 makes `[Name, Arg]` cost 1, against which an atomic answer's 1 is not
+%strictly less. The rewrite would then be let through where the measure blocks
+%it, which is the one thing an ordered rewrite may not do
+%[source: engine/translator_rules.pl, translator_form_cost/2 and the cost
+%declaration]. One inference is not worth a hole in the termination argument.
+%
+%SWAPPED, not probed. Nearly every program registers no cost-ordered rule:
+%no shipped library passes a direction declaration, so the table this gate
+%asks is EMPTY in the shipping configuration, and asking an empty dynamic
+%predicate is the most expensive spelling of "off" SWI offers: the miss costs
+%2 inferences and about 420 instructions through clause selection, per
+%boundary crossing, at 11 crossings per py-method-call
+%[measured: 2/2/4/2 inferences and 11.216G/12.396G/15.416G/11.216G
+% instructions:u per 10M calls for a static fast body, a 1-clause dynamic
+% fast body, the inline empty-table gate and a compile_predicates body;
+% command=swipl ai-tmp/door_cost_probe.pl and perf stat -e instructions:u
+% swipl ai-tmp/door_instr_probe.pl <shape>; commit=WORKTREE].
+%So this door, metta_reduce_result/5 and metta_eval_step_orients/2 hold
+%ONE clause each at a time,
+%swapped between the fast bodies, which only answer the irreducible marker,
+%and the gated bodies, which add the orientation test, the same way the fuel
+%charge is compiled away while no budget is configured. The gated bodies are
+%complete in BOTH states (an empty table lets every answer through), so the
+%swap is a cost move, never a semantic one. metta_rule_gates_refresh/0
+%derives the mode from the table itself, which makes a reload heal rather
+%than stack clauses, and installs inside transaction/1 so a concurrent
+%reader sees one body or the other and never none. The only two writers of
+%the table, note_cost_ordered_rule/2 and forget_translator_rule/1, call it
+%after every mutation. A 1-clause dynamic call costs the same 2 inferences
+%as the static call it replaces and +142 instructions in-engine (11.681G
+%against 10.258G per 10M door calls, the second number with
+%compile_predicates([translator:metta_boundary_result/3]) applied to the
+%same live door), against the -2 inferences and about -420 instructions the
+%removed probe paid per crossing. compile_predicates is the recorded upgrade
+%if a workload ever measures the dynamic door itself: it works on the live
+%door, but re-swapping then needs abolish/1, whose moment of emptiness a
+%concurrent crossing could observe, so the doors stay dynamic while the
+%transition rail is retract-and-assert inside a transaction
+%[measured 2026-08-30; command=perf stat -e instructions:u swipl
+% ai-tmp/door_static_probe.pl <mode>; commit=WORKTREE].
+:- dynamic metta_boundary_result/3.
+:- dynamic metta_reduce_result/5.
+:- dynamic metta_eval_step_orients/2.
+:- dynamic metta_rule_gate_mode/1.
+
+%The third door, metta_eval_step_orients/2, guards the pre-translation
+%equation step: a cost-ordered translator rule's equation IS the rewrite, so
+%a retained equation applied by metta_eval_core has to pass the same
+%orientation gate the call site applies. Without it the inverse a
+%bidirectional declaration derives rewrote UP through eval while the same
+%call written in source did not: `(collapse (eval (twin 1 1)))` answered
+%`(unpack (wrap (box 1)))` against the source form's `(twin 1 1)`
+%[measured 2026-08-30; fixture=ai-tmp/petta-align/tr8.py]. It runs once per
+%equation-step ANSWER, which made its inline probe the largest of the three
+%rule-free costs, so its fast body is a fact.
+metta_rule_gate_bodies(fast,
+    (metta_boundary_result(Written, Produced, Out) :-
+        (   Produced == '$metta_not_reducible'
+        ->  Out = Written
+        ;   Out = Produced
+        )),
+    (metta_reduce_result(Name, Args, Produced, Out, Status) :-
+        (   Produced == '$metta_not_reducible'
+        ->  Out = [Name|Args], Status = 'not-reducible'
+        ;   Out = Produced, Status = reduced
+        )),
+    metta_eval_step_orients(_, _)).
+metta_rule_gate_bodies(gated,
+    (metta_boundary_result(Written, Produced, Out) :-
+        (   Produced == '$metta_not_reducible'
+        ->  Out = Written
+        ;   Written = [Name|Args],
+            atom(Name),
+            translator_rules:cost_ordered_translator_rule(Name),
+            \+ translator_rules:translator_rule_dispatch_orients(Name, Args, Produced)
+        ->  Out = Written
+        ;   Out = Produced
+        )),
+    (metta_reduce_result(Name, Args, Produced, Out, Status) :-
+        (   Produced == '$metta_not_reducible'
+        ->  Out = [Name|Args], Status = 'not-reducible'
+        ;   translator_rules:cost_ordered_translator_rule(Name),
+            \+ translator_rules:translator_rule_dispatch_orients(Name, Args, Produced)
+        ->  Out = [Name|Args], Status = 'not-reducible'
+        ;   Out = Produced, Status = reduced
+        )),
+    (metta_eval_step_orients(C0, Step) :-
+        (   nonvar(C0), C0 = [F|Args], atom(F)
+        ->  translator_rules:translator_rule_dispatch_orients(F, Args, Step)
+        ;   true
+        ))).
+
+%Boot loads this file before translator_rules (engine/metta.pl's
+%ensure_loaded order), so the table module does not exist yet when the
+%load-end initialization below runs; an absent table and an empty table
+%both mean fast, which is what the catch encodes. Post-boot the two table
+%writers call this after every mutation, and the load-end run also heals a
+%RELOAD of this file while gated, whatever reconsult did to the doors'
+%clauses, because the mode is re-derived from the table rather than trusted.
+metta_rule_gates_refresh :-
+    (   catch(translator_rules:cost_ordered_translator_rule(_),
+              error(existence_error(_, _), _),
+              fail)
+    ->  Mode = gated
+    ;   Mode = fast
+    ),
+    metta_rule_gates_ensure(Mode).
+
+%The transition windows are closed by ORDER, not by a lock: registration
+%installs the gated bodies BEFORE its table row lands (note_cost_ordered_rule
+%calls this with gated, then asserts), and removal retracts the row before
+%the refresh derives fast, so both windows run the gated bodies over an
+%empty table, which answer exactly as the fast bodies do. A concurrent
+%reader therefore never sees a registered rule through an ungated door.
+metta_rule_gates_ensure(Mode) :-
+    (   metta_rule_gate_mode(Mode)
+    ->  true
+    ;   metta_rule_gate_bodies(Mode, Boundary, Reduce, StepOrients),
+        transaction((
+            retractall(metta_rule_gate_mode(_)),
+            retractall(metta_boundary_result(_, _, _)),
+            retractall(metta_reduce_result(_, _, _, _, _)),
+            retractall(metta_eval_step_orients(_, _)),
+            assertz(Boundary),
+            assertz(Reduce),
+            assertz(StepOrients),
+            assertz(metta_rule_gate_mode(Mode))
+        ))
+    ).
+
+:- initialization(metta_rule_gates_refresh).
 
 :- meta_predicate with_not_reducible_root(+, 0).
 
@@ -612,7 +950,7 @@ metta_function_eval_status(Current, Next, Status) :-
     *-> Next = Step,
         Status = reduced
     ;   metta_eval_step(Current, Next),
-        ( Next == 'NotReducible'
+        ( Next == '$metta_not_reducible'
         -> Status = 'not-reducible'
         ;  Status = reduced
         )
@@ -689,10 +1027,24 @@ metta_evaluate_argument(Value, Out) :-
     ;   Out = Value
     ).
 
+%A VARIABLE argument is passed through, never re-evaluated at run time.
+%Upstream decides evaluation while compiling the WRITTEN argument, and a
+%variable translates to itself with no goal at all
+%[source: PeTTa@ae66fa8 src/translator.pl:58,
+%`translate_expr(X, [], X) :- ((var(X) ; atomic(X)) ; X = partial(_,_)), !.`].
+%
+%This carried a second branch until 2026-08-30: a head variable occurring only
+%in held positions was marked, and a later unmasked use emitted
+%metta_evaluate_argument/2 to perform the evaluation the mask had deferred.
+%That is observable and it differed: with `(: passthru (-> Atom %Undefined%))`
+%and `(= (passthru $b) (subtraction-atom $b (2)))`,
+%`(passthru ((+ 1 1)))` answered `()` here and `((+ 1 1))` upstream, because
+%the deferred evaluation turned the held `((+ 1 1))` into `(2)` before the
+%subtraction saw it [measured 2026-08-30, ai-tmp/pass.metta under both
+%engines]. It also costs a goal per such argument, which the passthrough does
+%not.
 translate_eager_argument_dl(X, Goals0, Goals, V) :-
-    (   var(X), held_head_variable(X)
-    ->  Goals0 = [metta_evaluate_argument(X, V)|Goals]
-    ;   var(X)
+    (   var(X)
     ->  V = X,
         Goals0 = Goals
     ;   atom(X)
@@ -721,13 +1073,14 @@ metta_symbol_step(Symbol, Out) :-
     match(Space, [=, Symbol, Body], Body, Out).
 
 metta_eval_root_result(Module, Written, Produced, Out) :-
-    (   Produced == 'NotReducible'
+    (   Produced == '$metta_not_reducible'
     ->  Out = Produced
     ;   Written = [_|_],
         \+ metta_reducible_head(Module, Written)
-    ->  Out = 'NotReducible'
+    ->  Out = '$metta_not_reducible'
     ;   Out = Produced
     ).
+
 
 %A call whose head arrived only at run time must be retranslated with its
 %arguments still written.  The resolved head's declared mask then makes the
@@ -953,12 +1306,6 @@ metta_condition_holds(Closure, Item) :- call(Closure, Item, true).
 %asserts that the THREE-element (:= a b) is ordinary data and matches the
 %pattern (:= $x $y) structurally. Recognising := by name alone would
 %reinterpret it [tested: translator_match_modifiers].
-%GATE ONE: a pattern that IS a colon expression is a query for stored type
-%declarations, not an annotation. `(match &self (: $x Human) $x)` retrieves the
-%atoms somebody wrote, which is the reading a knowledge base needs and the one
-%issue #177 names as the collision to avoid. An annotation is therefore always
-%NESTED: `(match &self (knows (: $x Human) (: $y Human)) ($x $y))`
-%[source: LeaTTa/ai-report-inplace-annotations.md, Design, gate 1].
 %GAPS RIDE THIS WALK, and that is the whole reason the fourth argument exists.
 %A sequence variable changes a pattern's ARITY, so the match door has to know
 %about one before it builds a candidate head, and a walk of its own would cost
@@ -975,24 +1322,12 @@ metta_condition_holds(Closure, Item) :- call(Closure, Item, true).
 %metta_seq_surface_gap/3 written out: a call there would be one inference per
 %child on the hottest compile-time walk the translator has.
 lift_pattern_modifiers(Pattern, Lifted, Guards, Segments) :-
-    (   colon_expression(Pattern)
-    ->  Lifted = Pattern, Guards = [], Segments = false
-    ;   lift_pattern_modifiers_(Pattern, Lifted, Guards, [], false, Segments)
-    ).
+    lift_pattern_modifiers_(Pattern, Lifted, Guards, [], false, Segments).
 
 lift_pattern_modifiers_(Pattern, Lifted, Guards0, Guards, Seen0, Seen) :-
     (   nonvar(Pattern), Pattern = [_|_]
     ->  (   seam:pattern_modifier(Pattern, Lifted, Guard)
         ->  Guards0 = [Guard|Guards], Seen = Seen0
-    %GATE TWO: a colon whose VALUE slot is not a variable is data, and the walk
-    %does not look inside it. Without the second half a constructor that nests
-    %colons inside a value, as LeaTTa's single_sided.metta does with
-    %`(: (Sym (: (Sym (: $x $a)) $b)) $c)`, would have its inner colons
-    %reinterpreted [source: LeaTTa/ai-report-inplace-annotations.md, Design].
-        ;   colon_expression(Pattern)
-        ->  Lifted = Pattern,
-            Guards0 = Guards,
-            Seen = Seen0
         ;   lift_pattern_modifiers_list(Pattern, Lifted, Guards0, Guards, Seen0,
                                         Seen)
         )
@@ -1000,11 +1335,6 @@ lift_pattern_modifiers_(Pattern, Lifted, Guards0, Guards, Seen0, Seen) :-
         Guards0 = Guards,
         Seen = Seen0
     ).
-
-colon_expression(Pattern) :- nonvar(Pattern),
-                             Pattern = [Colon, _, _],
-                             nonvar(Colon),
-                             Colon == ':'.
 
 lift_pattern_modifiers_list([], [], Guards, Guards, Seen, Seen).
 lift_pattern_modifiers_list([Item|Rest], [Lifted|LiftedRest], Guards0, Guards,
@@ -1023,12 +1353,19 @@ lift_pattern_modifiers_list([Item|Rest], [Lifted|LiftedRest], Guards0, Guards,
     lift_pattern_modifiers_(Item, Lifted, Guards0, Guards1, Carried, Seen1),
     lift_pattern_modifiers_list(Rest, LiftedRest, Guards1, Guards, Seen1, Seen).
 
-%The two modifiers a pattern position can carry, each replaced by a fresh
-%variable and a guard over it. `(:= X)` matches by EQUALITY, so a free
-%variable does not match it; `(: $x T)` matches anything of type T and is the
-%same acceptance a declared parameter of type T compiles, so a match query can
-%restrict by type where only a top-level declaration could before.
-%Every clause of this open ownership seam, the two below and a provider's own,
+%The modifier a pattern position can carry, replaced by a fresh variable and a
+%guard over it. `(:= X)` matches by EQUALITY, so a free variable does not
+%match it.
+%
+%`(: $x T)` was a second one until 2026-08-30, restricting a match position by
+%type. Upstream reads a colon pattern as ordinary structure, and the two
+%disagree: with `(knows Ann Bob)` stored and Ann and Bob declared Person,
+%`(match &self (knows (: $x Person) (: $y Person)) ($x $y))` answers nothing
+%upstream and `((Ann Bob))` under the modifier
+%[measured 2026-08-30 against PeTTa@ae66fa8]. It is gone with the head half,
+%for the reason recorded above constrain_args/7.
+%
+%Every clause of this open ownership seam, the one below and a provider's own,
 %takes a LIST, so SWI's first-argument index already separates it from nothing
 %and the marker is what discriminates. The marker is therefore COMPARED rather
 %than unified, which costs one nonvar and one == per clause tried, at
@@ -1043,18 +1380,6 @@ seam:pattern_modifier([Assign, Wanted], Fresh, Fresh == Wanted) :-
     %($A ()); every arity but two matches, and match/4 itself answers].
     nonvar(Assign), Assign == ':=',
     !.
-seam:pattern_modifier([Colon, Fresh, Type], Fresh,
-                 (has_type(Fresh, Type) *-> true ; 'get-metatype'(Fresh, Type))) :-
-    %The same nonvar-then-== reading as the clause above and as
-    %colon_expression/1: ($A $B 0) against a stored () was compiled as "of
-    %type 0" because the literal ':' unified with the pattern's own head
-    %variable [measured 2026-08-21, hypothesis SpaceStateMachine].
-    nonvar(Colon), Colon == ':',
-    %An annotation annotates a VARIABLE, so anything else in that position
-    %stays structural. Not a nicety: tests/prolog/suites/translator/duals.plt writes
-    %`(= (pat-starts-a (: a $rest)) True)` as an ordinary cons-shaped pattern,
-    %and without this gate it would be read as "the atom a has type $rest".
-    var(Fresh).
 
 %Like membercheck but with direct equality rather than unification
 memberchk_eq(V, [H|T]) :- ( V == H -> true ; memberchk_eq(V, T) ).
