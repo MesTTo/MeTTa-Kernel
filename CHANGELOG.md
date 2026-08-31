@@ -32,6 +32,16 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- **One law lands a rules bundle, whichever door.** `m.add(bundle)`,
+  `m += bundle` and `bundle.lower()` now share one landing: equations
+  stream in place and the bundle's construction evidence publishes once
+  they land. A bundle mixes freely with plain atoms in one `add`, and under
+  a `batch()` both the equations and the evidence defer to the flush, so a
+  discarded batch publishes nothing where the old eager spelling recorded
+  evidence for equations it never landed. The splatted form
+  (`add(*bundle)`) stays plain atoms: the splat erases the bundle before
+  the door can see it.
+
 - **The eval door pays the dispatch seam once, not twice.** Routing every
   evaluation through the engine's own `resolve_dispatch` (so `lib_memo` can
   bind a cache lookup) had cost +19 inferences per eval because the module
