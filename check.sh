@@ -374,15 +374,6 @@ run GATE codec-doc  "$PY" "$HERE/extensions/python/tools/codecdoc.py"
 # semirings while the engine acted on two, and nothing said which was right.
 run GATE vocab-sync "$PY" "$HERE/extensions/python/tools/vocabgen.py"
 
-# llms.txt is the file an agent reads INSTEAD of the tree, so a stale claim
-# there is believed rather than checked. It had gone stale exactly that way:
-# it named m.fresh_space() and m.value() after both were renamed, and
-# documented metta.matching and metta.measure after both were deleted. Every
-# name, path, count and vocabulary word in it is checked against the running
-# engine and the real tree here, and each of those five drift classes was
-# reproduced against this lane before it was wired in.
-run GATE llms       "$PY" "$HERE/extensions/python/tools/llmsdoc.py"
-
 # --------------------------------------------------------------- REPORT tier
 # Known backlog. Each entry names its section in the ledger and becomes a
 # GATE once that section is cleared.

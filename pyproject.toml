@@ -194,11 +194,11 @@ ignore = [
 #
 # RAISED 2026-08-31, 15 to 35, by the same ruling restated: a dispatch ladder
 # that grows one arm should not have to be broken up to keep a counter happy.
-# Three functions in the whole tree were over 15 and all three are ladders of
-# exactly that kind, each arm short and independent: llmsdoc.check at 34,
-# evidence_runners.executed at 32 and check_evidence_tags._python_targets at 23.
-# 35 sits above the largest, so what still trips this is a function that grew
-# past every one of them rather than one that gained a case.
+# The functions over 15 are ladders of exactly that kind, each arm short and
+# independent: evidence_runners.executed at 32 and
+# check_evidence_tags._python_targets at 23. 35 sits above the largest, so what
+# still trips this is a function that grew past every one of them rather than
+# one that gained a case.
 max-complexity = 35
 
 [tool.ruff.lint.per-file-ignores]

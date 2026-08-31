@@ -216,7 +216,7 @@ one.
 | path | what it is | required |
 |---|---|---|
 | `extension.pl` | the control file | yes; it is what makes this a seat |
-| `llms.txt` | the consumer's cheat sheet: install, first call, the surface | yes, checked |
+| `llms.txt` | the consumer's cheat sheet: install, first call, the surface | yes; its presence is checked, its content is the author's |
 | `README.md` | the seat's own prose, published on the site | yes for a host seat |
 | `build.sh` | build your artefacts | if you have any |
 | `check.sh` | your gate lanes, SOURCED by the root gate | yes |
