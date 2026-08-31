@@ -49,7 +49,7 @@ parity_engine(EngineRoot, Engine) :-
 %['py-call',['types.SimpleNamespace']],foo]] does not match
 %3.141592653589793 (MeTTa test values differ)` [tested:
 %VIRTUAL_ENV=<the checks venv> swipl parity_boot.pl ENGINE,
-%both engines print BOOTED; commit=WORKTREE].
+%both engines print BOOTED; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 main :-
     current_prolog_flag(argv, [EngineRoot]),
     set_prolog_flag(argv, [silent, extensions]),

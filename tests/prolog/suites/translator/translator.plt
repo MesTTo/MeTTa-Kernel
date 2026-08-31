@@ -2178,9 +2178,9 @@ merge_cost(Depth, Inferences) :-
 
 % The Prolog pass keeps each candidate's statistics on its variable as an
 % attribute, so every update and lookup is O(1) [source:
-% engine/translator/runtime.pl:mbr_collect_stats/3; commit=WORKTREE]. The C
+% engine/translator/runtime.pl:mbr_collect_stats/3; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]. The C
 % twin uses its bounded identity table [source: engine/mbr.c:lookup_var;
-% commit=WORKTREE] and falls back to that Prolog pass past the cap. Held against
+% commit=57f21ba9edf94bcf28cde11f938bce2c241a3709] and falls back to that Prolog pass past the cap. Held against
 % quadratic rather than exact linear growth so the same gate covers both
 % dispatch paths and their allocation constants. A list-backed rescan, the
 % regression this representation prevents, costs 4x per doubling and fails

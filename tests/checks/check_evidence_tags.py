@@ -663,7 +663,7 @@ def commit_problems(sites: list[tuple[Path, int, str, str]]) -> tuple[list[str],
                     problems.append(f"{site}: commit={oid} does not resolve to a commit")
     if placeholders and os.environ.get("RELEASE") == "1":
         problems.append(
-            f"{placeholders} evidence tag(s) still say commit=WORKTREE; a release "
+            f"{placeholders} evidence tag(s) still say commit=57f21ba9edf94bcf28cde11f938bce2c241a3709; a release "
             f"pins each to the commit whose tree produced the evidence"
         )
     return problems, placeholders
@@ -750,7 +750,7 @@ def main() -> int:
     print(
         f"{len(findings)} unbacked evidence tag(s) in {checked} claims, against "
         f"{len(known.targets)} known test names in {len(known.runs)} files a runner "
-        f"executes; {placeholders} commit=WORKTREE placeholder(s) awaiting a "
+        f"executes; {placeholders} commit=57f21ba9edf94bcf28cde11f938bce2c241a3709 placeholder(s) awaiting a "
         f"provenance pin"
     )
     return 1 if findings else 0

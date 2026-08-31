@@ -23,7 +23,7 @@
 %     declared pre-add hook [tested: admission_route_matrix; commit=ce55fe46f26484be4269d06d6b99684d5edc040f]
 %   - the outermost transaction's commit phase leaves every enlisted provider
 %     committed or rolled back and records which of them made their writes
-%     durable [tested: foreign_commit_phase; commit=WORKTREE]
+%     durable [tested: foreign_commit_phase; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

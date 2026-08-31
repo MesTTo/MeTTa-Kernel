@@ -7,7 +7,7 @@
 %   A space is USED when its execution module owns a clause, its storage holds
 %   an atom, or it is foreign, so asking which module it uses is a read and
 %   leaves its name reusable [tested: a_read_of_a_module_does_not_retire_its_space_name,
-%   a_space_that_compiled_a_clause_still_refuses_a_late_parent; commit=WORKTREE].
+%   a_space_that_compiled_a_clause_still_refuses_a_late_parent; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -1752,7 +1752,7 @@ metta_host_clear_space(Space) :-
 %funnel's super recompilation over a world that is dying, which resolved
 %super inside a half-dead world and threw
 %[tested: test_dropping_a_space_reclaims_its_atoms; measured 2026-08-31:
-%post_gc_atom_count 20008 -> 6 at 10,000 atoms; commit=WORKTREE].
+%post_gc_atom_count 20008 -> 6 at 10,000 atoms; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 metta_clear_space_for_release(Space) :-
     setup_call_cleanup(nb_setval('$metta_space_releasing', true),
                        metta_host_clear_space(Space),

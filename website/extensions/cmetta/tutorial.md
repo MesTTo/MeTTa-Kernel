@@ -10,13 +10,13 @@ Guarantees:
     the outputs written beside them are what it printed
     [source: extensions/cmetta/examples/hello.c,
     extensions/cmetta/examples/ops.c, extensions/cmetta/examples/stream.c,
-    extensions/cmetta/examples/lower.c; commit=WORKTREE]
+    extensions/cmetta/examples/lower.c; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
   - the four example programs run under the seat's own suite, so a fence copied
     from one cannot drift away from working code
-    [tested: sh extensions/cmetta/test.sh; commit=WORKTREE]
+    [tested: sh extensions/cmetta/test.sh; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
   - the page is in the navigation and its links resolve
     [tested: test_every_site_page_is_reachable_from_the_navigation,
-    npm run docs:build; commit=WORKTREE]
+    npm run docs:build; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
 -->
 
 # The CMeTTa tutorial

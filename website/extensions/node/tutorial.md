@@ -9,13 +9,13 @@ Guarantees:
   - every fence was run against this checkout on 2026-08-29, from the packed
     tarball installed into an empty project, and the outputs written beside
     them are what it printed
-    [source: extensions/node/examples/readme-snippet.ts; commit=WORKTREE]
+    [source: extensions/node/examples/readme-snippet.ts; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
   - the capability table is the engine's own answer to
     m.engine.capabilities() on the WebAssembly build, not a list kept here
-    [source: extensions/node/src/index.ts; commit=WORKTREE]
+    [source: extensions/node/src/index.ts; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
   - the page is in the navigation and its links resolve
     [tested: test_every_site_page_is_reachable_from_the_navigation,
-    npm run docs:build; commit=WORKTREE]
+    npm run docs:build; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
 -->
 
 # The MeTTa-node tutorial

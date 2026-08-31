@@ -5,10 +5,10 @@
 % Guarantees:
 %   - canonical and 600 generated control-spine clauses produce
 %     variant-identical rewritten bodies and delayed binding pairs through the
-%     C and Prolog analyzers [tested: mbr_c_differential; commit=WORKTREE].
+%     C and Prolog analyzers [tested: mbr_c_differential; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 %   - a clause exceeding MBR_MAX_VARS is refused by the C analyzer but still
 %     rewritten by translator:merge_branch_returns/3, including when the C
-%     artifact is disabled [tested: mbr_c_fallback; commit=WORKTREE].
+%     artifact is disabled [tested: mbr_c_fallback; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 %
 %   The differential unit is conditioned on translator:metta_c_mbr_active/0,
 %   following suites/reader/writer_c.plt. The fallback unit is deliberately

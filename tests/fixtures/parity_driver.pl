@@ -57,7 +57,7 @@ parity_engine(EngineRoot, Engine) :-
 %Upstream loads Janus unconditionally, so the same argv is inert there and the
 %two engines still receive one symmetric configuration [tested:
 %VIRTUAL_ENV=<the checks venv> swipl parity_driver.pl ENGINE EXAMPLE,
-%three consecutive processes per engine and example; commit=WORKTREE].
+%three consecutive processes per engine and example; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 main :-
     current_prolog_flag(argv, [EngineRoot, Example]),
     set_prolog_flag(argv, [Example, silent, extensions]),

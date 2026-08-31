@@ -4,7 +4,7 @@ Assumes: the tutorials, guide, integrations, live-systems, reasoning and
   reference sections are this seat's documentation, so this page routes to them
   rather than repeating them.
 Guarantees: every section named here exists in the navigation
-  [tested: test_every_site_page_is_reachable_from_the_navigation; commit=WORKTREE]
+  [tested: test_every_site_page_is_reachable_from_the_navigation; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
 -->
 
 # PyMeTTa

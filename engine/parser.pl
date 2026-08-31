@@ -699,7 +699,7 @@ swrite_mode('$metta_variable'(Index), _) --> !, "$_", { number_codes(Index, Cs) 
 %measured 2026-08-29 over its 157-example corpus, where the spelling alone
 %accounted for 79 of 156 differing files]
 %[tested: parser_roundtrip:booleans_print_in_the_engines_own_spelling;
-%commit=WORKTREE].
+%commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 swrite_mode(true, _)  --> !, "true".
 swrite_mode(false, _) --> !, "false".
 swrite_mode(Num, _)   --> { integer(Num) }, !, { number_codes(Num, Cs) }, Cs.

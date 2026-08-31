@@ -62,7 +62,7 @@
 %answers per query), walking at the same speed (0.063s against 0.061s per
 %200 walks of a 200k-node term), so the adoption deletes apparatus, not
 %protection [measured 2026-08-30; command=swipl one-shot forall/between
-%timing; commit=WORKTREE].
+%timing; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 match_native(_, _, LComma, OutPattern, Result) :- LComma == [','], !,
                                                   acyclic_term(OutPattern),
                                                   Result = OutPattern.

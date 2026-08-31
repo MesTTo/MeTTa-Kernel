@@ -1488,8 +1488,8 @@ print_expression_form(Term) :-
 %whether a terminal is reading, because piped loader output is contractually
 %escape-free. Upstream's own escapes are unconditional; the conditional is
 %this tree's pipe contract
-%[tested: nonterminal_loader_output_has_no_ansi_escapes; commit=WORKTREE]
-%[source: PeTTa-base@43705f5 src/filereader.pl:26-45, 2026-08-30; commit=WORKTREE].
+%[tested: nonterminal_loader_output_has_no_ansi_escapes; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
+%[source: PeTTa-base@43705f5 src/filereader.pl:26-45, 2026-08-30; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 print_runnable_form(_, _) :- silent(true), !.
 print_runnable_form(FormStr, Goals) :-
     (   stream_property(current_output, tty(true))

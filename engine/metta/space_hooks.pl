@@ -26,7 +26,7 @@
 %   foreign_commit_phase:a_refused_commit_rolls_back_the_participants_it_never_reached,
 %   foreign_commit_phase:the_commit_phase_records_which_participants_lost_their_writes,
 %   foreign_commit_phase:a_commit_that_only_fails_is_named_rather_than_failing_the_finish;
-%   commit=WORKTREE].
+%   commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 

@@ -87,7 +87,7 @@ INFERENCE_ABSOLUTE = 200
 #[measured: PARITY-INFERENCES answered instead of a Janus venv warning,
 # 2026-08-30; command=_perf over 07-torch.metta through the venv Python
 # while inheriting a foreign VIRTUAL_ENV; fixture=07-torch.metta;
-# commit=WORKTREE].
+# commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 def _child_environment() -> dict[str, str]:
     environment = os.environ.copy()
     prefix = pathlib.Path(sys.prefix)

@@ -10,7 +10,7 @@ Guarantees:
     colourful bundled pair that still reads on the background VitePress paints
     a code block with, and which colours the two Python scopes no theme rules
     on [measured 2026-08-29: node scripts/measure_highlighting.mjs;
-    commit=WORKTREE]
+    commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
 Open Obligations:
   To Do: None
   Hacks: None

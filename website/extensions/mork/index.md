@@ -4,7 +4,7 @@ Purpose: publish the MORK seat's own README as this seat's area on the site.
   and no tutorial: there is no program a reader writes in it.
 Guarantees: the page is exactly extensions/mork/README.md, the file that seat
   ships, reached one directory deeper now that the seat is a folder
-  [tested: test_every_site_include_resolves; commit=WORKTREE]
+  [tested: test_every_site_include_resolves; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
 -->
 
 <!--@include: ../../../extensions/mork/README.md-->

@@ -138,7 +138,7 @@ merge_branch_returns(Head, Body0, Body) :-
 %anonymous compound directive ran only while that QLF was compiled, leaving a
 %later engine process on the Prolog fallback despite a present mbr.so [tested:
 %swipl -q -g "ensure_loaded('engine/qlf_boot.pl'),ensure_loaded('engine/metta'),translator:metta_c_mbr_active,halt";
-%commit=WORKTREE].
+%commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 metta_try_load_c_mbr :-
    (   \+ getenv('METTA_C_MBR', off),
        metta_mbr_artifact(MbrSo),
@@ -791,7 +791,7 @@ metta_application_result(_, _, Produced, Produced).
 % instructions:u per 10M calls for a static fast body, a 1-clause dynamic
 % fast body, the inline empty-table gate and a compile_predicates body;
 % command=swipl ai-tmp/door_cost_probe.pl and perf stat -e instructions:u
-% swipl ai-tmp/door_instr_probe.pl <shape>; commit=WORKTREE].
+% swipl ai-tmp/door_instr_probe.pl <shape>; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 %So this door, metta_reduce_result/5 and metta_eval_step_orients/2 hold
 %ONE clause each at a time,
 %swapped between the fast bodies, which only answer the irreducible marker,
@@ -814,7 +814,7 @@ metta_application_result(_, _, Produced, Produced).
 %concurrent crossing could observe, so the doors stay dynamic while the
 %transition rail is retract-and-assert inside a transaction
 %[measured 2026-08-30; command=perf stat -e instructions:u swipl
-% ai-tmp/door_static_probe.pl <mode>; commit=WORKTREE].
+% ai-tmp/door_static_probe.pl <mode>; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 :- dynamic metta_boundary_result/3.
 :- dynamic metta_reduce_result/5.
 :- dynamic metta_eval_step_orients/2.

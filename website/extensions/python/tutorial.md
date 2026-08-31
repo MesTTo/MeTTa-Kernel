@@ -8,12 +8,12 @@ Assumes: the reader knows Python and nothing about MeTTa, and is on a machine
 Guarantees:
   - every fence was run against this checkout on 2026-08-29, and the outputs
     written beside them are what it printed
-    [source: extensions/python/examples/basics/first_steps.py; commit=WORKTREE]
+    [source: extensions/python/examples/basics/first_steps.py; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
   - the two refusal messages are the engine's own words, not a paraphrase
-    [source: extensions/python/metta/_engine.py:_no_engine; commit=WORKTREE]
+    [source: extensions/python/metta/_engine.py:_no_engine; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
   - the page is in the navigation and its links resolve
     [tested: test_every_site_page_is_reachable_from_the_navigation,
-    npm run docs:build; commit=WORKTREE]
+    npm run docs:build; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
 -->
 
 # The PyMeTTa tutorial

@@ -125,7 +125,7 @@ prolog:error_message(permission_error(register, metta_function, Name)) -->
 %lib/lib_builtin_types/lib_builtin_types.metta said Bool while the clause here
 %answered unit, so the two disagreed until now
 %[source: PeTTa@ae66fa8 src/metta.pl:212, `'println!'(Arg, true)`]
-%[tested: effect_answers:every_effectful_builtin_answers_true; commit=WORKTREE].
+%[tested: effect_answers:every_effectful_builtin_answers_true; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 'println!'(Arg, true) :- sdisplay(Arg, RArg),
                          format('~w~n', [RArg]).
 
@@ -555,7 +555,7 @@ undocumented(Name) :- current_metta_space(Space),
 %That is how lib_import.metta guards a file before consulting it, and it is the
 %only spelling upstream has, because there the name reaches SWI's own
 %exists_file/1 and nothing declares a second arity
-%[source: PeTTa-upstream/lib/lib_import.metta:3, commit=WORKTREE].
+%[source: PeTTa-upstream/lib/lib_import.metta:3, commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 %
 %Defining it HERE rather than inheriting SWI's is what keeps both properties at
 %once. Inheriting it made `!(exists_file)` abort the whole runnable with

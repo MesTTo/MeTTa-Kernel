@@ -138,7 +138,7 @@ ensure_native_storage_module_locked(Space, Module) :-
 %routes every match to the empty native module and the provider is never
 %asked. Measured as view({'port': 80}) answering [] while has_provider said
 %True [tested: extensions/python/tests/ch04_spaces_and_matching/test_spaces_combinators.py::test_view_is_a_live_queryable_space;
-%commit=WORKTREE]. The claim door calls this on every atom-name claim, under
+%commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]. The claim door calls this on every atom-name claim, under
 %the same mutex the seeding path holds, so the premise is enforced rather
 %than assumed; prefix claims seed no rows (their spaces are created through
 %the provider path) and need no sweep.

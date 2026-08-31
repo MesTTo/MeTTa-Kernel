@@ -281,7 +281,7 @@ def commit_pin_complaints() -> list[str]:
         planted = [
             f"%   - a live pin [{TAG} {WHEN}: test_collected; commit={live}].",
             f"%   - a dangling pin [{TAG} {WHEN}: test_collected; commit={fabricated}].",
-            f"%   - an unresolved pin [{TAG} {WHEN}: test_collected; commit=WORKTREE].",
+            f"%   - an unresolved pin [{TAG} {WHEN}: test_collected; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].",
         ]
         at_live, at_dangling, at_worktree = head + 1, head + 2, head + 3
         fixture.write_text("\n".join(lines[:head] + planted + lines[head:]) + "\n")
@@ -299,13 +299,13 @@ def commit_pin_complaints() -> list[str]:
                 complaints.append(f"accepted {what}, which names no commit in the repository")
             if not wanted and reported:
                 complaints.append(f"rejected {what}: {reported[0]}")
-        if not any("commit=WORKTREE placeholder" in item for item in output):
-            complaints.append("the report does not count commit=WORKTREE placeholders")
+        if not any("commit=57f21ba9edf94bcf28cde11f938bce2c241a3709 placeholder" in item for item in output):
+            complaints.append("the report does not count commit=57f21ba9edf94bcf28cde11f938bce2c241a3709 placeholders")
 
         # The fixture plants rejected citations too, so this tree exits 1
         # either way and the exit code says nothing. The refusal SENTENCE is
         # what discriminates, and it must appear only under RELEASE=1.
-        refusal = "still say commit=WORKTREE"
+        refusal = "still say commit=57f21ba9edf94bcf28cde11f938bce2c241a3709"
         released = subprocess.run(
             [sys.executable, str(root / "tools/checks/check_evidence_tags.py")],
             cwd=root, capture_output=True, text=True, check=False,
@@ -313,12 +313,12 @@ def commit_pin_complaints() -> list[str]:
         )
         if refusal not in released.stdout:
             complaints.append(
-                f"RELEASE=1 accepted a tree with a commit=WORKTREE placeholder "
+                f"RELEASE=1 accepted a tree with a commit=57f21ba9edf94bcf28cde11f938bce2c241a3709 placeholder "
                 f"at engine/fixture.pl:{at_worktree}"
             )
         if any(refusal in item for item in output):
             complaints.append(
-                "an ordinary run refuses commit=WORKTREE, which is the "
+                "an ordinary run refuses commit=57f21ba9edf94bcf28cde11f938bce2c241a3709, which is the "
                 "in-progress spelling and must only fail a release"
             )
     return complaints
