@@ -758,10 +758,14 @@ def stream(
 > after the first pull are not seen by this cursor.
 >
 > `limit` and `under` mean what they mean on match(), because this is
-> match() and the cursor underneath already carried both. What this
-> door does NOT take is match()'s `into=`, and that is a real
-> difference rather than an omission: `into` builds a container out of
-> every row, which is the one thing a cursor exists not to do.
+> match() and the cursor underneath already carried both: a tagging
+> algebra (ranked, tropical, prov) answers one TaggedAnswer per pull,
+> the same value match() answers. `under='counting'` is refused by
+> name, because a counting fold is ONE number over the whole answer
+> set and a cursor exists not to have one.
+>
+> What this door does NOT take is match()'s `into=`, the same kind of
+> difference: `into` builds a container out of every row.
 
 ### `Space.assuming`
 
