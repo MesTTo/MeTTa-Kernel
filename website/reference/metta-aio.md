@@ -335,10 +335,20 @@ async def eval(
     using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
+    under: Any = _UNSET,
+    theory: Any | None = None,
+    interpreter: Any | None = None,
 ) -> list[Atom]:
 ```
 
 > Evaluate a term and return every answer.
+>
+> `under`, `theory` and `interpreter` are the synchronous eval()'s, and
+> they matter more here: answers() is excluded from this surface because
+> a replayable cross-thread iterator is not what an await gives you, so
+> without them there was no way to annotate an EVALUATION asynchronously
+> at all -- match(under=) covered patterns and nothing covered calls
+> [measured 2026-08-31].
 
 ### `AsyncMeTTa.one`
 

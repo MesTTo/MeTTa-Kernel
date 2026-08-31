@@ -228,6 +228,18 @@ def why(self) -> str:
 > query will do before it runs; the guide's observability page maps
 > the family.
 
+### `Rows.build`
+
+```python
+def build(self, column: str | type, cls: type | None = None) -> list:
+```
+
+> Rebuild constructor atoms through the two-way translator.
+>
+> ``build(column, cls)`` projects a named column. ``build(cls)`` is the
+> query reconstruction door when exactly one column holds complete
+> constructor expressions.
+
 ### `Rows.into`
 
 ```python
@@ -243,18 +255,6 @@ def into(self, cls: type) -> list:
 > [measured 2026-08-31]. build(cls) is the neighbouring door and a
 > different question: it rebuilds ONE column of complete constructor
 > expressions, where this maps every column onto a field.
-
-### `Rows.build`
-
-```python
-def build(self, column: str | type, cls: type | None = None) -> list:
-```
-
-> Rebuild constructor atoms through the two-way translator.
->
-> ``build(column, cls)`` projects a named column. ``build(cls)`` is the
-> query reconstruction door when exactly one column holds complete
-> constructor expressions.
 
 ### `Rows.to_dicts`
 

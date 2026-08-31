@@ -1008,6 +1008,9 @@ def eval(
     using: dict[str, Any] | None = None,
     timeout: float | None = None,
     inferences: int | None = None,
+    under: Any = _UNSET,
+    theory: Any | None = None,
+    interpreter: Any | None = None,
 ) -> list[Atom | Undefined]:
 ```
 
@@ -1038,6 +1041,12 @@ def eval(
 > `capture()` scope collects printed text without changing the list.
 > In a `strict()` scope an unreduced term raises StrictError while a
 > genuinely empty branch still returns no answers.
+>
+> `under`, `theory` and `interpreter` are answers()' three, and mean
+> exactly what they mean there; this door is that one materialised. A
+> surrounding `with metta.under(carrier)` reaches here too, which it did
+> not before: match() and answers() both honoured such a scope while
+> eval() ignored it in silence.
 
 ### `Space.answers`
 
