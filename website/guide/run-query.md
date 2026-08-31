@@ -208,18 +208,21 @@ learn.
 
 ## Name a host value inside one term
 
-`using=` on `eval` maps bare symbols to Python objects, and the object crosses by
-identity, not by a copy or a repr:
+A `bind()` block maps bare symbols to Python objects, and the object crosses
+by identity, not by a copy or a repr:
 
 ```python
 model = load_classifier()
-answers = m.eval("(gated v)", using={"v": model.predict(row)})
+with m.bind(v=model.predict(row)):
+    answers = m.eval("(gated v)")
 ```
 
 The symbol is bare, `v`, not `$v`: a `$` name is a MeTTa variable the engine
-will bind for you, while `using=` names something you already have. For source
-execution, `with m.bind(v=value): m.run(...)` scopes the same binding without
-adding a flag to the write-and-run door.
+will bind for you, while `bind()` names something you already have. Every door
+inside the block reads the same scope, so one block covers a `run()`, an
+`eval()` and an `answers()` together, and a mapping that grows grows down the
+page instead of inside a call. An atom key means itself, so
+`m.bind({V.x: 5})` fills a variable hole where a name key means the symbol.
 
 An unreduced target remains the ordinary answer after substitution. There is
 no alternate residual return shape.

@@ -53,7 +53,7 @@ A malformed bound (negative, fractional, or not a number) is a 400.
 
 ```json
 {"ok": true, "atoms": <n>, "protocol": 3,
- "capabilities": ["match", "enumerate", "add", "remove", "stream"],
+ "capabilities": ["match", "enumerate", "add", "add-many", "remove", "stream"],
  "bound": <bool>}
 ```
 

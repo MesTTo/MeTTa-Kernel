@@ -1121,11 +1121,11 @@ async def eval_status(
 > alike from the answers alone. An error is not a status here,
 > because it arrives as an exception.
 >
-> `using` binds host values into the term exactly as it does for
-> eval(), and it has to: the substitution lands BEFORE the
+> A `bind()` scope binds host values into the term exactly as it
+> does for eval(), and it has to: the substitution lands BEFORE the
 > reducibility question, so the status of an evaluation that binds
 > anything was unaskable without it. Name keys mean symbols and atom
-> keys mean themselves, so `using={V.x: 5}` fills a variable hole.
+> keys mean themselves, so `bind({V.x: 5})` fills a variable hole.
 >
 > `theory` and `interpreter` are eval()'s own, and mean the same here.
 > This is the door that says which evaluation path produced an answer, so
@@ -1530,11 +1530,11 @@ async def derivation(
 > `timeout` and `inferences` guard the whole search. An evaluation error
 > inside a proof surfaces as itself rather than as an empty proof list.
 >
-> `using` binds host values into the term, for the reason eval_status
-> needs it: the substitution lands BEFORE the search, so the proof of an
-> evaluation that binds anything was unaskable. Name keys mean symbols
-> and atom keys mean themselves, so `using={V.x: 5}` fills a variable
-> hole. It takes no `theory` or
+> A `bind()` scope binds host values into the term, for the reason
+> eval_status needs it: the substitution lands BEFORE the search, so the
+> proof of an evaluation that binds anything was unaskable. Name keys
+> mean symbols and atom keys mean themselves, so `bind({V.x: 5})` fills
+> a variable hole. It takes no `theory` or
 > `interpreter`, because a meta-interpreted diagnostic does not select an
 > evaluation relation.
 

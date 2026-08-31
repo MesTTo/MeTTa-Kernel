@@ -368,7 +368,10 @@ def _python_candidates(text: str, filename: str) -> list[ClosedListCandidate]:
     for node in ast.walk(tree):
         if isinstance(node, ast.Subscript):
             owner = node.value
-            is_literal = isinstance(owner, ast.Name) and owner.id == "Literal"
+            # The root module underscore-aliases its typing imports, so its
+            # generated doors spell the same closed list _Literal[...]; an
+            # alias must not make a policy invisible to this inventory.
+            is_literal = isinstance(owner, ast.Name) and owner.id in ("Literal", "_Literal")
             is_literal = is_literal or (
                 isinstance(owner, ast.Attribute) and owner.attr == "Literal"
             )

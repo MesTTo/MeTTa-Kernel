@@ -32,6 +32,35 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- **The eval door pays the dispatch seam once, not twice.** Routing every
+  evaluation through the engine's own `resolve_dispatch` (so `lib_memo` can
+  bind a cache lookup) had cost +19 inferences per eval because the module
+  context was entered once for resolution and again for execution; resolution
+  now rides the one execution wrap, returning 11 of the 19. The remaining +8
+  is the seam offer and the host loader funnel, the correctness the routing
+  bought, priced in each benchmark row's own comment.
+
+- **A combinator member refuses like the engine does.** `overlay()`, `union()`
+  and their kin answered `AttributeError` when a backing provider lacked
+  `add`, `remove` or `clear`; they speak the capability refusal now, naming
+  the provider and distinguishing "does not implement" from "declines".
+
+- **A world counts like the space it froze.** `len(world)`, iteration and
+  `atom in world` reach the reified multiset directly on both the sync and
+  async seats; `.atoms` remains the longhand.
+
+- **`path()` refuses what its contract excludes.** A bare segment outside
+  `str | int | Attr | Key` raised nothing and silently became a `Key`; it
+  refuses now and names `Key()` as the opt-in.
+
+- **The module tier is generated from `Space` too.** `metta.run(...)` and its
+  sixteen sibling verbs delegate to the default context's self space; nine of
+  them had erased their signatures into `*args, **kwargs`, and `metta.trace`
+  bounded at 10,000 events where `m.trace` bounds at 1,000,000. The same
+  generator now writes both mirrors, so a module door carries the Space
+  door's exact parameters, defaults and docstring with a tier note, and
+  `metta.trace` follows Space's bound.
+
 - **AsyncMeTTa's 66 mechanical doors are generated from `Space`.**
   Hand-written, they had drifted: fifteen signatures narrower than the sync
   door's, sixteen return annotations vaguer, sixty-four docstrings
