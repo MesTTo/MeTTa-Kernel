@@ -181,6 +181,16 @@ SOURCES = (
 # ai-code-organisation-and-fixes.md rather than a gate today, which is the same
 # staging every REPORT lane in check.sh follows.
 PROVENANCE_SOURCES = (
+    # The twins and the suites, named by the out-of-glob net on 2026-08-31: a
+    # twin's BUDGET carries a whole provenance history in comments and a
+    # suite's Guarantees block carries its own claims, so both were writing
+    # pins nothing read and nothing would resolve. They join the PIN half
+    # only, the same staging the shell runners take below, because their claim
+    # half is a burn-down rather than a gate: reading them as SOURCES reports
+    # 414 unbacked tags over 4,770 claims, most of them citations left behind
+    # by a rename [measured 2026-08-31].
+    "extensions/python/examples/*/*/*/*.py",
+    "extensions/python/tests/*/*.py",
     "extensions/*/benchmarks/*.json",
     "engine/*.json",
     "*.sh",
