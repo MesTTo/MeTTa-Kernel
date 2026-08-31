@@ -102,6 +102,11 @@ class MatchIndex:
 >     inbox = MatchIndex()
 >     inbox.add(S.order(V.id, S.express), rush_handler)
 >     [value for _, value in inbox.matches(S.order(ground(7), S.express))]
+>
+> `pattern in index` is deliberately absent, because membership here would
+> mean two different things and a coin toss between them is worse than
+> either: "is this pattern registered" is len() and your own bookkeeping,
+> "does anything match this atom" is matches().
 
 ### `MatchIndex.add`
 
