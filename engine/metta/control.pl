@@ -140,18 +140,24 @@ metta_with_pragmas(Settings, Goal, Value) :-
     ;   Outcome = failed
     ),
     metta_restore_pragmas(Undo, Unrestored),
-    (   Outcome = raised(Raised)
-    ->  %The scope's own error is what the caller asked about. A restore that
-        %also failed is reported beside it rather than replacing it, which is
-        %the suppressed-exception rule try-with-resources and ExitStack keep.
-        ( nonvar(Unrestored)
-        -> print_message(error, Unrestored)
-        ;  true ),
-        throw(Raised)
-    ;   nonvar(Unrestored)
-    ->  throw(Unrestored)
-    ;   Outcome = answered(Values)
-    ),
+    metta_with_pragmas_answer(Outcome, Unrestored, Value).
+
+%Clause dispatch instead of an if-then-else, so no variable is introduced in
+%one branch and read after it. The ordering is the suppressed-exception rule
+%try-with-resources and ExitStack keep: the scope's own error is what the
+%caller asked about, and a restore that also failed is reported beside it
+%rather than replacing it.
+metta_with_pragmas_answer(raised(Raised), Unrestored, _) :-
+    !,
+    ( nonvar(Unrestored)
+    -> print_message(error, Unrestored)
+    ;  true ),
+    throw(Raised).
+metta_with_pragmas_answer(_, Unrestored, _) :-
+    nonvar(Unrestored),
+    !,
+    throw(Unrestored).
+metta_with_pragmas_answer(answered(Values), _, Value) :-
     member(Value, Values).
 
 %Every key, whatever the one before it did. maplist/2 stops at the first
