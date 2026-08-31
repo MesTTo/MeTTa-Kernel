@@ -366,6 +366,13 @@ run GATE reference  "$PY" "$HERE/extensions/python/tools/reference.py"
 # derived door says what it buys.
 run GATE ledger     "$PY" "$HERE/extensions/python/tools/ledger.py"
 
+# AsyncMeTTa's 66 mechanical doors are generated from Space by aiogen.py, so
+# the two surfaces cannot drift. Hand-written they had: 15 carried a different
+# signature, 16 weakened a return type and 64 of 66 paraphrased the docstring
+# they claimed to reproduce, two of them refusing at runtime what the sync door
+# accepts [measured 2026-08-31].
+run GATE aio-mirror "$PY" "$HERE/extensions/python/tools/aiogen.py"
+
 # The MeTTa half of the same promise: metta-libraries.md reproduces each
 # library's own (@doc ...) atoms, and its coverage table is the burn-down
 # surface interrogate provides for the Python side.
