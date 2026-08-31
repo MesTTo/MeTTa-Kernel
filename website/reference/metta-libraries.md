@@ -9,7 +9,7 @@ beside its definitions.
 
 | library | names | documented |
 |---|---|---|
-| lib_builtin_types | 186 | 0 |
+| lib_builtin_types | 185 | 0 |
 | lib_combinatorics | 6 | 0 |
 | lib_conformance | 1 | 0 |
 | lib_constraints | 5 | 0 |
@@ -19,7 +19,7 @@ beside its definitions.
 | lib_derived | 1 | 1 |
 | lib_dict | 7 | 0 |
 | lib_doc | 0 | 0 |
-| lib_file | 2 | 2 |
+| lib_file | 3 | 3 |
 | lib_he | 0 | 0 |
 | lib_import | 2 | 2 |
 | lib_json | 0 | 0 |
@@ -155,9 +155,19 @@ Returns: Its first answer
 
 ## lib_file
 
-### `file-exists`
+### `temp-path!`
 
 *lib_file.metta:40*
+
+A unique fresh path in the system temporary directory, created exclusively so concurrent runners cannot mint the same name; the caller owns the file
+
+1. a name prefix for the path
+
+Returns: String
+
+### `file-exists`
+
+*lib_file.metta:44*
 
 True when a regular file exists at the path, False otherwise
 
@@ -167,7 +177,7 @@ Returns: Bool
 
 ### `dir-exists`
 
-*lib_file.metta:44*
+*lib_file.metta:48*
 
 True when a directory exists at the path, False otherwise
 

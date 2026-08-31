@@ -39,6 +39,10 @@ Source: `extensions/python/metta/results.py`.
 >   - evaluation values and their caller-binding rows are parallel faces of one
 >     Answers cursor [tested: test_calls_keep_values_and_binding_rows;
 >     commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
+>   - finalizing an Answers releases everything the engine holds for it, the
+>     cursor a declined count opened and never handed to the stream included
+>     [tested: test_a_counted_view_releases_its_engine_when_it_is_dropped;
+>     commit=WORKTREE]
 >   - private item replay lets a deferred algebra route preserve those rows
 >     without probing the engine when its Answers view is constructed [tested:
 >     test_tagged_derivations_flow_through_match_and_reinterpret_without_requery;

@@ -16,6 +16,10 @@ Source: `extensions/python/metta/testing.py`.
 > object, SpaceComplianceSuite and GatewayComplianceSuite are pytest classes
 > that run the engine's own expectations against a provider or a URL.
 > Guarantees:
+>   - a repeated source's two enumerations are compared up to variable
+>     renaming, because a stored variable's engine name is a stack offset that
+>     moves with anything else the process does [tested:
+>     test_overlay_passes_the_conformance_kit; commit=WORKTREE]
 >   - check_space_provider holds match soundness and exact pushdown claims
 >     to the whole pattern family of every stored atom, ground, opened and
 >     repeated-variable, judged by two-way unifiability [tested:

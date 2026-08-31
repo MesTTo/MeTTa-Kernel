@@ -30,6 +30,12 @@ Source: `extensions/python/metta/subscribe.py`.
 >     test_a_watcher_failure_is_distinguishable_from_a_failed_write]
 >   - a queue nobody drains refuses rather than dropping the oldest event
 >     [tested test_the_subscription_queue_is_bounded_and_load_takes_a_budget]
+>   - the bound is a count of events, checked by type before value, so a
+>     queue_max no comparison can be true against is refused instead of
+>     silently removing the bound [measured 2026-08-30: queue_max=float("nan")
+>     passed the old `queue_max < 1` check and then held 25 of 25 events after
+>     25 adds, float("inf") the same] [tested:
+>     test_a_queue_bound_that_cannot_fill_is_refused; commit=WORKTREE]
 > Guarded by:
 >   - metta.events' fold registry lock protects queue state and the engine
 >     subscription snapshot [tested test_subscription_cancel_is_thread_safe]
@@ -119,5 +125,5 @@ def bridge(source, pattern, target, template=None, on: str = 'add') -> Subscript
 > the same event stream the delivering one folds: subscribe's step calls
 > your callback, this one's writes, and composing the two is all a bridge
 > is. Delivery is inside the write that triggered it; target needs only
-> add and remove, so a remote.attach()ed space bridges across engines
+> add and remove, so an attach()ed remote space bridges across engines
 > identically.

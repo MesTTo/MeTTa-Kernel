@@ -4,7 +4,7 @@ Source: `extensions/python/metta/remote.py`.
 
 > Purpose: spaces across processes, the multi-context reading: each engine
 > is a context, serve() exposes its spaces over HTTP speaking the same tagged
-> wire the local boundary speaks, connect() answers a transport, and attach()
+> wire the local boundary speaks, connect() answers a transport, and RemoteSpace over it is the backing metta.attach() registers
 > registers a remote engine's space here as a foreign space, so
 > (match &remote (users $id $n) ...) crosses the network exactly as it
 > crosses into DuckDB. The shape is SingularityNET's DAS gateway (a single
@@ -28,6 +28,29 @@ Source: `extensions/python/metta/remote.py`.
 >     test_a_gateway_refuses_more_cursors_than_it_holds]
 >   - close() releases every cursor a client left open [tested
 >     test_closing_the_server_releases_open_cursors]
+>   - a candidate whose instantiation is a rational tree crosses as the stored
+>     atom, the finite form the protocol names for it, instead of being dropped
+>     from the reply [tested: test_a_rational_tree_candidate_crosses_as_the_stored_atom,
+>     test_the_kit_certifies_the_attached_space; commit=WORKTREE]
+>   - one stored atom reads back as one atom, however much matching the server
+>     did in between [tested:
+>     test_two_reads_of_one_stored_atom_answer_the_same_atom; commit=WORKTREE]
+>   - a close releases what it can and stays retryable: a failed /stop keeps its
+>     token, close_all closes every cursor before it raises, and a server whose
+>     worker did not stop leaves its cursors to the next close rather than
+>     closing one under a live request [tested:
+>     test_a_failed_stop_leaves_the_remote_cursor_retryable,
+>     test_closing_every_cursor_survives_one_failure,
+>     test_a_close_that_cannot_stop_the_worker_keeps_the_cursors;
+>     commit=WORKTREE]
+>   - GET /health answers an authorization hook's own failure as JSON instead of
+>     dropping the connection [tested:
+>     test_a_failing_authorize_hook_answers_json_on_health; commit=WORKTREE]
+>   - the same-process guard covers the addresses a wildcard bind serves and the
+>     addresses its caller is about to serve [tested:
+>     test_attaching_a_wildcard_served_space_through_loopback_is_refused,
+>     test_a_manifest_that_attaches_before_it_serves_is_refused;
+>     commit=WORKTREE]
 >   - the authorize hook judges /next and /stop against the space the
 >     cursor's answers come from, not the request's absent space field
 >     [tested test_authorize_sees_the_cursors_own_space]
@@ -109,6 +132,12 @@ def close(self) -> None:
 
 > Release the server's cursor; idempotent, and distinct from
 > exhaustion, which released it already.
+>
+> The token survives a failed /stop and the cursor stays open, because
+> a close that discarded it first could never release the server's
+> cursor afterwards: every later close returned at the flag while the
+> server held the engine to its idle deadline [tested
+> test_a_failed_stop_leaves_the_remote_cursor_retryable].
 
 ## `RemoteSpace`
 
@@ -277,30 +306,6 @@ def connect(
 > included, so the transport composes with whatever security the
 > serving side asks for. Only absolute http and https URLs are accepted.
 > Credentials require https.
-
-## `attach`
-
-```python
-def attach(
-    m,
-    name: str,
-    url_or_transport: Any,
-    remote_space: str = '&self',
-    *,
-    batch: int | None = None,
-) -> RemoteSpace:
-```
-
-> Register a remote engine's space here under a local name.
->
-> metta.remote.attach(m, "&hq", "http://127.0.0.1:8700")
-> m.run('!(match &hq (users $id $n) $n)')
->
-> `batch` puts the attached space's matching on the lazy door, so a
-> MeTTa query that stops early stops the serving engine with it:
->
->     metta.remote.attach(m, "&hq", url, batch=1)
->     m.run('!(once (match &hq (users $id $n) $n))')  # one answer computed
 
 ## `Gateway`
 

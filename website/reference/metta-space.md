@@ -195,10 +195,11 @@ class Space(Handle):
 > A space bound to the engine: the way in from Python.
 >
 > MeTTa keeps one engine per process; every context shares it. The
-> default space is &self, the space the CLI itself uses, so source pasted
-> from a .metta file behaves identically here. Two ``MeTTa().self`` handles
-> therefore see the same &self state. Use ``MeTTa().space()`` when
-> independent stored state is required.
+> process-default home is &self, the space the CLI itself uses, so source
+> pasted from a .metta file behaves identically through ``metta.engine()``.
+> ``MeTTa()`` itself is a fresh context over its own anonymous home, so two
+> contexts never share stored state; ``Space()`` is still the process
+> home, and ``metta.engine()`` the context that borrows it.
 >
 > A named space isolates both its atoms and its EQUATIONS, and the rule for
 > equations has a third part this docstring used to get wrong by calling
@@ -260,6 +261,14 @@ def drop(self) -> None:
 > Subscriptions on the space cancel with it: a pooled name reused later
 > must not deliver to the old life's watchers. The handle itself dies
 > here, and dropping twice is a no-op, as closing twice is.
+
+### `Space.dropped`
+
+```python
+def dropped(self) -> bool:
+```
+
+> Whether :meth:`drop` has released this handle's space.
 
 ### `Space.to_wire`
 
@@ -518,14 +527,21 @@ def add(self, *atoms: Any) -> None:
 def remove(self, atom: Any) -> bool:
 ```
 
-> Remove an atom, engine semantics: multiset subtraction, so ONE
-> unifying occurrence leaves and the answer says whether one did.
-> This is the same law `remove-atom` obeys, so both doors say the
-> same thing about the same operation; `del m[pattern]` is the
-> bulk spelling that drains every occurrence. A bare variable is
-> the remove-everything reading a multiset space gives it, each
-> atom leaving through its own proper path, equations and their
-> compiled clauses included.
+> Remove ONE unifying occurrence and say whether one was there,
+> which is Python's own `list.remove` grain.
+>
+> The MeTTa door is coarser and deliberately so: `remove-atom`, and
+> therefore `space -= atom`, drains EVERY unifying occurrence and
+> answers True either way, because that is upstream's law
+> [source: engine/spaces/foreign.pl, remove_matching_atoms/2] and
+> because `-=` is Python's in-place difference, which is total.
+> `del m[pattern]` drains too and raises when nothing matched, as
+> Python's `del` does. This method is the one door that reports
+> absence, so the distinction the MeTTa door gave up is still here.
+>
+> A bare variable is the remove-everything reading a multiset space
+> gives it, each atom leaving through its own proper path, equations
+> and their compiled clauses included.
 
 ### `Space.atoms`
 
@@ -774,8 +790,10 @@ def saga(self, receipts: Space):
 >
 > Operations ranked writesState or oracleIO leave receipts. Declare a
 > handler with ``compensates`` before recovery. Handlers receive the
-> quoted complete receipt and must be idempotent, because a failed
-> compensation remains queryable and is retried by ``rollback()``.
+> complete receipt, written at the call site as ``(quote <receipt>)`` so
+> it is not evaluated on the way in, and must be idempotent, because a
+> failed compensation remains queryable and is retried by
+> ``rollback()``.
 
 ### `Space.solve`
 
@@ -1962,7 +1980,10 @@ def compensates(self, operation: str, compensation: str) -> Atom:
 > source operation must already be registered at writesState or
 > oracleIO, because weaker operations leave no saga receipt. The
 > recovery name must already be a host operation or compiled MeTTa
-> function. It receives the quoted complete ``(did ...)`` receipt.
+> function. It receives the complete ``(did ...)`` receipt. The runner writes
+> the call as ``(quote <receipt>)`` so the receipt is not evaluated
+> on the way in; the quote is a barrier and does not survive, so the
+> handler is handed the receipt itself.
 > Redeclaring replaces the old row atomically.
 
 ### `Space.add_tagged_fact`
@@ -2226,9 +2247,10 @@ def metta(self) -> MeTTa:
 > The owning evaluation context, so a handle can reach every
 > context-level door: ``m.metta.space(S.kb)`` creates a sibling space
 > in THIS handle's own context rather than the process default, which
-> is the creation door the twins' known-issue asked for. The wrapper
-> is two slots over the same runtime, so answering it costs nothing
-> and two answers compare equal through the runtime they share.
+> is the creation door the twins' known-issue asked for. The context
+> BORROWS this handle's space as its home, so answering it mints
+> nothing, and two answers compare equal because they share the
+> runtime and the home.
 
 ## `MeTTa`
 
@@ -2237,6 +2259,43 @@ class MeTTa:
 ```
 
 > One MeTTa evaluation context; context-relative operations use Space.
+>
+> ``MeTTa()`` is a fresh context, the way ``dict()`` is a fresh dict: it
+> mints an anonymous space of its own as its home, so two contexts never
+> see each other's atoms or equations, and it owns that space, releasing
+> it on :meth:`close` or when a ``with`` block leaves. Passing a space
+> (a ``Space``, an ``&name`` string, a ``Symbol``, or a parametric ground
+> ``Expression``) makes the context a BORROWER of that space instead:
+> ``MeTTa(Space())`` is the process-default context ``metta.engine()``
+> answers, and closing a borrower never drops what the caller supplied,
+> the way a file object built on someone else's descriptor leaves it open.
+> ``&self`` is just the default home's name; within any context its own
+> home plays that role.
+
+### `MeTTa.close`
+
+```python
+def close(self) -> None:
+```
+
+> Release the context's own home space; closing twice is a no-op.
+>
+> A borrowed home, the process default included, is the caller's
+> and survives; only a home this context minted is dropped, and the
+> drop takes the whole world with it: every space minted inside the
+> context, by this object or by the program's own new-space, is
+> released first, since it read the home's equations and cannot
+> outlive it. A space the program declared with (inherits ...) still
+> refuses, naming the heir, because that relationship is the
+> program's own.
+
+### `MeTTa.closed`
+
+```python
+def closed(self) -> bool:
+```
+
+> Whether :meth:`close` has released this context's own home.
 
 ### `MeTTa.self`
 
@@ -2244,7 +2303,7 @@ class MeTTa:
 def self(self) -> Space:
 ```
 
-> The context's ``&self`` space handle.
+> The context's home space handle, its own ``&self``.
 
 ### `MeTTa.runtime`
 
@@ -2270,20 +2329,27 @@ def space(
     name: str | Symbol | Expression | Space | None = None,
     backing: Any = None,
     *,
+    inherits: Space | None = None,
+    restricted: bool = False,
+    grants: _abc.Iterable[str] = (),
     journal: str | os.PathLike[str] | None = None,
-    **options: Any,
+    schema: _abc.Mapping[str, Any] | None = None,
+    sync: str = 'none',
 ) -> Space:
 ```
 
 > Create one native, provider-backed, remote, or journaled space.
 >
-> With no name, the engine mints an anonymous handle and creates the
-> space, so ``(get-type ...)`` on it is ``SpaceType`` before anything is
-> written. A ``Space`` reopens that same space, which is what an engine
-> answer naming one arrives as. A ``SpaceProvider`` backing is attached
-> directly, an HTTP(S) URL becomes a remote provider, and ``journal=``
-> constructs ``PersistentFactSpace`` from ``schema=`` or a schema mapping
-> supplied as ``backing``.
+> The BACKING value derives the implementation, so the common calls
+> carry no options at all: with no name the engine mints an anonymous
+> handle; a ``Space`` reopens that same space, which is what an engine
+> answer naming one arrives as; a ``SpaceProvider`` backing is
+> attached directly; an HTTP(S) URL becomes a remote provider (build
+> the transport with ``metta.remote.connect`` when it needs a token,
+> headers, or its own timeout, and hand THAT in as the backing); and
+> ``journal=`` constructs ``PersistentFactSpace`` from ``schema=`` or
+> a schema mapping supplied as the backing. ``sync`` paces the
+> journal and means nothing without one, so it refuses alone.
 
 ### `MeTTa.define`
 

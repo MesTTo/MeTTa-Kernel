@@ -23,6 +23,23 @@ Source: `extensions/python/metta/aio.py`.
 >   - the transition drain discards only a structured interrupt and fails
 >     closed on every other error [tested
 >     test_aio_drain_only_discards_structured_interrupt]
+>   - a cancelled acquisition releases what the worker finished rather than
+>     leaving it live and unowned: the worker thread a cancelled connect
+>     launched, the registered subscription, the installed assumption facts
+>     [tested: test_aio_cancelled_connect_leaves_no_live_worker,
+>     test_aio_cancelled_subscription_registration_cancels_it,
+>     test_aio_cancelled_assuming_removes_the_facts_it_installed;
+>     commit=WORKTREE]
+>   - aclose refuses further work only after the engine has let go, so a close
+>     that failed is retryable, and the stream's terminator reaches a consumer
+>     whose queue is full [tested:
+>     test_aio_a_failed_cursor_close_stays_retryable,
+>     test_aio_a_failed_subscription_close_stays_retryable,
+>     test_aio_the_close_sentinel_survives_a_full_queue; commit=WORKTREE]
+>   - an event queue is published only once its registration succeeded, and its
+>     bound is refused unless it is a count of events [tested:
+>     test_aio_a_failed_subscription_publishes_no_queue,
+>     test_the_async_queue_bound_is_refused_the_same_way; commit=WORKTREE]
 >   - an abandoned live owner emits ResourceWarning and registered workers
 >     detach during interpreter shutdown [tested test_aio_leak_warns_and_stop_joins,
 >     test_aio_shutdown_handler_stops_forgotten_workers]
@@ -114,7 +131,10 @@ class AsyncMeTTa:
 >         await am.add(S.edge(1, 2))
 >         rows = await am.match(S.edge(V.a, V.b))
 >
-> The exact rule should be: every finite request-response method forwards through the worker. Context managers, cursors, decorators, callback registrations, returned synchronous helper objects, and interactive entry points remain call() or synchronous-surface operations.
+> The rule: every finite request-response method forwards through the
+> worker; context managers, cursors, decorators, callback registrations,
+> returned synchronous helper objects and interactive entry points remain
+> call() or synchronous-surface operations.
 >
 > call(fn) reaches anything not mirrored by running fn(m) on the engine's
 > thread. interrupt() stops the evaluation the
@@ -130,6 +150,14 @@ def name(self) -> _SpaceId:
 
 No docstring is defined.
 
+### `AsyncMeTTa.dropped`
+
+```python
+def dropped(self) -> bool:
+```
+
+> Whether drop() has released the wrapped space's handle.
+
 ### `AsyncMeTTa.bind`
 
 ```python
@@ -141,7 +169,7 @@ def bind(self, values: Mapping[str, Any] | None = None, /, **named: Any) -> Any:
 ### `AsyncMeTTa.metta`
 
 ```python
-def metta(self) -> MeTTa:
+def metta(self) -> Space:
 ```
 
 > The wrapped synchronous space, for engine-thread work via call().
@@ -157,7 +185,7 @@ async def start(self) -> Self:
 ### `AsyncMeTTa.call`
 
 ```python
-async def call(self, fn: Callable[[MeTTa], Any]) -> Any:
+async def call(self, fn: Callable[[Space], Any]) -> Any:
 ```
 
 > Run fn(m) on the engine's thread and await its result: the
@@ -333,7 +361,7 @@ async def one(
 async def copy(self) -> AsyncMeTTa:
 ```
 
-> This space's contents in a new anonymous space; MeTTa.copy,
+> This space's contents in a new anonymous space; Space.copy,
 > the clone borrowing this connection's worker.
 
 ### `AsyncMeTTa.reify`
@@ -1046,7 +1074,7 @@ def batch(self) -> _AsyncBatch:
 ### `AsyncMeTTa.transaction`
 
 ```python
-async def transaction(self, target: Callable[[MeTTa], Any] | Atom | str, /) -> Any:
+async def transaction(self, target: Callable[[Space], Any] | Atom | str, /) -> Any:
 ```
 
 > Run a callable or term inside one engine transaction on the worker.
@@ -1268,7 +1296,11 @@ async def aclose(self) -> None:
 ## `connect`
 
 ```python
-async def connect(space: str = _DEFAULT_SPACE, *, metta: MeTTa | None = None) -> AsyncMeTTa:
+async def connect(
+    space: str | Symbol | Expression | Space = _DEFAULT_SPACE,
+    *,
+    metta: Space | None = None,
+) -> AsyncMeTTa:
 ```
 
 > An AsyncMeTTa with its engine thread already running, aiosqlite's
