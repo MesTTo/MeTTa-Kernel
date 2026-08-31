@@ -945,25 +945,6 @@ async def io(self, fn: Callable, /, **options: Any) -> Callable:
 
 > An operation that observes an external oracle.
 
-### `AsyncMeTTa.cache`
-
-```python
-async def cache(
-    self,
-    fn: Callable | None = None,
-    /,
-    *,
-    name: str | None = None,
-    unchecked: bool = False,
-) -> Any:
-```
-
-> Define and memoize on the worker, the sync door's cache decorator.
->
-> The memo stores every answer occurrence, and the returned handle
-> carries cache_clear() and cache_info() as synchronous doors the way
-> define's handle carries its own.
-
 ### `AsyncMeTTa.rules`
 
 ```python

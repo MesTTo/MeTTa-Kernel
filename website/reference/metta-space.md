@@ -108,11 +108,6 @@ Source: `extensions/python/metta/_space.py`.
 >   - ``Space.op`` and ``Space.unregister_op`` are the sole public operation
 >     lifecycle pair [tested: test_operation_registration_names_are_symmetric;
 >     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - ``Space.cache`` stores complete answer bags independently of manual memo
->     policy and refuses an operation wrapper before definition registration
->     [tested: test_a_cached_definition_preserves_duplicate_answers,
->     test_cache_over_an_operation_refuses_before_definition_registration;
->     commit=8d6131a9d9902c67ce8cac71e96e8362a8713561]
 >   - encoded generator tuple and sparse-dict yields are relational candidate
 >     bindings in every call direction [tested:
 >     test_relational_tuple_candidates_unify_in_all_directions_without_changing_multiplicity,
@@ -1893,45 +1888,6 @@ def pre_add(self, fn: Defined[..., Any] | Callable[..., Any]) -> Defined[..., An
 > The common decorator stack places ``@pre_add`` above ``@define``, so
 > an existing Defined keeps the module that owns its equations. A raw
 > function is compiled into this space before claiming the hook.
-
-### `Space.cache`
-
-```python
-def cache(
-    self,
-    fn: Callable[..., Any] | None = None,
-    *,
-    name: str | None = None,
-    unchecked: bool = False,
-) -> Any:
-```
-
-> Define a function and memoize its complete answer bag.
->
-> The decorator is notation over the engine's ``lib_memo`` substrate.
-> Each call key stores every answer occurrence, so caching changes when
-> work happens without changing result multiplicity.
->
->     @m.cache
->     def fib(n):
->         return n if n < 2 else fib(n - 1) + fib(n - 2)
->
->     fib(25)               # [75025], linear rather than exponential
->     fib.cache_info()      # {'entries': 26, 'answers': 26}
->     fib.cache_clear()
->
-> `unchecked=True` is the declaration that ACCEPTS STALENESS: the
-> purity walk is skipped, which is the only way to memoize a body whose
-> reads the engine cannot prove stable. It is the
-> engine's `(cache <name> unchecked)`, not a size, and there is no
-> maxsize argument here because engine memo policy owns its limits.
->
-> `cache_info()` reports this function's live call-key entries and the
-> number of answer occurrences stored across them.
->
-> Result order is unspecified but result multiplicity is observable.
-> ``a, a, b`` therefore remains ``a, a, b`` after caching [tested:
-> test_a_cached_definition_preserves_duplicate_answers; commit=8d6131a9d9902c67ce8cac71e96e8362a8713561].
 
 ### `Space.type`
 
