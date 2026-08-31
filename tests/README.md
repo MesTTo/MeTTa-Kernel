@@ -10,7 +10,7 @@ examples use.
 | `checks/` | the Python gate scripts, each with the selftest that proves it can fail, plus `evidence_runners.py`, the model of what this repository's runners execute |
 | `shell/` | every `test_*.sh` suite, including the four regression reproductions that used to sit in a `regression/` folder of their own |
 | `prolog/` | the engine's Prolog tests: `suites/<group>/*.plt` and, at the top level, the analysis machinery they load |
-| `conformance/` | the two arbiters, LeaTTa and the CeTTa fork, and the corpora they read |
+| `conformance/` | the arbiter, PeTTa, vendored in `petta/` with the runner that gates on it; the CeTTa fork's two-runtime differential; and `answer_groups.pl`, which prints one answer group per runnable for any comparator |
 | `fixtures/` | inputs rather than programs: the specializer reproductions, the no-autoload boot, the two parity drivers |
 | `data/` | pinned data every runner reads: `example_skips.txt`, the upstream parity baseline, and `syntax_introductions.txt` |
 | `codec/` | the wire codec conformance corpus, which ships inside the wheel |

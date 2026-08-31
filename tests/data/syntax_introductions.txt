@@ -45,6 +45,7 @@ msort                             04-01-02
 superpose                         04-01-02
 get-atoms                         04-01-03
 if                                04-01-04
+is-space                          04-01-07
 remove-atom                       04-01-08
 cut                               04-02-01
 once                              04-02-01
@@ -196,7 +197,6 @@ declare-pre-add!                  15-00-03
 undeclare-pre-add!                15-00-03
 has-declared-type                 15-00-04
 space-admission-verdict           15-00-04
-is-space                          17-00-01
 atomically                        17-00-04
 call                              17-00-04
 test-no-answer                    17-00-04

@@ -1,0 +1,6 @@
+is 44, should 44. ✅ 
+is (+ 2 42), should (+ 2 42). ✅ 
+is (+ (+ 1 1) 42), should (+ (+ 1 1) 42). ✅ 
+true
+true
+true

@@ -1,0 +1,12 @@
+is (2 42), should (2 42). ✅ 
+is (2), should (2). ✅ 
+is (42), should (42). ✅ 
+is ((f g)), should ((f g)). ✅ 
+true
+true
+true
+true
+true
+true
+true
+true

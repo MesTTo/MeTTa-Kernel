@@ -1,0 +1,3 @@
+is ((bar 1)), should ((bar 1)). ✅ 
+true
+true

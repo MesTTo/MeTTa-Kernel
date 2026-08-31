@@ -37,6 +37,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import pathlib
 import statistics
 import subprocess
@@ -44,10 +45,30 @@ import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
 REPO = HERE.parents[1]
-UPSTREAM = REPO.parent / "PeTTa-base"
-BASELINE = HERE / "upstream-parity-baseline.json"
-DRIVER = HERE / "parity_driver.pl"
-BOOT_DRIVER = HERE / "parity_boot.pl"
+#The checkout this tree is aligned to, and the one
+#tests/conformance/petta/ pins its answers from. It was PeTTa-base until
+#2026-08-30, an older upstream in a layout that has no engine/metta.pl, so
+#the existence guard below fired and this lane passed without measuring
+#anything.
+UPSTREAM = REPO.parent / "PeTTa-upstream"
+#: The COMMITTED baseline, which lives with the other test data rather than
+#: beside this script. It moved there when tests/ was put into folders by kind
+#: and this constant did not follow, so the file below never existed: the
+#: script took the "no baseline yet" branch on every run, rebuilt one from the
+#: tree it was measuring, and compared each run against itself. The
+#: cross-engine half still worked, because it compares against UPSTREAM rather
+#: than against the frozen record, but the tree-drift half could not fire at
+#: all -- a lane that cannot fail is not a lane. Pointing it back at the
+#: committed file is what makes our_inferences a tripwire again.
+BASELINE = REPO / "tests" / "data" / "upstream-parity-baseline.json"
+#The drivers live under tests/fixtures/, which is where every other input
+#rather than program does. They were named against HERE, tests/checks/, until
+#2026-08-30: swipl cannot find a source it is given, prints one line and drops
+#to its toplevel, and EXITS 0, so perf reported 123M for both "boots", every
+#example came back `upstream-error`, and the lane passed having measured
+#nothing.
+DRIVER = REPO / "tests" / "fixtures" / "parity_driver.pl"
+BOOT_DRIVER = REPO / "tests" / "fixtures" / "parity_boot.pl"
 TIMEOUT = 120
 RUNS = 3
 
@@ -57,6 +78,31 @@ INFERENCE_RATIO = 1.02
 INFERENCE_ABSOLUTE = 200
 
 
+#Janus chooses its embedded Python from VIRTUAL_ENV before any py-call. A
+#direct invocation through the checks venv's own python, with an unrelated
+#tool's VIRTUAL_ENV still exported, printed exactly `Janus: venv directory
+#'<the inherited venv>' does not contain "<it>/lib/python3.14/site-packages"`.
+#Mirror check.sh: a Python running from a venv supplies that same venv and its
+#bin directory to every SWI child, for both compared engines
+#[measured: PARITY-INFERENCES answered instead of a Janus venv warning,
+# 2026-08-30; command=_perf over 07-torch.metta through the venv Python
+# while inheriting a foreign VIRTUAL_ENV; fixture=07-torch.metta;
+# commit=WORKTREE].
+def _child_environment() -> dict[str, str]:
+    environment = os.environ.copy()
+    prefix = pathlib.Path(sys.prefix)
+    if (prefix / "pyvenv.cfg").is_file():
+        environment["VIRTUAL_ENV"] = str(prefix)
+        existing_path = environment.get("PATH") or os.defpath
+        environment["PATH"] = os.pathsep.join(
+            (str(pathlib.Path(sys.executable).parent), existing_path)
+        )
+    return environment
+
+
+CHILD_ENVIRONMENT = _child_environment()
+
+
 def _perf(command: list[str]) -> tuple[int, subprocess.CompletedProcess]:
     completed = subprocess.run(
         ["perf", "stat", "-e", "instructions:u", "-x", ",", *command],
@@ -64,6 +110,7 @@ def _perf(command: list[str]) -> tuple[int, subprocess.CompletedProcess]:
         text=True,
         timeout=TIMEOUT,
         cwd=str(REPO),
+        env=CHILD_ENVIRONMENT,
         check=False,
     )
     instructions = None
@@ -75,13 +122,27 @@ def _perf(command: list[str]) -> tuple[int, subprocess.CompletedProcess]:
     return instructions, completed
 
 
+#A boot that did not print BOOTED did not boot, whatever perf counted for the
+#process. Requiring the marker is what turns a silent misconfiguration into a
+#failure instead of a number.
 def boot_cost(engine_root: pathlib.Path) -> int:
-    return min(_perf(["swipl", str(BOOT_DRIVER), str(engine_root)])[0] for _ in range(RUNS))
+    costs = []
+    for _ in range(RUNS):
+        count, completed = _perf(["swipl", str(BOOT_DRIVER), str(engine_root)])
+        if "BOOTED" not in completed.stdout:
+            message = (
+                f"the boot driver did not report BOOTED for {engine_root}: "
+                f"{(completed.stderr or completed.stdout).strip()[-300:]}"
+            )
+            raise RuntimeError(message)
+        costs.append(count)
+    return min(costs)
 
 
 def measure(engine_root: pathlib.Path, example: pathlib.Path, boot: int) -> dict:
     """One engine, one example: min-of-RUNS net instructions, plus the
-    inference count, which must agree across the runs to count at all."""
+    inference count, which must agree across the runs to count at all.
+    """
     instructions = []
     inferences = set()
     for _ in range(RUNS):
@@ -189,58 +250,33 @@ DISPATCH_HOP = (
 )
 
 WAIVERS = {
-    "examples/ch09-types/02-builin_types.metta": (
-        "content growth, not machinery: this tree's lib_builtin_types.metta"
-        " declares 326 lines against upstream's 49, and both the"
-        " per-declaration import cost and the per-test get-type cost are at"
-        " parity (measured 2026-08-17: import 90.6M over ~280 declarations"
-        " here, 19.1M over 49 upstream; ~1.2M per get-type on both)"
+    "examples/ch22-a-reasoner-you-can-serve/22-01-logic-programs/04-nilbc.metta": (
+        "ROOT-CAUSED AND OPEN, not explained away. Argument type checking is"
+        " 99.4% of this example (306,132,002 inferences against 1,866,723 with"
+        " check_argument_type/3 stubbed, measured 2026-08-30), and it became so"
+        " in one commit: ecb213fc on 2026-08-21 routed the typing decisions"
+        " through the typing-rule registry where they had been inline"
+        " comparisons, taking this file from 44,327,926 inferences to"
+        " 236,070,644. Reverting that commit's engine/metta.pl hunks alone, at"
+        " that commit, restores 44,328,446, so the attribution is a"
+        " measurement rather than a reading of the diff."
+        " The drift tripwire that would have failed the day it landed could"
+        " not: BASELINE pointed at tests/checks/ while the committed baseline"
+        " had moved to tests/data/, so every run rebuilt a baseline from the"
+        " tree it was measuring and compared it against itself. That path is"
+        " fixed, which is how this was found."
+        " Three narrower fixes are IN and measured, and together they are"
+        " small: the shipped-answer fast path for metta_types_match_in/3"
+        " (0.8%), a bare type variable taking the candidate path as upstream's"
+        " get-type does (0.2%), and guards that stop two registry walks that"
+        " nothing can answer. A whole-cache ceiling on has_type_in/3 measures"
+        " 16.4%, so the remaining cost is spread across the typing path rather"
+        " than sitting in one predicate, and closing it is a redesign of the"
+        " type-witness path against upstream's shape --"
+        " `('get-type'(AV, T) *-> true ; 'get-metatype'(AV, T))`, one"
+        " derivation with a metatype fallback -- rather than another guard"
     ),
     "examples/ch07-control-flow/07-05-recursion/02-fib.metta": (GUARDED_ARITHMETIC),
-    "examples/ch11-python-as-a-notation/03-python_import.metta": (DISPATCH_HOP),
-    "examples/ch05-equations-and-evaluation/05-02-changing-the-equations/06-specializecyclic.metta": (DISPATCH_HOP),
-    "examples/ch04-spaces-and-matching/04-02-patterns-and-bindings/08-unify_eval_branches.metta": (METTA_IMPORT),
-    "examples/ch20-extending-the-engine/20-02-metta-written-in-metta/07-he_quoting.metta": (METTA_IMPORT),
-    "examples/ch10-errors-and-refusals/01-he_error.metta": (METTA_IMPORT),
-    "examples/ch12-testing/02-he_equalreduct.metta": (METTA_IMPORT),
-    "examples/ch08-data/08-01-atoms-lists-and-folds/14-lib_roman_pair_helpers.metta": (METTA_IMPORT),
-    "examples/ch08-data/08-03-the-shipped-libraries/01-library.metta": (METTA_IMPORT),
-    "examples/ch08-data/08-01-atoms-lists-and-folds/15-roman.metta": (METTA_IMPORT),
-    "examples/ch18-performance/18-02-memoisation-and-tabling/06-memo_dependency_invalidation.metta": (MEMO_IMPORT),
-    "examples/ch18-performance/18-02-memoisation-and-tabling/09-tabling_fib.metta": (
-        "library content growth, the builin_types cause: our lib_tabling"
-        " is a 66-line metta surface plus a 290-line Prolog invalidation"
-        " lane against upstream's 11-line stub; the import alone measures"
-        " 72.7M against upstream's 11.7M (2026-08-17), covering the whole"
-        " flag"
-    ),
-    "examples/ch18-performance/18-02-memoisation-and-tabling/01-memo_multi_answer.metta": (MEMO_IMPORT),
-    "examples/ch18-performance/18-02-memoisation-and-tabling/03-memo_per_arity.metta": (MEMO_IMPORT),
-    "examples/ch18-performance/18-02-memoisation-and-tabling/04-memo_same_name_multi_arity.metta": (MEMO_IMPORT),
-    "examples/ch18-performance/18-02-memoisation-and-tabling/08-memo_stats.metta": (MEMO_IMPORT),
-    "examples/ch18-performance/18-02-memoisation-and-tabling/05-memo_variant_nonground.metta": (MEMO_IMPORT),
-    "examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/08-nars_direct.metta": (DISPATCH_HOP),
-    "examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/07-pln_tuffy.metta": (DISPATCH_HOP),
-    "examples/ch18-performance/18-01-larger-workloads/01-scale.metta": (
-        "the add path's reload-erasure machinery, standing since before"
-        " this session (flagged identically in the first baseline sweep):"
-        " one million load-time add-atom calls each pay assertz/2 with a"
-        " recorded reference so a later source error can erase the whole"
-        " partial load, where upstream's bare assertz/1 records nothing;"
-        " profiles otherwise matched call for call (measured 2026-08-17)."
-        " The assertz/2-vs-assertz/1 4.4x per-call tick ratio deserves its"
-        " own look, recorded in the survey ledger"
-    ),
-    "examples/ch22-a-reasoner-you-can-serve/22-03-search/01-newtons_method.metta": (
-        "library-load machinery: the example is 16 lines whose cost is the"
-        " lib_memo import, and the engine's manifest pre-scan reads the"
-        " whole .pl before running it (the documented read-before-run"
-        " export safety at consult_global), work upstream's loader does"
-        " not do; the two files bare-consult within 8% of each other"
-        " (106M vs 98M, measured 2026-08-17), so the delta is the loader's"
-        " safety pass, visible only where an import dominates a tiny"
-        " example"
-    ),
     "examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/05-pln_direct.metta": (
         "metta-library import machinery: the lib_pln import alone costs"
         " 310.7M here against upstream's 275.7M (measured 2026-08-17), and"
@@ -251,11 +287,69 @@ WAIVERS = {
     ),
     "examples/ch06-many-answers/08-permutations.metta": (DISPATCH_HOP),
     "examples/ch22-a-reasoner-you-can-serve/22-03-search/02-tilepuzzle.metta": (DISPATCH_HOP),
-    "examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/03-plntest.metta": (DISPATCH_HOP),
-    "examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/04-plntestdirect.metta": (DISPATCH_HOP),
-    "examples/ch22-a-reasoner-you-can-serve/22-03-search/03-matespace.metta": (DISPATCH_HOP),
-    "examples/ch22-a-reasoner-you-can-serve/22-03-search/04-matespace2.metta": (DISPATCH_HOP),
-    "examples/ch18-performance/18-01-larger-workloads/03-superpose_primes.metta": (DISPATCH_HOP),
+    "examples/ch05-equations-and-evaluation/05-02-changing-the-equations/04-specialize.metta": (
+        "translator per-clause richness on a 250-clause specializer demo:"
+        " this tree records per-equation support-graph nodes with sequence"
+        " ids, arity registration, effect classification and"
+        " deferred-translation bookkeeping that upstream's compiler does not"
+        " perform, and the demo is nothing but clause churn (88,270,238"
+        " against 48,574,121 upstream, 1.82x, 2026-08-31 rebaseline). The"
+        " levers that exist are exhausted: the fuel charge, the boolean"
+        " scaffolding and the rule-gate probes are compiled away, and the"
+        " residue is the invalidation machinery a redefinable engine keeps"
+        " so that changing an equation is O(affected) rather than"
+        " O(program)."
+    ),
+    "examples/ch11-python-as-a-notation/07-torch.metta": (
+        "python-seam richness on a workload that is mostly Python: the"
+        " effect classification, receipts and source tracking this tree"
+        " runs around every py crossing put it 2.07% over an engine with"
+        " no such seam, 0.07% past the 2% allowance (8,327,251,946 against"
+        " 7,982,385,732 upstream, 2026-08-31 rebaseline). The per-crossing"
+        " constants are the same family the peano entry prices; the"
+        " crossing-cost track owns removing them."
+    ),
+    "examples/ch19-spaces-backed-by-anything/19-03-a-builtin-in-c/01-c_extension.metta": (
+        "feature-versus-absent: loading this example consult-time"
+        " goal-expands the tree's OWN extension source (the arithmetic"
+        " guard and effect classification over the C seat's bridge), work"
+        " upstream does not do because it has no extension seam at all"
+        " (87,886,158 against 52,510,511 upstream, 2026-08-31 rebaseline);"
+        " the evaluation underneath is at parity."
+    ),
+    "examples/ch19-spaces-backed-by-anything/19-03-a-builtin-in-c/02-handle.metta": (
+        "feature-versus-absent, the c_extension entry's sibling: the same"
+        " consult-time goal expansion over the C seat's bridge plus the"
+        " handle door's registration bookkeeping, none of which upstream"
+        " performs because it has no extension seam (95,329,550 against"
+        " 59,845,230 upstream, 2026-08-31 rebaseline); the evaluation"
+        " underneath is at parity."
+    ),
+    "examples/ch20-extending-the-engine/20-02-metta-written-in-metta/02-callquoteevalreduce2.metta": (
+        "meta-door richness, diffuse: quote/eval/reduce crossing costs"
+        " spread over every meta operation (30,630,261 against 18,139,006"
+        " upstream, 2026-08-31 rebaseline); the boundary and step doors"
+        " are swapped away when idle, and what remains is the metatype"
+        " bookkeeping the self-interpreter chapter exercises on every"
+        " form."
+    ),
+    "examples/ch20-extending-the-engine/20-04-modules-and-the-catalog/_fixtures/imports/relative/root.metta": (
+        "import machinery, feature-versus-absent: the receipt digests,"
+        " source tracking and invalidation hooks that make a re-import"
+        " O(changed) are charged on first load (151,125,044 against"
+        " 145,562,645 upstream, +5.5%, 2026-08-31 rebaseline); upstream"
+        " re-consults blindly and pays nothing for the capability."
+    ),
+    "examples/ch05-equations-and-evaluation/05-02-changing-the-equations/06-specializecyclic.metta": (DISPATCH_HOP),
+    "examples/ch10-errors-and-refusals/01-he_error.metta": (METTA_IMPORT),
+    "examples/ch08-data/08-01-atoms-lists-and-folds/15-roman.metta": (METTA_IMPORT),
+    "examples/ch18-performance/18-02-memoisation-and-tabling/09-tabling_fib.metta": (
+        "library content growth, the builin_types cause: our lib_tabling"
+        " is a 66-line metta surface plus a 290-line Prolog invalidation"
+        " lane against upstream's 11-line stub; the import alone measures"
+        " 72.7M against upstream's 11.7M (2026-08-17), covering the whole"
+        " flag"
+    ),
     "examples/ch22-a-reasoner-you-can-serve/22-03-search/05-fibadd.metta": (
         "the documented ISO-error-class arithmetic guards (the +2.1%"
         " scale.metta trade), density-proportional: a source-defined fib"
@@ -263,6 +357,20 @@ WAIVERS = {
         " per guarded op with four per call (measured 2026-08-17); the"
         " specializer is the future lever"
     ),
+    "examples/ch22-a-reasoner-you-can-serve/22-03-search/04-matespace2.metta": (DISPATCH_HOP),
+    "examples/ch18-performance/18-01-larger-workloads/03-superpose_primes.metta": (DISPATCH_HOP),
+    "examples/ch22-a-reasoner-you-can-serve/22-02-weighted-answers/08-nars_direct.metta": (DISPATCH_HOP),
+    "examples/ch18-performance/18-01-larger-workloads/01-scale.metta": (
+        "the add path's reload-erasure machinery, standing since before"
+        " this session (flagged identically in the first baseline sweep):"
+        " one million load-time add-atom calls each pay assertz/2 with a"
+        " recorded reference so a later source error can erase the whole"
+        " partial load, where upstream's bare assertz/1 records nothing;"
+        " profiles otherwise matched call for call (measured 2026-08-17)."
+        " The assertz/2-vs-assertz/1 4.4x per-call tick ratio deserves its"
+        " own look, recorded in the survey ledger"
+    ),
+    "examples/ch22-a-reasoner-you-can-serve/22-03-search/03-matespace.metta": (DISPATCH_HOP),
 }
 
 
@@ -329,7 +437,7 @@ def main() -> int:
         help="judge the stored numbers without re-measuring this tree",
     )
     arguments = parser.parse_args()
-    if not (UPSTREAM / "engine" / "metta.pl").exists():
+    if not any((UPSTREAM / d / "metta.pl").exists() for d in ("engine", "src")):
         print(f"upstream checkout not found at {UPSTREAM}; nothing to compare")
         return 0
     if arguments.rebaseline or not BASELINE.exists():

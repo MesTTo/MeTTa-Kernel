@@ -16,7 +16,7 @@
 #                                            codespell imports imports-selftest
 #                                            jscpd prolog
 #                                            ciao-grade
-#                                            codec-doc leatta leatta-gate-selftest
+#                                            codec-doc petta parity-perf
 #                                            policy-inventory
 #                                            policy-inventory-selftest
 #                                            refusal-grounds
@@ -26,7 +26,7 @@
 #                                            pytest gallery benchmarks instructions
 #                                            scaling
 #                                            memory-scale memory-scale-gate
-#                                            shell examples leatta layering
+#                                            shell examples layering
 #          CHECK_PY=/path/to/python   pick the interpreter
 #          GATE_ONLY=1                skip the REPORT tier
 # Guarantees:
@@ -271,41 +271,49 @@ run GATE refusal-grounds-selftest "$PY" "$HERE/tests/checks/check_refusal_ground
 run GATE qlf-freshness "$PY" "$HERE/tests/checks/check_qlf_freshness.py"
 run GATE qlf-freshness-selftest "$PY" "$HERE/tests/checks/check_qlf_freshness_selftest.py"
 
-# Conformance against the semantics arbiter. LeaTTa is a mechanised MeTTa whose
-# tests/semantics corpus carries, in every file, the answers its interpreter
-# printed verbatim and the pinned hyperon build they were checked against. This
-# runs each file here and diffs the answer groups, which is the difference
-# between "LeaTTa is the oracle" as a habit and as a check.
+# Conformance against the semantics arbiter. PeTTa is the arbiter, and
+# tests/conformance/petta/ is upstream's example corpus beside the exact
+# stdout upstream printed for each file, captured from a named commit. This
+# replays every entry through this engine and diffs, which is the difference
+# between "PeTTa is the oracle" as a habit and as a check.
 #
-# REPORT, and it is the honest tier for it: the corpus covers surfaces this
-# engine has never claimed, and the metatype split alone (section B35 of
-# ai-metta-to-python-boundary.md) accounts for a large part of what differs. It
-# becomes a GATE per AREA as each area clears, rather than all at once.
+# The pin is VENDORED rather than read out of a sibling checkout, so a
+# neighbouring working tree cannot move this lane and CI gates on the same
+# bytes a developer does.
 #
-# It lives outside this repository, so with LeaTTa absent the script says so and
-# exits 0 instead of failing a checkout that never had it.
-run GATE   leatta       sh -c "cd '$HERE' && '$PY' tests/conformance/leatta.py --timeout 25 --show 12 --gate-areas-file tests/conformance/leatta_gated_areas.txt"
-# The discrimination proof itself. None of LeaTTa's nine real areas is clean
-# enough yet to demonstrate a promoted-area regression against real data, so
-# this runs the real compare() path over a two-area fixture, one promoted and
-# one not, and proves both directions plus the two hard-error paths.
-run GATE   leatta-gate-selftest "$PY" "$HERE/tests/conformance/leatta_gate_selftest.py"
+# A GATE per FILE: an entry gates as soon as it agrees, and an entry recorded
+# as diverging carries the difference it is allowed to have, so it cannot
+# drift further without failing.
+run GATE   petta        sh -c "cd '$HERE' && '$PY' tests/conformance/petta.py --gate --timeout 90 --show 12"
+
+# Performance parity with the same upstream, over the same corpus, and the
+# question the conformance lane above does not ask. instructions:u NET OF EACH
+# ENGINE'S OWN BOOT, minimum of three processes: this tree loads 39,977 lines
+# of engine against upstream's 1,229, so it boots in 1.04e9 instructions
+# against 0.45e9, and a boot-inclusive comparison would report that constant
+# on every small file instead of the work
+# [measured 2026-08-30]. Subtracting it is sound here: five boots spread 40k
+# on 1.05e9, far under the 500k absolute allowance.
+#
+# It pointed at PeTTa-base until 2026-08-30, an older upstream whose layout
+# has no engine/metta.pl, so the guard inside fired and the lane passed
+# without measuring anything.
+run GATE   parity-perf  sh -c "cd '$HERE' && '$PY' tests/checks/check_upstream_parity.py"
 
 # The two-runtime differential: the conformance corpus's CeTTa-routable
 # fragment replays through the fork's C core (CETTA_PATH overrides the
 # sibling checkout) and the shared-fragment pin must hold. Fenced classes
 # skip the route loudly; divergences outside the pin report and never
-# block; with the fork absent this reports that and passes, the leatta
-# lane's own absence policy.
+# block; with the fork absent this reports that and passes, the same
+# absence policy the conformance lane above follows.
 run GATE   cetta         "$PY" "$HERE/tests/conformance/cetta.py" --timeout 25 --show 12
 
-# The forward half: the fork pins this engine's whole example corpus as
-# normalized oracles, and every entry replays through the CURRENT tree
-# against the pin, so an engine change that moves an example's answers
-# fails here with the entry named, and the remedy is a deliberate
-# re-freeze in the fork with the cause recorded. Absent fork: reports
-# and passes, the same policy as the lanes above.
-run GATE   cetta-corpus  "$PY" "$HERE/tests/conformance/cetta_corpus.py" --show 10
+# The forward half, the fork's frozen oracle corpus, left the gate on
+# 2026-08-30 (user ruling): its pins were frozen from the LeaTTa-aligned
+# semantics and the engine now follows upstream PeTTa, so every moved
+# answer is the alignment, not a defect. tests/conformance/cetta_corpus.py
+# remains runnable by hand, and re-freezing the fork's pins from the
+# PeTTa-aligned tree is what would earn the lane back.
 
 # The obligation headers are the contract a library author reads, and a
 # [tested X] tag is the strongest evidence in the scheme. Thirteen of them

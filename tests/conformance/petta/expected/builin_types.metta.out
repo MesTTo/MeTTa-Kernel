@@ -1,0 +1,73 @@
+is (-> Number Number Number), should (-> Number Number Number). ✅ 
+is (-> Number Number Number), should (-> Number Number Number). ✅ 
+is (-> Number Number Number), should (-> Number Number Number). ✅ 
+is (-> Number Number Number), should (-> Number Number Number). ✅ 
+is (-> Number Number Number), should (-> Number Number Number). ✅ 
+is (-> Number Number Bool), should (-> Number Number Bool). ✅ 
+is (-> Number Number Bool), should (-> Number Number Bool). ✅ 
+is (-> Number Number Bool), should (-> Number Number Bool). ✅ 
+is (-> Number Number Bool), should (-> Number Number Bool). ✅ 
+is (-> $_0 $_1 Bool), should (-> $_0 $_1 Bool). ✅ 
+is (-> $_0 $_1 Bool), should (-> $_0 $_1 Bool). ✅ 
+is (-> Number Number Number), should (-> Number Number Number). ✅ 
+is (-> Number Number), should (-> Number Number). ✅ 
+is (-> Number Number), should (-> Number Number). ✅ 
+is (-> Number Number Number), should (-> Number Number Number). ✅ 
+is (-> Number Number), should (-> Number Number). ✅ 
+is (-> Number Number), should (-> Number Number). ✅ 
+is (-> Number Number), should (-> Number Number). ✅ 
+is (-> Number Number), should (-> Number Number). ✅ 
+is (-> Number Number), should (-> Number Number). ✅ 
+is (-> Number Number), should (-> Number Number). ✅ 
+is (-> Number Number), should (-> Number Number). ✅ 
+is (-> Number Number), should (-> Number Number). ✅ 
+is (-> Number Number), should (-> Number Number). ✅ 
+is (-> Number Number), should (-> Number Number). ✅ 
+is (-> $_0 Number), should (-> $_0 Number). ✅ 
+is (-> $_0 Number), should (-> $_0 Number). ✅ 
+is (-> Number Number Number), should (-> Number Number Number). ✅ 
+is (-> Number Number Number), should (-> Number Number Number). ✅ 
+is (-> Number Number), should (-> Number Number). ✅ 
+is (-> Number Bool), should (-> Number Bool). ✅ 
+is (-> Number Bool), should (-> Number Bool). ✅ 
+is (-> Bool Bool Bool), should (-> Bool Bool Bool). ✅ 
+is (-> Bool Bool Bool), should (-> Bool Bool Bool). ✅ 
+is (-> Bool Bool), should (-> Bool Bool). ✅ 
+is (-> Bool Bool Bool), should (-> Bool Bool Bool). ✅ 
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true

@@ -1,0 +1,6 @@
+is "(function1)", should "(function1)". ✅ 
+is "(OK)", should "(OK)". ✅ 
+true
+true
+true
+true

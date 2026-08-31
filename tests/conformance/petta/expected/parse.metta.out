@@ -1,0 +1,16 @@
+is A, should A. ✅ 
+is (R A B), should (R A B). ✅ 
+is (R A (S B C)), should (R A (S B C)). ✅ 
+is (* 2 21), should (* 2 21). ✅ 
+is "42", should "42". ✅ 
+is "C:\\Users\\bob", should "C:\\Users\\bob". ✅ 
+is "say \"hi\"", should "say \"hi\"". ✅ 
+is "a\\nb", should "a\\nb". ✅ 
+true
+true
+true
+true
+true
+true
+true
+true

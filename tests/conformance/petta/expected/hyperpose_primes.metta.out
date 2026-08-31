@@ -1,0 +1,6 @@
+is (1 2 3), should (1 2 3). ✅ 
+is (true true true true), should (true true true true). ✅ 
+is true, should true. ✅ 
+true
+true
+true

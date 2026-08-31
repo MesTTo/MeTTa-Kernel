@@ -1,0 +1,8 @@
+is (before-call-errors-ofc (quote-before (fib 5)) (eval-before (fib 5)) (reduce-before (fib 5))), should (before-call-errors-ofc (quote-before (fib 5)) (eval-before (fib 5)) (reduce-before (fib 5))). ✅ 
+is ((within (fib 5)) (call-within 5) (quote-within (fib 5)) (eval-within 5) (reduce-within 5)), should ((within (fib 5)) (call-within 5) (quote-within (fib 5)) (eval-within 5) (reduce-within 5)). ✅ 
+is ((call-before 5) (quote-before (fib 5)) (eval-before 5) (reduce-before 5)), should ((call-before 5) (quote-before (fib 5)) (eval-before 5) (reduce-before 5)). ✅ 
+is ((call-after 5) (quote-after (fib 5)) (eval-after 5) (reduce-after 5)), should ((call-after 5) (quote-after (fib 5)) (eval-after 5) (reduce-after 5)). ✅ 
+true
+true
+true
+true

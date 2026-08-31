@@ -1,0 +1,8 @@
+is (42 6 (+ 4 2)), should (42 6 (+ 4 2)). ✅ 
+is 12, should 12. ✅ 
+is (a list not a number), should (a list not a number). ✅ 
+is 2, should 2. ✅ 
+true
+true
+true
+true

@@ -1,0 +1,11 @@
+is (Error (Constant wff) "already declared"), should (Error (Constant wff) "already declared"). ✅ 
+is (), should (). ✅ 
+is (Error (Var x) "active variable conflict"), should (Error (Var x) "active variable conflict"). ✅ 
+is 3, should 3. ✅ 
+is 30, should 30. ✅ 
+true
+true
+true
+true
+true
+true

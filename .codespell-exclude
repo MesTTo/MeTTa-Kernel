@@ -1,1 +1,7 @@
 %  True if Xs is an infinite lazy list that only contains occurences of X. If X
+;;Priority-queue based task ranking deriver with belief buffer
+   ; confidence penality not according to OpenCOG classic PLN. Is weaker in this implementation.
+;lambdas as arg directly within syntatic construct:
+;nondeterministically returning integers withing range:
+;Add only one commited option: (select)
+   (let* (;; Recurse on abtraction

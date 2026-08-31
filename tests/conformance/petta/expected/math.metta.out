@@ -1,0 +1,42 @@
+is 8, should 8. ✅ 
+is 3.0, should 3.0. ✅ 
+is 5, should 5. ✅ 
+is 2.0, should 2.0. ✅ 
+is 5, should 5. ✅ 
+is 6, should 6. ✅ 
+is 5, should 5. ✅ 
+is 5, should 5. ✅ 
+is 6, should 6. ✅ 
+is 0.0, should 0.0. ✅ 
+is 0.0, should 0.0. ✅ 
+is 1.0, should 1.0. ✅ 
+is 0.0, should 0.0. ✅ 
+is 0.0, should 0.0. ✅ 
+is 0.0, should 0.0. ✅ 
+is false, should false. ✅ 
+is false, should false. ✅ 
+is 2, should 2. ✅ 
+is 9, should 9. ✅ 
+is true, should true. ✅ 
+is true, should true. ✅ 
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true

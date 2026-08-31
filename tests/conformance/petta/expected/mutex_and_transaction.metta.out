@@ -1,0 +1,10 @@
+is ((cnt 42)), should ((cnt 42)). ✅ 
+is ((cnt 42)), should ((cnt 42)). ✅ 
+true
+(true true)
+(true true)
+(true true)
+(true true)
+(true true)
+true
+true

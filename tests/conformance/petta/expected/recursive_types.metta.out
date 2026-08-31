@@ -1,0 +1,8 @@
+is Metal, should Metal. ✅ 
+is ((-> Metal Sword) (-> Metal Paperclip)), should ((-> Metal Sword) (-> Metal Paperclip)). ✅ 
+is (Sword Paperclip), should (Sword Paperclip). ✅ 
+is ((Metal (-> Metal Sword)) (Metal (-> Metal Paperclip))), should ((Metal (-> Metal Sword)) (Metal (-> Metal Paperclip))). ✅ 
+true
+true
+true
+true

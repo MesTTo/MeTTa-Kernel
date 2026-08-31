@@ -1,0 +1,13 @@
+is (+ 1 2), should (+ 1 2). ✅ 
+is 3, should 3. ✅ 
+is 3, should 3. ✅ 
+is "(unquote 42)", should "(unquote 42)". ✅ 
+is true, should true. ✅ 
+is false, should false. ✅ 
+true
+true
+true
+true
+true
+true
+true

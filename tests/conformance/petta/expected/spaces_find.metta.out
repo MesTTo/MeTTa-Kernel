@@ -1,0 +1,3 @@
+is ((FoundChain a b c) (MissedSecondPiece)), should ((FoundChain a b c) (MissedSecondPiece)). ✅ 
+true
+true

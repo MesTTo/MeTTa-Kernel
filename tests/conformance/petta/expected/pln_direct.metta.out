@@ -1,0 +1,10 @@
+is (((grandfather a c) (stv 0.51 0.8432620011567381))), should (((grandfather a c) (stv 0.51 0.8432620011567381))). ✅ 
+is (((grandfather a c) (stv 0.51 0.8432620011567381))), should (((grandfather a c) (stv 0.51 0.8432620011567381))). ✅ 
+is (((old a) (stv 0.5198 0.7923434575206812))), should (((old a) (stv 0.5198 0.7923434575206812))). ✅ 
+true
+true
+true
+true
+true
+true
+true

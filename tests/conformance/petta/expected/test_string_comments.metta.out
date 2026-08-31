@@ -1,0 +1,22 @@
+is ")", should ")". ✅ 
+is "(", should "(". ✅ 
+is ";", should ";". ✅ 
+is ";", should ";". ✅ 
+is "foo;bar", should "foo;bar". ✅ 
+is ";;;", should ";;;". ✅ 
+is ";start", should ";start". ✅ 
+is "end;", should "end;". ✅ 
+is "quote: \"", should "quote: \"". ✅ 
+is "path\\file", should "path\\file". ✅ 
+is result, should result. ✅ 
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true
+true

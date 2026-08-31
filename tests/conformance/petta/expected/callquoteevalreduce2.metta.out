@@ -1,0 +1,8 @@
+is (fib-call 5), should (fib-call 5). ✅ 
+is (fib-quote (fib (myfunc))), should (fib-quote (fib (myfunc))). ✅ 
+is (fib-eval 5), should (fib-eval 5). ✅ 
+is (fib-reduce 5), should (fib-reduce 5). ✅ 
+true
+true
+true
+true

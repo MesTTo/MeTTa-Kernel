@@ -707,8 +707,8 @@ def _is_test_shaped(path: Path) -> bool:
 # Every literal root a cited path is checked against, outermost fallback
 # last. WORKSPACE.parent is the workspace's own parent, derived the same
 # worktree-safe way WORKSPACE is (never a literal `/home` path in this
-# file): the arbiter corpus `LeaTTa` sits there as a normative sibling per
-# this workspace's own CLAUDE.md, and P2.13's acceptance cites
+# file): the historical `LeaTTa` corpus sits there, and the ledgers'
+# older acceptance records still cite into it; P2.13's acceptance cites
 # `LeaTTa/MeTTaILProofs/CPExecutable.lean` directly. Checking ROOT and
 # WORKSPACE only reported that file "absent" when it exists one directory
 # further out [measured 2026-08-18].

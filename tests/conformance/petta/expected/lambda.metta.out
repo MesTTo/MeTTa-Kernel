@@ -1,0 +1,14 @@
+is 3, should 3. ✅ 
+is 9, should 9. ✅ 
+is (2 3 4), should (2 3 4). ✅ 
+is true, should true. ✅ 
+is (42 43 2 3), should (42 43 2 3). ✅ 
+is (42 43 44), should (42 43 44). ✅ 
+is (42 43 44 45), should (42 43 44 45). ✅ 
+true
+true
+true
+true
+true
+true
+true

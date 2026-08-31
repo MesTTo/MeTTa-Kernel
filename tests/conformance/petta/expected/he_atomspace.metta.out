@@ -1,0 +1,14 @@
+is (+ 1 3), should (+ 1 3). ✅ 
+is (4), should (4). ✅ 
+is A, should A. ✅ 
+is Yes, should Yes. ✅ 
+is No, should No. ✅ 
+true
+true
+true
+true
+true
+Number
+true
+true
+true

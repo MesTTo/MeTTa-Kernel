@@ -6,7 +6,7 @@ day forms route to the C core in-process.
 
 The checkout resolves through the CETTA_PATH environment override with the
 sibling checkout as the default, the same env-override oracle pattern
-tests/conformance/leatta.py carries and the workspace-path scanner excepts.
+tests/conformance/measured_corpus.py carries and the workspace-path scanner excepts.
 
 Assumes:
   - the fork's binary takes `--lang he --profile he-compat <file>` and
@@ -37,7 +37,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import leatta  # noqa: E402  -- the corpus reader and canonical comparison
+import measured_corpus  # noqa: E402  -- the corpus reader and canonical comparison
 
 DEFAULT_CHECKOUT = Path(__file__).resolve().parents[2].parent / "CeTTa"
 FENCES = Path(__file__).resolve().parent / "cetta_fences.txt"
@@ -97,7 +97,7 @@ def observe(binary: Path, path: Path, timeout: float) -> tuple[list[str], int, s
         if stripped.startswith("[") and stripped.endswith("]"):
             stripped = ADDRESS.sub("0xADDR", stripped)
             stripped = EPOCH.sub(r"$\1", stripped)
-            groups.append(leatta.canonical(stripped))
+            groups.append(measured_corpus.canonical(stripped))
         elif stripped:
             printed += 1
     if finished.returncode != 0:
@@ -105,9 +105,9 @@ def observe(binary: Path, path: Path, timeout: float) -> tuple[list[str], int, s
     return groups, printed, None
 
 
-def compare(binary: Path, path: Path, timeout: float) -> leatta.Comparison:
+def compare(binary: Path, path: Path, timeout: float) -> measured_corpus.Comparison:
     source = path.read_text(errors="replace")
-    expected, skipped = leatta.expected_groups(source)
+    expected, skipped = measured_corpus.expected_groups(source)
     #The corpus's MEASURED blocks carry the arbiter's own variable epochs
     #($x#0), so the epoch normalisation applies to BOTH sides: the sealed
     #file is recorded as agreeing, and comparing spellings the two writers
@@ -119,13 +119,13 @@ def compare(binary: Path, path: Path, timeout: float) -> leatta.Comparison:
             f"stopped after {len(observed)} of {len(expected)} groups under "
             f"exit 0: the CLI's silent stop after a top-level Error (F12)"
         )
-    return leatta.Comparison(
+    return measured_corpus.Comparison(
         path=path,
         expected=expected,
         observed=observed,
         skipped=skipped,
         error=error,
-        status=leatta.declared_status(source),
+        status=measured_corpus.declared_status(source),
     )
 
 
@@ -143,7 +143,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--timeout", type=float, default=25.0)
     parser.add_argument("--show", type=int, default=12)
-    parser.add_argument("--corpus", type=Path, default=leatta.CORPUS)
+    parser.add_argument("--corpus", type=Path, default=measured_corpus.CORPUS)
     parser.add_argument("--fragment-file", type=Path, default=FRAGMENT)
     parser.add_argument("--fences-file", type=Path, default=FENCES)
     parser.add_argument("--seed-fragment", action="store_true",
@@ -170,7 +170,7 @@ def main(argv: list[str] | None = None) -> int:
     fragment = set(read_fragment(arguments.fragment_file))
 
     fenced: list[tuple[str, list[str]]] = []
-    results: list[leatta.Comparison] = []
+    results: list[measured_corpus.Comparison] = []
     for path in sorted(corpus.rglob("*.metta")):
         relative = path.relative_to(corpus)
         ids = fenced_as(relative, fences)

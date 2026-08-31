@@ -1,0 +1,12 @@
+is Expression, should Expression. ✅ 
+is Expression, should Expression. ✅ 
+is Grounded, should Grounded. ✅ 
+is Grounded, should Grounded. ✅ 
+is Variable, should Variable. ✅ 
+is Symbol, should Symbol. ✅ 
+true
+true
+true
+true
+true
+true

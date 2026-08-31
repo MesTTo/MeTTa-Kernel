@@ -1,0 +1,6 @@
+is (7 (Pair 7 7)), should (7 (Pair 7 7)). ✅ 
+is (7 (Pair 7 7)), should (7 (Pair 7 7)). ✅ 
+true
+true
+true
+true

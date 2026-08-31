@@ -1,0 +1,10 @@
+is (S (S (S Z))), should (S (S (S Z))). ✅ 
+is (S (S (S Z))), should (S (S (S Z))). ✅ 
+is (S (S (S Z))), should (S (S (S Z))). ✅ 
+is ((Z (S (S (S (S Z))))) ((S Z) (S (S (S Z)))) ((S (S Z)) (S (S Z))) ((S (S (S Z))) (S Z)) ((S (S (S (S Z)))) Z)), should ((Z (S (S (S (S Z))))) ((S Z) (S (S (S Z)))) ((S (S Z)) (S (S Z))) ((S (S (S Z))) (S Z)) ((S (S (S (S Z)))) Z)). ✅ 
+is (Z (S (S (S (S Z))))), should (Z (S (S (S (S Z))))). ✅ 
+true
+true
+true
+true
+true

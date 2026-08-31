@@ -45,7 +45,7 @@ Guarantees:
     tests/checks/check_spec_status_selftest.py]
 Fails when:
   - a Prolog file is handed to swipl by a Python script rather than by a
-    runner or by another Prolog file's consult. tests/conformance/leatta_run.pl
+    runner or by another Prolog file's consult. tests/conformance/answer_groups.pl
     is the one case, and it reads as unexecuted here. Python path strings are
     not followed on purpose: reference.py names the pages it REWRITES, and
     reading those as executions would be worse than the gap.

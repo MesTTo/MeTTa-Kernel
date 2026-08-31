@@ -1,0 +1,13 @@
+is 10, should 10. ✅ 
+is (2 3 4), should (2 3 4). ✅ 
+is (4 5), should (4 5). ✅ 
+is 10, should 10. ✅ 
+is (2 3 4), should (2 3 4). ✅ 
+is (4 5), should (4 5). ✅ 
+true
+true
+true
+true
+true
+true
+(1 2 3 4 5 6)

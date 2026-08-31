@@ -1,0 +1,650 @@
+{
+ "captured_with": "tests/conformance/petta_capture.py",
+ "commit": "ae66fa8e41dcd5539d614706bd4e5cfb34f9608d",
+ "engine_flag": "silent",
+ "entries": {
+  "add_atom_fun_space.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "and_or.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "atomops.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "booleansolver.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "builin_types.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "callquoteevalreduce.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "callquoteevalreduce2.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "case.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "case2.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "caseconstrain.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "caseempty.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "casenew.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "chain.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "collapse.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "comments.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "constanthead.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "curry.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "cut.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "empty.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "eval.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "factorial.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "fib.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "fibadd.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "fibsmart.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "fibsmartimport.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "foldall.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "foldallmatch.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "foldallspacecount.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "forall.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "functionhead.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "functionhead2.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "functionhead3.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "functionremoval.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "functionremovalspec.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "functiontypes.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "he_assert.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "he_atomspace.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "he_equalreduct.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "he_error.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "he_evaluation.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "he_math.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "he_minimalmetta.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "he_quoting.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "he_types.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "holbenchmark.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "holfunctions.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "holfunctions_intrinsicop.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "hyperpose_primes.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "identity.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "if.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "if2.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "if3.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "if4.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "ifcasenondet.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "ifsimple.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "invertfunction.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "invertpeanoplus.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "is_alpha_member_test.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "iter.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "lambda.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "let_superpose_if_case.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "letext.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "letlet.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "letstar.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "lib_roman_pair_helpers.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "library.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "listhead.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "logicprog.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "logicprogset.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "matchnested.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "matchnested2.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "matchsingle.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "matchtypes.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "matespace.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "matespace2.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "matespacefast.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "math.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "meta_types.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "metta4_prog.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "metta4_streams.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "mettaset.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "multicall.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "multiset_operations.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "mutex_and_transaction.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "myinterpreter.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "nars_direct.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "nars_tuffy.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "nestedcons.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "newtons_method.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "nilbc.metta": {
+   "ours": "is (: (a1 a2 a2) (⟨=⟩ $_0 $_0)), should (: (a1 a2 a2) (⟨=⟩ $_0 $_0)). ✅ \nis true, should true. ✅ \nis (: (a1 ⟨t⟩ ⟨t⟩ ⟨t⟩) (⟨->⟩ (⟨=⟩ ⟨t⟩ ⟨t⟩) (⟨->⟩ (⟨=⟩ ⟨t⟩ ⟨t⟩) (⟨=⟩ ⟨t⟩ ⟨t⟩)))), should (: (a1 ⟨t⟩ ⟨t⟩ ⟨t⟩) (⟨->⟩ (⟨=⟩ ⟨t⟩ ⟨t⟩) (⟨->⟩ (⟨=⟩ ⟨t⟩ ⟨t⟩) (⟨=⟩ ⟨t⟩ ⟨t⟩)))). ✅ \nis (: (a1 (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩ ⟨t⟩) (⟨->⟩ (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨->⟩ (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨=⟩ ⟨t⟩ ⟨t⟩)))), should (: (a1 (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩ ⟨t⟩) (⟨->⟩ (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨->⟩ (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨=⟩ ⟨t⟩ ⟨t⟩)))). ✅ \nis (: (a2 ⟨t⟩) (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩)), should (: (a2 ⟨t⟩) (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩)). ✅ \nis (: (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) ⟨wff⟩), should (: (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) ⟨wff⟩). ✅ \nis (: (⟨=⟩ ⟨t⟩ ⟨t⟩) ⟨wff⟩), should (: (⟨=⟩ ⟨t⟩ ⟨t⟩) ⟨wff⟩). ✅ \nis (: (mp (a1 (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩ ⟨t⟩) (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨->⟩ (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨=⟩ ⟨t⟩ ⟨t⟩)) (a2 ⟨t⟩)) (⟨->⟩ (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨=⟩ ⟨t⟩ ⟨t⟩))), should (: (mp (a1 (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩ ⟨t⟩) (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨->⟩ (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨=⟩ ⟨t⟩ ⟨t⟩)) (a2 ⟨t⟩)) (⟨->⟩ (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨=⟩ ⟨t⟩ ⟨t⟩))). ✅ \nis (: (mp (mp (a1 (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩ ⟨t⟩) (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨->⟩ (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨=⟩ ⟨t⟩ ⟨t⟩)) (a2 ⟨t⟩)) (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨=⟩ ⟨t⟩ ⟨t⟩) (a2 ⟨t⟩)) (⟨=⟩ ⟨t⟩ ⟨t⟩)), should (: (mp (mp (a1 (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩ ⟨t⟩) (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨->⟩ (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨=⟩ ⟨t⟩ ⟨t⟩)) (a2 ⟨t⟩)) (⟨=⟩ (⟨+⟩ ⟨t⟩ ⟨0⟩) ⟨t⟩) (⟨=⟩ ⟨t⟩ ⟨t⟩) (a2 ⟨t⟩)) (⟨=⟩ ⟨t⟩ ⟨t⟩)). ✅ \ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\ntrue\n",
+   "ours_rc": 0,
+   "rc": 0,
+   "status": "diverges",
+   "ruling": "Every proof search agrees. The difference is three trailing `true` lines: `!(bind! &kb (new-space))` answers True here and nothing upstream, whose bind! has one clause, `'bind!'(A, ['new-state', B], C) :- 'change-state!'(A, B, C)`, so binding anything else silently fails there and the name works afterwards only because a bare symbol already names a space. This engine binds any value to a token; that is a case upstream has no clause for rather than one it answers differently."
+  },
+  "once.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "outputtype.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "parametric_types.metta": {
+   "ours": "is Bool, should Bool. ✅ \ntrue\nBool\ntrue\n",
+   "ours_rc": 0,
+   "rc": 0,
+   "status": "diverges",
+   "ruling": "`!(apply not False)` answers True here and NOTHING upstream, whose own specializer builds apply_Spec_[not] and then fails to apply it; the file's own comment says the answer should be True. `!(get-type (apply not False))` is Bool here and nothing there, for the same reason."
+  },
+  "parse.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "partialdef.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "patrick_iterate_fib.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "patrick_iterate_quad.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "patrick_test.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "peano.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "peanofast.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "permutations.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "pln_direct.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "pln_roman.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "pln_tuffy.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "plntest.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "plntestdirect.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "prologimport.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "python.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "python_import.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "recursive_types.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "recursive_types2.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "repr.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "roman_test.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "scale.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "selfprog.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "smartdispatch.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "spacefunction.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "spaces.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "spaces2.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "spaces3.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "spaces_find.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "spaces_removeallatoms.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "spaces_succeedspredicate.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "specialize.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "specialize_recursive_wrap.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "specializecyclic.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "specializefunctiontypes.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "state.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "streamops.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "string.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "supercollapse.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "superpose_nested.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "superpose_primes.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "swrite_variable_identity.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "tabling_fib.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "test_alpha_unique_atom.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "test_memo_aggregate.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "test_memo_dependency_invalidation.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "test_memo_multi_answer.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "test_memo_per_arity.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "test_memo_same_name_multi_arity.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "test_memo_stats.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "test_memo_variant_nonground.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "test_string_comments.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "test_unify_eval_branches.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "tests.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "tilepuzzle.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "translatepredicate.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "translatorrule.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "translatorrule_fib.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "translatorrule_for.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "twostage.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "types.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "types_dependent.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "types_nondet.metta": {
+   "rc": 0,
+   "status": "conforms"
+  },
+  "xor.metta": {
+   "rc": 0,
+   "status": "conforms"
+  }
+ },
+ "excluded": {
+  "test_datetime.metta": "upstream's own output is not reproducible run to run"
+ },
+ "skips": {
+  "git_import.metta": "clones from the network",
+  "git_import2.metta": "clones from the network",
+  "greedy_chess.metta": "needs a terminal: its command loop never ends at EOF",
+  "llm_cities.metta": "needs a network and an API key",
+  "repl.metta": "needs an interactive terminal",
+  "torch.metta": "needs torch installed",
+  "torch_lib.metta": "needs torch installed"
+ },
+ "upstream": "https://github.com/trueagi-io/PeTTa.git"
+}

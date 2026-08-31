@@ -1,0 +1,2 @@
+is ((true c) (true b) (true a)), should ((true c) (true b) (true a)). ✅ 
+true

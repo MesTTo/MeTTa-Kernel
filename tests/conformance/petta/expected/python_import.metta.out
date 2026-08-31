@@ -1,0 +1,5 @@
+is "Hello, PeTTa User from Python!", should "Hello, PeTTa User from Python!". ✅ 
+is 30, should 30. ✅ 
+true
+true
+true

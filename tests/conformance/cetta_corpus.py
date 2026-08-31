@@ -15,7 +15,7 @@ loud refusal rather than a comparison under a different contract.
 
 Assumes:
   - the fork checkout resolves through CETTA_PATH with the sibling as the
-    default, the same env-override oracle pattern leatta.py carries
+    default, the same env-override oracle pattern measured_corpus.py carries
 Guarantees:
   - with the checkout absent this reports that and exits 0
     [tested test_the_forward_corpus_lane_verifies_the_repinned_manifest]

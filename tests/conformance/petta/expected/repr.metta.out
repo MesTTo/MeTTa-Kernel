@@ -1,0 +1,12 @@
+is "42", should "42". ✅ 
+is "\"42\"", should "\"42\"". ✅ 
+is "(A (B C))", should "(A (B C))". ✅ 
+is "(A (, B , C ,))", should "(A (, B , C ,))". ✅ 
+is "2025_12_12", should "2025_12_12". ✅ 
+is "()", should "()". ✅ 
+true
+true
+true
+true
+true
+true

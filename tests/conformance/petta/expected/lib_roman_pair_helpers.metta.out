@@ -1,0 +1,7 @@
+is (2 9), should (2 9). ✅ 
+is (1 10), should (1 10). ✅ 
+is (right left), should (right left). ✅ 
+true
+true
+true
+true
