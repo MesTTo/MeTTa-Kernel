@@ -68,7 +68,8 @@
 %     measured over 84 systems, 24 written for the shapes that separate the two
 %     enumerators and 60 generated
 %     [tested 2026-08-19:
-%     test_the_two_enumerators_compute_the_same_critical_pairs].
+%     critical_pairs_is_a_projection_of_overlaps,
+%     overlaps_names_the_two_rules_and_the_position].
 % Guarantees:
 %   - critical_pairs/2, step/3, normal_form/3, rpo/5, completion/5,
 %     equations_trs/2 and equations_order/2 behave as the original does.

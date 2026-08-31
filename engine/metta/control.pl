@@ -130,14 +130,17 @@ metta_with_pragmas(Settings, Goal, Value) :-
     %The global bounds wrap call_goals_in, one level above this body, so the
     %scope applies them itself: whatever bounds are in force here, scoped ones
     %included, bound this findall.
+    %One outcome term, bound in every branch, so the checker sees each
+    %variable introduced everywhere it is read: raised(E) when the scope's
+    %goal threw, answered(Rows) when it ran, failed when it failed.
     (   catch(( maplist(metta_apply_pragma, Pairs),
-                run_under_pragmas(findall(Value, Goal, Values)) ),
-              Raised, true)
-    ->  Answered = true
-    ;   Answered = false
+                run_under_pragmas(findall(Value, Goal, Rows)) ),
+              Error, Outcome0 = raised(Error))
+    ->  ( var(Outcome0) -> Outcome = answered(Rows) ; Outcome = Outcome0 )
+    ;   Outcome = failed
     ),
     metta_restore_pragmas(Undo, Unrestored),
-    (   nonvar(Raised)
+    (   Outcome = raised(Raised)
     ->  %The scope's own error is what the caller asked about. A restore that
         %also failed is reported beside it rather than replacing it, which is
         %the suppressed-exception rule try-with-resources and ExitStack keep.
@@ -147,7 +150,7 @@ metta_with_pragmas(Settings, Goal, Value) :-
         throw(Raised)
     ;   nonvar(Unrestored)
     ->  throw(Unrestored)
-    ;   Answered == true
+    ;   Outcome = answered(Values)
     ),
     member(Value, Values).
 

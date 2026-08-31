@@ -367,7 +367,7 @@ skips = ["*/_compliance.py", "*/_gateway_compliance.py"]
 [tool.deptry]
 known_first_party = [
     "metta", "example_parity", "twin_coverage", "phrasebook", "phrasebook_entries",
-    "alpha",
+    "alpha", "aio_divergences", "aiogen", "ledger", "ledger_entries", "reference",
 ]
 extend_exclude = ["examples", "build", "bench.py", "benchmarks"]
 optional_dependencies_dev_groups = ["test", "checks"]
