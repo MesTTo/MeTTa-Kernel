@@ -8,6 +8,49 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Added
 
+- **A cursor pulls a chunk of answers per engine crossing.** The lazy doors,
+  `stream()` and every iterated `Answers`, crossed the Python/Prolog boundary
+  once per answer, and the crossing cost as much as a plain enumeration's
+  engine work per answer, so a drain spent half its time in the boundary.
+  A cursor now asks for one answer on its first pull and doubles up to 64,
+  the same opening TCP and a growing vector use: taking one answer of an
+  infinite stream still costs one answer's work, taking k computes fewer
+  than 2k, and a short chunk remains the whole of the exhaustion signal, so
+  nothing looks ahead past the doubling. Materialised both ways, draining
+  ten thousand answers went from 27.9x the eager door to faster than it at
+  every size, and a one-answer call costs the same 218 inferences it always
+  did. A budget that trips mid-chunk discards that chunk's collected prefix,
+  which is the accepted price of the crossing win; raising the budget is the
+  diagnosis path and delivers more.
+
+- **The shrink ledger.** `KERNEL.md` classes the engine's 58 translator heads
+  as primitive or derived and makes every fused derived form say why; the
+  Python surface now carries the same ledger over its 110 doors, generated
+  from the code by `tools/ledger.py` and gated. A door expressible by another
+  public door must say what it buys the caller, and the reasons live in one
+  file rather than sixteen docstrings.
+
+### Changed
+
+- **AsyncMeTTa's 66 mechanical doors are generated from `Space`.**
+  Hand-written, they had drifted: fifteen signatures narrower than the sync
+  door's, sixteen return annotations vaguer, sixty-four docstrings
+  paraphrased, and two runtime refusals of calls the sync surface accepts,
+  `await am.type(atom=x)` and `load()` with a `PathLike`. The mirror is now
+  written by `tools/aiogen.py` from `Space`'s own source, SQLAlchemy's
+  proxy-generation approach, so the async door IS the sync door awaited; the
+  six exclusions and four deliberate divergences carry their reasons in
+  `tools/aio_divergences.py`, and a gate regenerates and diffs the block.
+
+- **One vocabulary refusal.** Thirteen declaration doors each spelled the
+  membership check longhand and had drifted into three variants;
+  `_require_vocabulary` is now the one sentence, every refusal byte-identical
+  to before, and a door's extra ground clause is a visible `because=` rather
+  than an accident. The catalog-declaration helper likewise builds its atom
+  from the head, keys and values it is given, so a door can no longer hand it
+  a retract pattern and a stored atom that disagree, which is the defect that
+  had left stale `(image ...)` rows standing.
+
 - **The C binding installs.** `make install` puts a versioned
   `libcmetta.so.0.1.0` with its `libcmetta.so.0` and `libcmetta.so` links, the
   header, a `cmetta.pc` for pkg-config, and the engine tree under `$PREFIX`,
