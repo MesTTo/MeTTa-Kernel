@@ -693,6 +693,38 @@ test(await_atom_wakes_on_a_matching_write) :-
 test(await_atom_gives_up_after_its_deadline) :-
     \+ space_await('&self', [never, appears, here], 0.05, _).
 
+% A guard is one more reason to keep waiting, so the wait must survive
+% candidates that unify and then fail it: the first two writes match the
+% pattern and are rejected, and the wait has to still be there for the third.
+% Before the guard existed this had to live in the caller as a wait and a
+% re-wait, which restarted the deadline on every rejected candidate.
+test(await_where_waits_past_candidates_its_guard_rejects) :-
+    thread_create(( sleep(0.05),
+                    'add-atom'('&self', [guarded, 1], _),
+                    sleep(0.05),
+                    'add-atom'('&self', [guarded, 4], _),
+                    sleep(0.05),
+                    'add-atom'('&self', [guarded, 9], _) ), Thread, []),
+    space_await_where('&self', [guarded, N], ['>=', N, 5], 10, Out),
+    thread_join(Thread, _),
+    N == 9,
+    Out == [guarded, 9].
+
+% The guard is checked BEFORE the removal, so a rejected candidate stays put.
+test(take_where_leaves_the_atoms_its_guard_rejects) :-
+    'add-atom'('&self', [claimable, 2], _),
+    'add-atom'('&self', [claimable, 8], _),
+    space_take_where('&self', [claimable, N], ['>=', N, 5], 1, Out),
+    N == 8,
+    Out == [claimable, 8],
+    findall(Left, 'get-atoms'('&self', [claimable, Left]), Remaining),
+    Remaining == [2].
+
+% An unsatisfiable guard is a deadline miss, not an answer.
+test(await_where_gives_up_when_no_candidate_satisfies_the_guard) :-
+    'add-atom'('&self', [ungrantable, 1], _),
+    \+ space_await_where('&self', [ungrantable, N], ['>=', N, 5], 0.2, _).
+
 % --------------------------------------------------- the Linda blocking pair
 
 % P12.16. Three claims in one test, because they are one contract: a take

@@ -283,7 +283,13 @@ async def atoms(self) -> list:
 ### `AsyncMeTTa.peek`
 
 ```python
-async def peek(self, pattern: Any, *, deadline: float | None = None) -> Atom:
+async def peek(
+    self,
+    pattern: Any,
+    *,
+    where: Any | None = None,
+    deadline: float | None = None,
+) -> Atom:
 ```
 
 > Wait for one matching atom without blocking the event loop.
@@ -291,7 +297,13 @@ async def peek(self, pattern: Any, *, deadline: float | None = None) -> Atom:
 ### `AsyncMeTTa.take`
 
 ```python
-async def take(self, pattern: Any, *, deadline: float | None = None) -> Atom:
+async def take(
+    self,
+    pattern: Any,
+    *,
+    where: Any | None = None,
+    deadline: float | None = None,
+) -> Atom:
 ```
 
 > Wait for and remove one matching atom without blocking the loop.

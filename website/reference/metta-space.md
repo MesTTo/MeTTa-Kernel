@@ -554,23 +554,32 @@ def atoms(self) -> list[Atom]:
 ### `Space.peek`
 
 ```python
-def peek(self, pattern: Any, *, deadline: float | None = None) -> Atom:
+def peek(self, pattern: Any, *, where: Any | None = None, deadline: float | None = None) -> Atom:
 ```
 
 > Wait for one matching atom and leave it in this space.
 >
 > A finite deadline raises ``Timeout`` when no match arrives.
+>
+> `where` is match()'s guard on a blocking wait: a term over the
+> pattern's variables, evaluated once a candidate binds them and
+> required true, so "wait for a job whose priority is above five" is one
+> call. Without it the guard had to live in the caller, as a wait and a
+> re-wait around every candidate the guard rejected, and the deadline
+> restarted each time round [measured 2026-08-31].
 
 ### `Space.take`
 
 ```python
-def take(self, pattern: Any, *, deadline: float | None = None) -> Atom:
+def take(self, pattern: Any, *, where: Any | None = None, deadline: float | None = None) -> Atom:
 ```
 
 > Wait for and remove exactly one matching atom from this space.
 >
 > Competing takers cannot receive the same occurrence. A finite
-> deadline raises ``TimeoutError`` when no match arrives.
+> deadline raises ``TimeoutError`` when no match arrives. `where` is
+> peek()'s guard, and it is checked BEFORE the removal, so an atom the
+> guard rejects stays where it is for whoever does want it.
 
 ### `Space.cast`
 
