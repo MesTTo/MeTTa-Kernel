@@ -1702,6 +1702,233 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- **The matcher is upstream PeTTa's, and its whole cycle discipline is one
+  test per answer.** Matching binds raw, with no occurs check, so first
+  argument indexing dispatches and a repeated pattern variable may bind to a
+  term that contains it: a rational tree is a legal binding. The single cycle
+  test sits on the ANSWER template. Against a stored `(rt (f $x) $x)`, the
+  pattern `(rt $y $y)` with an out template of `hit` answers `hit`; the same
+  pattern used as its own template answers nothing, because that answer is
+  the cyclic one; and with an acyclic `(rt ok ok)` stored beside it the `hit`
+  template answers twice. That is upstream's own measured law, and it
+  withdraws the previous one, under which a rational-tree instantiation was
+  never an answer whatever the template.
+
+  What went with it is apparatus rather than protection. The per-candidate
+  occurs check, the entry scan that had replaced it (the cycle-guard
+  linearity gate computed once per call) and that scan's C twin all moved the
+  same growing-term walk between spellings without removing it, and the entry
+  scan added a per-call classification the walk never needed. What remains is
+  upstream's `\+ cyclic_term/1` on the answer, spelled `acyclic_term/1`
+  because it is the same walk at half the inference price. One refinement
+  past upstream's spelling: upstream re-tests the template after every
+  conjunct step, an artifact of its recursive clause, so the test here sits
+  only at answer sites and a skew join pays nothing per step.
+
+  The aligned path is the cheaper one here too. The Peano parity example runs
+  47.34G instructions before and 37.19G after, -21.4%, across the regression
+  fix and the adoption together; the benchmark suite's match case falls by
+  11,400 inferences and match-skew by 300.
+
+- **`let` and `unify` bind raw under the same one law.** Upstream's `let`
+  emits a plain `=`, measured: `!(let $x (f $x) worked)` answers `[worked]`
+  there and the rational tree itself flows out when the body mentions it, so
+  the occurs checks in the typed and untyped `let` emissions, the duals'
+  `let` generator and `unify`'s variable case all left with the arbiter that
+  required them. A self-referential binding now answers its rational tree,
+  which the translator and spaces suites pin end to end. Every counter lane
+  shed the shared constants: `py-method-call` -80,022 inferences (-3.5%),
+  `space-name` -240,008 (-5.8%), `direct-join` -14.2%, and the automatic
+  tabling separation at n=20 widened to 1,528x.
+
+- **A rational tree is a legal value with two honest exits.** Display
+  answers SWI's factorized cycle form, the shape the upstream toplevel
+  presents, because every walker below would follow the cycle forever;
+  serialization (`swrite/2`) refuses loudly, since no finite S-expression
+  reads back as a rational tree; and the Python wire refuses the ROW loudly
+  with the remedy named, where it previously dropped the row in silence and
+  `len` disagreed with what a caller could read (the encoder measured 6.7
+  million frames to the stack limit before the guard).
+
+- **Parity with upstream PeTTa, measured: the corpus runs in 36.7% of
+  upstream's instructions at the median.** Over 149 measured examples the
+  median instruction ratio is 0.367, with individual files from 0.05x. The
+  hardest case the campaign started with, `06-peano.metta`, is now 1.006x
+  where it was 1.29x, so its waiver is gone rather than re-worded, and
+  seventeen others followed it out of the table: a waiver that describes a
+  cost the engine no longer pays is a false claim, not documentation. The
+  fifteen that remain each keep a root cause and now cite the figures this
+  tree measures. One example is excluded rather than waived, and says why:
+  its last block writes from four threads through `hyperpose`, so its
+  inference count moves with the interleaving (0.004% over four runs) while
+  its answer count does not.
+
+- **A resource may not die while a reference handed out of it lives.** The
+  abandonment backstop watched the context object, so the chained spelling
+  `MeTTa().self` left the context unreferenced and released its home into
+  the free-name pool while the handle still named it; the next mint drew
+  that name back and refused, naming a space that would inherit from
+  itself. The backstop watches the home handle instead, which is what a
+  caller keeps. The same defect cost real work: a released home was rebuilt
+  on the next write, which is why the identity twin's budget had been
+  re-pinned upward by 2,508 inferences for an execution module built twice.
+
+- **A dropped space reclaims its atoms.** The store now clears in its own
+  engine query ahead of the release, under the same mute the release uses,
+  because a query cannot reclaim the clauses it erased while it still runs:
+  clearing inside the release left 20,008 atoms of a 10,000-atom workload in
+  the table where 6 belong, in five of six fresh processes. Measured against
+  the pre-change tree, which reclaimed in three of three, and now constant
+  across every size the memory-scale lane walks.
+
+- **Construction refuses before it acquires, and abandonment has a
+  backstop.** `space()` validates its whole request before minting, so a
+  refusal costs nothing where it used to leak an anonymous space per
+  failure; the acquisitions that follow run under one unwind that closes an
+  owned journal and drops only a fresh mint, never a named open, whose
+  destruction could be data loss; and `copy()` enumerates its source before
+  minting the clone. A collected `MeTTa()` now releases its world and an
+  abandoned `watch()` iterator cancels its subscription, `weakref.finalize`
+  backstops that detach when the `close()` contract runs. On a borrowed
+  home, explicit `verbose=`/`metta_path=` route through the runtime door
+  instead of being silently ignored, so a conflicting engine path refuses
+  with the one-engine remedy.
+
+- **Saga durability holds when the write about the write fails.** A failed
+  receipt persist retains the obligation unjournalled and retryable instead
+  of raising it away, and recovery preflights journalled receipts before
+  letting unjournalled obligations compensate without one, so an external
+  effect can no longer outlive both its record and its reversal. Foreign
+  participants now commit one at a time with per-participant outcomes: a
+  refusal rolls back every participant it never reached, a commit that
+  merely failed is a named refusal instead of an unbound result, and a step
+  whose non-journal participant lost its writes refuses by name as the
+  mixed outcome it is, naming the transactional-outbox remedy, rather than
+  compensating an effect that never committed. Journal attachment takes an
+  exclusive flock on a sidecar lock spanning tail repair, migration and the
+  provider's life, because SWI's own record lock binds the inode and cannot
+  see a pathname being replaced under another process.
+
+- **The manifest keeps the guard, the truth, and every close.** Manifest
+  attachment routes through the same same-process refusal the direct door
+  uses instead of bypassing it into a transport-timeout deadlock; a boot
+  form whose effect performed but whose `(boot ...)` record raised says
+  exactly that, instead of claiming the form did not perform; and cleanup
+  attempts every server close, aggregating failures, rather than stopping
+  at the first. `queue_max` refuses non-finite values, NaN having defeated
+  the bound's comparison and queued without limit.
+
+- **`temp-path!` joins lib_file.** One call answers a unique fresh path in
+  the system temporary directory, created exclusively so concurrent
+  runners cannot mint the same name; the text-library example and its
+  Python twin use it in place of the fixed `/tmp` names that could collide
+  across checkouts.
+
+- **A context's world is one unit: program mints join it, and close takes
+  it down.** A space the program mints with `new-space` inside a `MeTTa()`
+  context now declares the context's home as its equation home, so `super`
+  and `evalc` find definitions the program wrote at its own top level; the
+  four example-parity divergences this had caused (`04-super`, `05-evalc`,
+  `02-memo_aggregate`, `06-spaces_removeallatoms`) all closed with it.
+  `close()` releases every space minted inside the context, the handle's
+  python side swept first so subscriptions cannot follow a pooled name into
+  another life, while a space the program declared with `(inherits ...)`
+  still refuses by name. The super-user recompilation the removal funnel
+  fires is muted during a release, because a dying world's own users die
+  with it and cross-world users cannot exist.
+
+- **The semantics arbiter is upstream PeTTa, vendored and gated per file.**
+  `tests/conformance/petta/` holds upstream's example corpus beside the exact
+  bytes upstream printed for each entry, captured from commit `ae66fa8e`, and
+  `check.sh`'s conformance lane replays every entry against this engine. The
+  measured divergences the alignment closed, each probed on both engines
+  before it moved:
+
+  - `==` and `!=` are pure term equality declared `(-> $a $b Bool)`:
+    `(== 1 1.0)` is `False`, `(== 1 "s")` is `False` where both refused, and
+    a written `(Error ..)` atom compares as the term it is. An error an
+    OPERAND computed still surfaces as the answer, carried by the call's
+    argument guard rather than by the comparison.
+  - A function result does not re-enter evaluation, so a held operand a body
+    passes through stays as written all the way out, exactly as upstream
+    compiles the equation.
+  - `chain` and `let` bind the VALUE the operand produced; `eval` answers
+    the operand it evaluated rather than the `(eval ...)` call.
+  - The evaluation budget is opt-in: with no `max-stack-depth` pragma the
+    engine compiles no charge at all and recursion runs to completion, as
+    upstream does; naming a budget recompiles the affected functions with
+    the charge in place, so the pragma still binds from its first bounded
+    call.
+  - Any symbol names a space the moment it is written to; `is-space` keeps
+    the `&` test, which is upstream's own split.
+  - Too many arguments raise `domain_error(function_input_arities(F, Known),
+    Asked)`, naming the arities the function has beside the one asked for;
+    a head that names nothing stays as written.
+  - `pow-math` keeps its operands' numeric kinds (`(pow-math 2 3)` is `8`),
+    `min-atom`/`max-atom` answer `()` for a non-expression and nothing for
+    an empty one, every numeric operation refuses a wrong operand by name,
+    and an all-integer zero division answers the contained `DivisionByZero`.
+  - A `test` whose expression produced no answer compares as `()`; Curry's
+    functional pattern compiles a call in head position to a goal run
+    backwards; in-place `(: $x T)` head annotations read as ordinary
+    structure; relative imports resolve against the working directory first;
+    a host loader called from MeTTa loads into the process tier.
+  - A function whose equations all miss answers nothing (`NoMatchFail` is
+    the dispatch default); the previous behaviour is one
+    `(dispatch-policy <f> NoMatchEnum NoMatchOriginal)` away.
+
+- **One attach door, and `space()` declares its whole surface.**
+  `metta.remote.attach` is gone: a remote space is `RemoteSpace` over a
+  transport, and `metta.attach(name, backing)` registers it like any other
+  backing (`connect()` builds the transport when it needs a token, headers,
+  an ssl context or a timeout; a bare URL keeps working through the same
+  derivation). `space()`'s options are real keyword parameters now --
+  `inherits`, `restricted`, `grants`, `journal`, `schema`, `sync` -- so the
+  type checker and completion see the door; the remote knobs left it, and a
+  bare transport callable is refused with the composition named. `MeTTa()`
+  is an isolated context that owns the home it mints (`close()`, `with`,
+  equality by runtime-and-home), sharing is spelled (`Space()`,
+  `metta.engine()`), a context's spaces resolve equations through its home
+  by the narrow equation-home relation, and verbosity applies only when a
+  caller says something.
+
+- **The aligned paths are also the cheaper ones.** The guards a program
+  never uses are not compiled: the fuel charge, the masked-result chain and
+  error tests around the total-boolean operations, the match door's
+  per-conjunct cycle walks (one test per answer replaces them; on the
+  Peano example those walks alone were 12.7% of the run), and the
+  translator-rule orientation gate, whose evaluation-boundary and reduce
+  doors hold a body that never asks the rule table while no bidirectional
+  rule is registered and swap the gated body in when one is. Run-time `eval`
+  translation is cached on a literal-abstracted skeleton, the
+  branch-return analysis keeps its statistics as variable attributes with a
+  C twin behind the reader's artifact pattern, and dispatch under the
+  default policy goes straight to Prolog's own clause selection.
+
+- **`remove-atom` drains every unifying occurrence and answers `True` either
+  way, which is upstream's law.** It took ONE occurrence and answered
+  `(Error (remove-atom <space> <atom>) "remove-atom: atom is not in the
+  space")` for an atom the space did not hold. Both readings came from an
+  arbiter this engine no longer follows; upstream's is `retractall/1` under a
+  comment reading "Remove all same atoms", and it answers `true` whether or
+  not anything went. A different ANSWER to the same call is the one thing the
+  superset rule does not allow, so the door follows upstream.
+
+  The finer grain did not go anywhere, and each Python door now takes the
+  behaviour its own Python spelling implies. `space.remove(atom)` is
+  `list.remove`'s grain: one unifying occurrence, and it returns whether it
+  found one, so absence is still reportable. `space -= atom` is Python's
+  in-place difference, which is total, so it drains and says nothing about
+  absence. `del space[pattern]` drains and raises `KeyError` when nothing
+  unified, as Python's `del` does. Provider authors are unaffected:
+  `seam:foreign_remove/3` is still "remove one", and the door above it reads
+  the matching atoms and then asks the provider once for each.
+
+  One consequence is worth knowing if you write hooks: the removal hook now
+  fires once per occurrence and carries the ATOM THAT LEFT rather than the
+  pattern the caller wrote, so a handler no longer has to re-read the space to
+  learn which occurrence went.
+
 - **The README is rewritten to declare rather than explain, and to run.** It
   goes representation first (the four atom kinds, in MeTTa and then in Python),
   through spaces and queries and `@define`, to what the engine does that a
@@ -2942,6 +3169,87 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   MeTTa with a differential asserting the two agree verdict for verdict.
 
 ### Fixed
+
+- **Cancelling around an acquisition releases what the worker finished.**
+  `asyncio` delivers a cancellation at an await point, and `metta.aio` awaits
+  the worker's answer, so a cancel that landed after the worker had attached
+  the engine, registered a standing query or installed assumed facts left the
+  resource live with nothing holding it: one leaked worker thread per cancelled
+  `connect()`, an invisible live subscription per cancelled `watch()`, and
+  facts that stayed installed for a cancelled `assuming()`. The commit point is
+  now shielded, so the acquisition always completes, and a cancelled caller
+  releases what it can no longer own before the `CancelledError` continues.
+  A cancelled `connect()` also refuses the worker it launched, so the thread
+  detaches its engine instead of living to interpreter exit.
+
+- **A close records success only after it achieves it.** `aclose()` on an async
+  cursor or subscription, and `RemoteCursor.close()`, marked themselves closed
+  (and the remote one discarded its cursor token) BEFORE the release, so one
+  transient failure left the resource live with the only handle that could
+  release it already thrown away, and every later close returned at the flag.
+  Each now releases first and records afterwards, so a failed close is
+  retryable; the async ones complete their release even if the caller is
+  cancelled.
+
+- **A counted lazy result releases the engine its count retained.** An
+  effect-bearing goal's `len()` holds its answers in an SWI engine so the
+  values cost no second evaluation. That engine's handle lived outside the
+  answer generator, and closing a generator that was never started runs no
+  `finally`, so a view that was counted and never iterated leaked the engine
+  and the whole answer bag for the life of the process.
+
+- **An async event queue is published only once its registration succeeded**,
+  so a failed registration no longer leaves consumers waiting forever on a
+  queue nothing owns, and the stream's terminator reaches a consumer whose
+  queue is full instead of raising `QueueFull` out of the close path. The
+  async subscription also takes the same `queue_max` check the synchronous one
+  takes, so a bound no comparison can be true against is refused at the door.
+
+- **A server that could not stop its worker leaves its answer cursors alone.**
+  `Server.close()` released every cursor even when the engine worker had not
+  stopped, which closes a cursor out from under a request that may still be
+  reading it; it now says so and leaves them to the next close. Releasing many
+  cursors no longer abandons the rest at the first failure, and `GET /health`
+  answers an authorization hook's own failure as JSON instead of dropping the
+  connection, which a client cannot tell from a network fault.
+
+- **The same-process attach guard covers the addresses it actually serves.** A
+  server bound to `0.0.0.0` was registered under that literal alone, so
+  attaching the same server through `127.0.0.1` or `localhost` walked past the
+  guard into the deadlock it exists to refuse. The guard now recognises a
+  wildcard bind by asking the operating system whether the URL's host is one of
+  this host's own addresses, and it also takes the addresses a caller is ABOUT
+  to serve, so a manifest whose `attach` form stands above the `serve` form
+  that binds its port is refused rather than accepted in one order and refused
+  in the other.
+
+- **A candidate whose instantiation is a rational tree crosses as the stored
+  atom.** Matching binds raw, so a repeated pattern variable can bind to a term
+  that contains it, and no finite tagged form spells that instantiation. The
+  eager `/match` door dropped such a candidate silently, which is the
+  under-approximation the protocol forbids; both doors now take their
+  candidates from one linearised cursor, filtered back by the engine's own
+  re-unification, so the answer set is exact and finite. One stored atom also
+  reads back as one atom: the wire names an answer's variables by first
+  occurrence, where the engine's own name is a stack offset that moved with
+  every match the server ran.
+
+- **A function change no longer pays for tables that no longer exist.**
+  `lib_tabling` invalidated by `abolish_all_tables/0`, which walks the whole
+  variant trie, and that trie keeps a variant for every table the process ever
+  built: after one space tabled a 200,000-answer recursion and was dropped,
+  every later equation change still walked all 200,000. Measured 2026-08-31,
+  one equation change after a dropped table of N answers cost 2N inferences
+  (10,353 at N=5,000; 40,355 at 20,000; 160,359 at 80,000) and now costs 377 at
+  every size. The invalidation itself is unchanged in scope for MeTTa's own
+  tables; `tests/ch18_performance/test_tabling_control.py` went from 162 to 8
+  seconds.
+
+- **A space name comes back only when it is free.** Dropping a context while a
+  handle to its home space is still alive pooled the name, and the surviving
+  handle then wrote to it and brought it back to life, so the next `MeTTa()`
+  was handed a live name and the engine refused it. The pool is now scanned
+  against the engine's own used-check rather than trusted.
 
 - **Attaching a space this process serves refuses immediately instead of
   hanging for the whole transport timeout.** Janus holds the GIL across a

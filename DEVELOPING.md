@@ -180,10 +180,11 @@ cd extensions/python
 "$PY" -m benchmarks.axes                      # --list for the case names
 ```
 
-The axes harness drives ONE case per process and refuses a second, because two
-`MeTTa()` handles share one engine and one `&self`: a second case installs its
-driver's head again, the recursion then leaves a choice point per level, and a
-deep drive runs out of stack instead of measuring anything. That failure looks
+The axes harness drives ONE case per process and refuses a second, because
+every `MeTTa()` context shares one engine and registrations are process-wide:
+a second case installs its driver's head again, the recursion then leaves a
+choice point per level, and a deep drive runs out of stack instead of
+measuring anything. That failure looks
 from outside like a run that never finishes, so the refusal is loud.
 
 Its published instruction figures are a recorded run and its inference figures

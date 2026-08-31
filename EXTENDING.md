@@ -42,14 +42,14 @@ marginal cost of **one call** rather than of the loop around it.
 
 | extension point | inferences/call | vs MeTTa | microseconds/call | vs MeTTa |
 |---|---|---|---|---|
-| translator rule (a macro) | 0.00 | 0.00x | 0.00 | 0.04x |
-| C foreign predicate | 1.00 | 0.25x | 0.02 | 0.23x |
-| Prolog grounded predicate | 2.00 | 0.50x | 0.03 | 0.36x |
-| ordinary MeTTa function | 4.00 | 1.00x | 0.10 | 1.00x |
-| `@m.define`, no annotations | 5.00 | 1.25x | 0.15 | 1.60x |
-| `@m.define`, annotated | 5.00 | 1.25x | 0.15 | 1.56x |
-| Python operation, `transport="raw"` | 12.00 | 3.00x | 1.05 | 10.00x |
-| Python operation, encoded | 19.00 | 4.75x | 3.93 | 37.48x |
+| C foreign predicate | 1.00 | 0.33x | 0.02 | 0.33x |
+| translator rule (a macro) | 2.00 | 0.67x | 0.04 | 0.66x |
+| Prolog grounded predicate | 2.00 | 0.67x | 0.04 | 0.63x |
+| @m.define, no annotations | 3.00 | 1.00x | 0.06 | 1.08x |
+| @m.define, annotated | 3.00 | 1.00x | 0.12 | 1.92x |
+| ordinary MeTTa function | 3.00 | 1.00x | 0.06 | 1.00x |
+| Python operation, transport="raw" | 12.00 | 4.00x | 1.11 | 18.37x |
+| Python operation, encoded | 19.00 | 6.33x | 3.86 | 64.19x |
 
 Six of each operation row's inferences are the scheduler admission probe: every
 operation call asks the effect and lane question that lets an `oracleIO` call
@@ -188,12 +188,12 @@ translated once when the claim is made, not per write. The pool rows go through
 the shipped `pool.admits` and `pool.capacity` surface, which claims the pool's
 pre-add hook with the `space-admission-verdict` judge.
 
-| write door | inferences/add | vs plain add |
-|---|---|---|
-| add-atom, no claims on the space | 30.00 | 1.00x |
-| add-atom through an accept-all pre-add hook | 46.00 | 1.53x |
-| add-atom into a pool with a declared admits type | 58.00 | 1.93x |
-| add-atom into a pool with a declared capacity | 68.00 | 2.27x |
+| write door | inferences/add | vs plain add | microseconds/add | vs plain add |
+|---|---|---|---|---|
+| add-atom, no claims on the space | 30.00 | 1.00x | 1.52 | 1.00x |
+| add-atom through an accept-all pre-add hook | 47.00 | 1.57x | 2.32 | 1.53x |
+| add-atom into a pool with a declared admits type | 57.00 | 1.90x | 2.48 | 1.63x |
+| add-atom into a pool with a declared capacity | 67.00 | 2.23x | 4.43 | 2.91x |
 
 A space nothing claimed keeps the direct write path, which is what holds the
 plain row where it is. The capacity row used to read 4569.69 at a thousand held
@@ -2672,7 +2672,7 @@ that needs the predicate itself, as the tracer does when it wraps compiled
 clauses, hangs off this event instead, which fires once per compiled equation,
 arrival-translated and materialised alike.
 
-Three narrower events let an analysis avoid repeating work on every equation.
+Four narrower events let an analysis avoid repeating work on every equation.
 `seam:function_call_graph_changed/2` carries a function and its execution module
 only when that function's retained source-call edges changed.
 `seam:source_program_compiled/0` marks the end of a definition-bearing source
@@ -2680,6 +2680,17 @@ unit, so a graph consumer can batch one whole-source decision instead of running
 it for each form. `seam:cache_policy_changed/1` reports an added or removed
 `(cache <name> force|refuse)` catalog declaration or a change to an explicit
 `(tabled <space> <name> <arity>)` declaration.
+
+`seam:deferred_translation_settled/0` is the point after a deferred function's
+clauses stand and no predicate is still half-built. The call-graph event above
+fires from INSIDE the function's own compilation guard, which is early enough
+to hear the news and too early to act on it: a handler that recompiles would
+recompile the predicate its caller is in the middle of building. This event
+fires once per materialisation, and it is where a decision that must reach the
+function's FIRST call belongs, because deferred translation means that call is
+the next thing to happen. `lib_memo` decides automatic caching here; deciding
+it at the source's flush instead decided after the recursion it was about had
+already run.
 
 **`seam:automatic_cache_explanation/3`** is the declaration seam behind the cache
 item in `(explain ...)`: the function name is followed by the selected choice and

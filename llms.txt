@@ -15,7 +15,7 @@ re-runs them.
 
 | source | what it is | kept true by |
 |---|---|---|
-| `examples/**/*.metta` | 232 executable programs, the semantics documentation, in 22 numbered chapters whose order is the order a reader meets each construct. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/data/example_skips.txt` names the six that do not, each with its reason |
+| `examples/**/*.metta` | 231 executable programs, the semantics documentation, in 22 numbered chapters whose order is the order a reader meets each construct. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/data/example_skips.txt` names the six that do not, each with its reason |
 | `tests/data/syntax_introductions.txt` | the construct each example chapter introduces, so a file uses nothing it has not met | the `cumulative-syntax` gate lane, which also carries a permanent negative control it must keep catching |
 | `website/reference/metta-*.md` | 24 pages reproducing source signatures and docstrings | `extensions/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `extensions/python/tools/libdoc.py` |
@@ -616,7 +616,7 @@ one existing call, performed in source order:
 
 ```
 (boot (load "rules.metta"))                m.load, manifest-relative
-(boot (attach &crm "http://crm:8700"))     metta.remote.attach
+(boot (attach &crm "http://crm:8700"))     metta.attach
 (boot (bridge &db (edge $a $b) (row ...))) metta.tables declare + bridge
 (boot (serve (&self &crm) 8700))           metta.remote.serve
 ```
@@ -669,8 +669,9 @@ The wire has both doors the in-process seam has. `RemoteSpace.match` is
 eager, one request carrying the whole answer set, and `RemoteSpace.stream`
 is the protocol's ask/next/stop lifecycle, a chunk per request, so taking
 two answers of a large enumeration costs the serving engine two answers.
-`metta.remote.attach(m, name, url, batch=1)` puts an attached space's
-matching on the lazy door. `metta.remote.Gateway` is the same protocol with
+`metta.attach(name, metta.remote.RemoteSpace(transport, batch=1))` puts an
+attached space's matching on the lazy door; `metta.remote.connect(url)`
+builds the transport when it needs a token, headers or a timeout. `metta.remote.Gateway` is the same protocol with
 no transport under it, for mounting on another HTTP framework.
 `website/live/remote-protocol.md` is the contract every binding inherits and
 `metta.testing.GatewayComplianceSuite` certifies it.

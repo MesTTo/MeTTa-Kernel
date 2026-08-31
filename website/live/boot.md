@@ -24,7 +24,7 @@ Each form is sugar for exactly one existing call, performed in source order:
 | form | the call it performs |
 |---|---|
 | `(load "rules.metta")` | `m.load`, the path resolved against the manifest's own directory |
-| `(attach &crm "http://crm:8700")` | `metta.remote.attach`, an optional third symbol naming the remote-side space |
+| `(attach &crm "http://crm:8700")` | `metta.attach` over `metta.remote.RemoteSpace`, an optional third symbol naming the remote-side space |
 | `(bridge &db <shape> <row>)` | `metta.tables.declare` then `TableBridge.from_context`, registered under the name |
 | `(serve (&self &crm) 8700)` | `metta.remote.serve` with that space allowlist; port 0 picks a free one |
 

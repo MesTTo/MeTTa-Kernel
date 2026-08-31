@@ -427,9 +427,8 @@ server_space.add(S.edge(S.a, S.b), S.edge(S.b, S.c))
 
 # In ONE process the transport is a Gateway: janus holds the GIL across a
 # Prolog call, so an HTTP attach here is refused with this remedy named.
-client = space()
-remote.attach(client, "&warehouse", remote.Gateway(server_space, [server_space.name]),
-              server_space.name)
+metta.attach("&warehouse", remote.RemoteSpace(
+    remote.Gateway(server_space, [server_space.name]), str(server_space.name)))
 edges = metta.space("&warehouse").match(S.edge(V.x, V.y))
 assert edges.to_dicts() == [{"x": "a", "y": "b"}, {"x": "b", "y": "c"}]
 ```
@@ -604,13 +603,18 @@ atom-vector spaces come from a MeTTa library the engine fetches on request:
 
 ## Conformance
 
-The semantics are LeaTTa's and the MeTTa Standard's. LeaTTa is a mechanised
-specification of MeTTa; where it and hyperon-experimental disagree, this engine
-follows LeaTTa.
+The semantics are PeTTa's. Where anything disagrees with it, this engine
+follows PeTTa, and `tests/conformance/petta/` is how that is checked rather
+than asserted: it holds upstream's example corpus beside the exact bytes
+upstream printed for each file, captured from a named commit and vendored
+here, so a neighbouring checkout cannot move the lane. `check.sh` replays
+every entry and gates per FILE.
 
-So answers differ from hyperon-experimental in places. The reason is usually a
-defect in hyperon-experimental rather than a choice here, and LeaTTa is where
-those differences are catalogued.
+Two entries carry a recorded ruling rather than agreement, each with the
+difference it is allowed to have written down beside it, so neither can drift
+further without failing. Both are cases where this engine answers and upstream
+does not: `bind!` binding a value upstream has no clause for, and a parametric
+`apply` upstream's own specializer builds and then fails to apply.
 
 ## What the examples show
 

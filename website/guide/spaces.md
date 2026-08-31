@@ -45,7 +45,7 @@ Subscription is query. `m[pattern]` answers `match(pattern)`, and because Python
     assert [(row.x, row.z) for row in rows] == [(S.a, S.c)]
 ```
 
-A str key parses first, so `m["(edge $x $y)"]` works, and a slice is refused: `match(limit=n)` bounds an answer set. Deletion pairs with subscription the way `d[k]` and `del d[k]` pair. The two removal doors differ in how much they take: `remove()` is multiset subtraction, one unifying occurrence per call, reporting absence as `False`; `del m[pattern]` is the bulk spelling that drains every unifying occurrence, since `m[pattern]` is a query answering many rows, and it raises `KeyError` when nothing unified.
+A str key parses first, so `m["(edge $x $y)"]` works, and a slice is refused: `match(limit=n)` bounds an answer set. Deletion pairs with subscription the way `d[k]` and `del d[k]` pair. The three removal doors differ in how much they take and in what they say about absence, and each follows its own Python spelling: `remove()` is `list.remove`'s grain, one unifying occurrence per call, reporting absence as `False`; `m -= atom` is Python's in-place difference, which is total, so it drains every unifying occurrence and says nothing about absence; `del m[pattern]` drains too, since `m[pattern]` is a query answering many rows, and raises `KeyError` when nothing unified.
 
 The in-place operators split by what their operand means. `m += x` is `add(x)` exactly, one atom per use, so a list lifts into one expression atom the same way `add` reads it; `m -= x` is `remove(x)`. The bulk door is `|=`, whose operand has no lifted reading: another space (equations included, compiled on arrival), a registered space name, or an iterable adding each element. A dict is refused there, because `add` reads the same dict as one grounded atom and its values would silently vanish.
 
@@ -156,7 +156,7 @@ conn.execute("create table users (id integer, name text)")
 conn.execute("insert into users values (1, 'Ada'), (2, 'Bob'), (3, 'Cy')")
 conn.execute("create table vips (id integer)")
 conn.execute("insert into vips values (1), (3)")
-provider = attach(m, "&crm", conn)
+provider = attach_database(m, "&crm", conn)
 
 check("enumerate", m.run("!(collapse (match &crm (users $id $n) $n))"),
       [[Expression("Ada", "Bob", "Cy")]])

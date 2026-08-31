@@ -26,7 +26,7 @@ def test_bridge_rules_connect_spaces(metta):
         dst.drop()
 ```
 
-`metta.remote` makes an engine a context another engine can reach. `serve(m, spaces=[...])` exposes spaces over HTTP speaking the same tagged wire the local boundary speaks, with the allowlist as the whole access model; `attach(m, "&hq", url)` registers a served space here as a foreign space. A remote space then drops into `(match &hq ...)` like any space, one local match joins remote rows with local facts, and writes cross through `add-atom` and `remove-atom`. The local engine keeps unification for itself, so a stale or lying remote can only cost time, not soundness.
+`metta.remote` makes an engine a context another engine can reach. `serve(m, spaces=[...])` exposes spaces over HTTP speaking the same tagged wire the local boundary speaks, with the allowlist as the whole access model; `metta.attach("&hq", RemoteSpace(connect(url)))` registers a served space here as a foreign space. A remote space then drops into `(match &hq ...)` like any space, one local match joins remote rows with local facts, and writes cross through `add-atom` and `remove-atom`. The local engine keeps unification for itself, so a stale or lying remote can only cost time, not soundness.
 
 A context is a process: serving and attaching within one process cannot join through the local engine, because one runtime lock guards both sides of that call. Two engines, two processes, is the deployment this exists for; in-process, spaces already share the engine and need no wire.
 

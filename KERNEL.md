@@ -15,14 +15,19 @@ should, unless moving it costs something measurable.
 ## The bar a head has to clear
 
 The reference point is the state-free structural core of minimal MeTTa's
-instruction set, which LeaTTa presents as fourteen names in
-`tests/mettail/metta.mettail`: `eval`, `evalc`, `context-space`, `chain`,
-`unify`, `unify%`, `cons-atom`, `decons-atom`, `collapse-bind`,
-`superpose-bind`, `function`, `return`, `metta` and `call-native`. Its
-`MettaDialect` proves those fourteen are exactly the primitive instruction
-enum plus the accepted heads plus contextual `return`, and eight of them head
-no rewrite at all: their configuration, matching, collection, type and host
-semantics are named follow-up presentations rather than omissions.
+instruction set, which LeaTTa's own `tests/mettail/metta.mettail` presents as
+fourteen names: `eval`, `evalc`, `context-space`, `chain`, `unify`, `unify%`,
+`cons-atom`, `decons-atom`, `collapse-bind`, `superpose-bind`, `function`,
+`return`, `metta` and `call-native`. Its `MettaDialect` proves those fourteen
+are exactly the primitive instruction enum plus the accepted heads plus
+contextual `return`, and eight of them head no rewrite at all: their
+configuration, matching, collection, type and host semantics are named
+follow-up presentations rather than omissions.
+
+That presentation is a yardstick for what counts as core and nothing more.
+The conformance reference this engine gates on is the vendored upstream PeTTa
+corpus in `tests/conformance/petta/`, which says what a program ANSWERS; the
+two questions are separate and this page asks only the first.
 
 So "core" here has three readings, and the table says which one applies:
 
@@ -206,11 +211,14 @@ checked operation, and turns overflow into `ArithmeticOverflow`. In particular,
 its multiplication cannot answer `(* 4611686018427387904 4)` as an integer.
 [source: https://github.com/trueagi-io/hyperon-experimental/blob/3f76dc460da6961f57f69f6c3e550c59c74ada83/lib/src/metta/runner/stdlib/arithmetics.rs#L10-L16; commit=080c41a762aa5f7b59a8d52a6817b2fd6cff0de9]
 
-LeaTTa's host model carries `Int` rather than a fixed-width integer, so the
-exact answer `18446744073709551616` is the arbiter-aligned behavior and the
-Hyperon error is a host-width divergence. The acceptance pin exercises that
+Upstream PeTTa computes `*` with SWI-Prolog's own arithmetic, which is
+unbounded, so the exact answer `18446744073709551616` is what the conformance
+reference produces and the Hyperon error is a host-width divergence. The
+vendored corpus carries a 21-digit integer as upstream's own printed answer,
+so this is pinned rather than inferred. The acceptance pin exercises that
 same multiplication at the public Python surface.
-[source: https://github.com/MesTTo/LeaTTa/blob/dae62ced23eb0f30a8c2b86583fd09d88fb24ea5/MettaHyperonFull/Core/Host.lean#L82-L85; commit=080c41a762aa5f7b59a8d52a6817b2fd6cff0de9]
+[source: PeTTa@ae66fa8 src/metta.pl:36, `'*'(A,B,R) :- R is A * B.`]
+[source: tests/conformance/petta/expected/patrick_iterate_fib.metta.out, `354224848179261915075`]
 [tested: test_integer_arithmetic_is_unbounded_where_hyperon_checks_i64; commit=080c41a762aa5f7b59a8d52a6817b2fd6cff0de9]
 
 The wire keeps one `n` tag because the exact payload recovers the type. A
@@ -221,10 +229,12 @@ Janus. The Node bridge carries canonical decimal text and constructs a
 JavaScript `BigInt` for every Prolog integer, so neither route passes a wide
 value through binary64.
 
-LeaTTa currently reports `Number` for every unbounded `Ground.int`. Re-run the
-boundary, declared-type compatibility, arithmetic result type and equality
-cases when its announced BigInt support lands. Its future ruling replaces the
-assumptions above where they differ.
+The vendored corpus pins `(get-metatype 1)` as `Grounded` and the arithmetic
+signatures as `Number`, and it exercises no wide-integer type case at all, so
+the type a wide integer reports is this engine's own decision rather than
+something the conformance reference adjudicates. Re-run the boundary,
+declared-type compatibility, arithmetic result type and equality cases when
+that changes.
 
 ## What would move next
 

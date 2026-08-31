@@ -148,7 +148,7 @@ larger than that at all; the lifecycle is what carries it
 
 On the client side `RemoteSpace.stream(pattern, batch=...)` is the lazy
 door and `match()` stays the eager one. The core `Space.match()` is eager.
-`metta.remote.attach(m, "&hq", url, batch=1)`
+`metta.attach("&hq", metta.remote.RemoteSpace(metta.remote.connect(url), batch=1))`
 puts an attached space's matching on the lazy door, so a MeTTa `once`
 over it stops the serving engine too.
 
@@ -200,23 +200,41 @@ has to carry the distinction some other way or refuse it.
 attaching engine keeps unification for itself and re-unifies every
 candidate, which is how bindings enter the local program; answering
 every stored atom for every pattern is always correct, answering fewer
-than the engine's own matching is never allowed to be. That matching is
-occurs-checked on purpose, Hyperon's own variable semantics, so a
-rational-tree pair (`(f $y $y)` against a stored `(f (g $x) $x)`) is
-NOT an answer a server owes; answering such a candidate anyway is legal
-surplus the client discards. A server may answer candidates as the
-stored atoms themselves or as the pattern instantiated by each match,
-both of which preserve the pattern's answer set; the conformance suite
-accepts either. This is what makes the protocol implementable in an
-afternoon: filtering is an optimisation, not a correctness burden.
+than the engine's own matching is never allowed to be. That
+re-unification binds raw, with no occurs check, so a repeated pattern
+variable may bind to a term that contains it: `(f $y $y)` against a
+stored `(f (g $x) $x)` builds a rational tree, and that candidate IS an
+answer a server owes. The single cycle test the engine runs sits on the
+ANSWER it builds and not on the bindings, so whether the candidate
+survives is the client's decision rather than the server's. An out
+template that does not carry the cyclic binding answers; the pattern
+itself as the template does not. A server must not occurs-check on the
+client's behalf, because refusing a candidate whose bindings the
+client's template never mentions is exactly the under-approximation the
+law forbids.
+
+A server may answer candidates as the stored atoms themselves or as the
+pattern instantiated by each match, both of which preserve the
+pattern's answer set; the conformance suite accepts either. The one
+case where the two forms part is this one: a rational tree has no
+finite tagged-array form, so a server that answers instantiations
+cannot encode that candidate and answers the stored atom for it
+instead. A server that answers stored atoms never meets the question,
+since a stored atom is acyclic.
+
+This is what makes the protocol implementable in an afternoon:
+filtering is an optimisation, not a correctness burden.
 `metta.testing.check_space_provider` over an attached `RemoteSpace`
 verifies exactly this, and its repeated-variable probes are the ones
 that catch real matchers being subtly narrower than the law.
 
 **Removal is by unification, one occurrence.** `remove` carries an atom
-that may contain variables, and ONE stored atom unifying with it goes,
-the multiset subtraction `remove-atom` is everywhere. Two stored copies
-need two removals. Rename the pattern's and the stored atom's variables
+that may contain variables, and ONE stored atom unifying with it goes.
+Two stored copies need two removals. That is the PROVIDER's grain and it
+is finer than the language's: `remove-atom` drains every unifying
+occurrence, and it does so by reading them and then asking this door once
+for each, so a provider that takes one per call is what the engine above
+it expects. Rename the pattern's and the stored atom's variables
 apart before unifying: `(f $x 1)` must remove a stored `(f 2 $x)`.
 
 **A space is a multiset.** Adding twice stores twice; `atoms` answers
@@ -235,9 +253,12 @@ real divergences on both sides of the seam: MeTTaScript's unifier is
 narrower than the wire unifier on some pairs, so its server carries the
 reference unifier as a soundness envelope (over-approximation being
 always legal, that server also ignores `bound` and advertises so), and
-an early revision of the suite itself demanded rational-tree answers
-the engine's occurs-checked matching never produces, which is the law
-stated wrongly rather than a server behaving badly.
+an early revision of the suite itself demanded rational-tree answers,
+which the occurs-checked matcher of the day never produced. Under the
+per-answer template law that demand was the correct one. The suite's
+own join still carries an occurs check and so skips those pairs instead
+of requiring them, which means a server that drops them is not caught
+here.
 
 Measured on localhost with the reference server [2026-08-17]: a match
 round trip is about 243 microseconds and an add about 216. The wire is

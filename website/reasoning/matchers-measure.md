@@ -42,10 +42,11 @@ m.eval(Expression(S.unify, inside, 9, S.inside, S.outside))   # [outside]
 ```
 
 Variables are never sent to your logic: `$x` against a matchable value
-binds `$x` to the value whole, which is the arbiter's own case order. A
-value with no matching logic compares by identity. And because a space is
-an operand like any other, `(unify &self (friend $who Alice) $who
-no-friends)` answers each friend, or the else branch when there are none.
+binds `$x` to the value whole, because the variable case is decided before
+any value's matching logic is consulted. A value with no matching logic
+compares by identity. And because a space is an operand like any other,
+`(unify &self (friend $who Alice) $who no-friends)` answers each friend, or
+the else branch when there are none.
 
 A matchable can bind the variables it is handed, which is how a value
 becomes a solver rather than a filter:
