@@ -10,8 +10,10 @@ arbiter claim, so it moves here with its one remaining reader rather than
 leaving the two-runtime differential without a corpus.
 
 Assumes:
-  - the corpus lives outside this repository; CORPUS is the default path and
-    every caller may override it.
+  - the corpus lives outside this repository; LEATTA_PATH names that
+    checkout and CORPUS derives the default from it, the same override
+    extensions/python/tests/conformance/test_critical_pair_oracle.py reads,
+    so no tracked file spells an absolute workspace path.
 Guarantees:
   - a group compares as a space-separated sequence whichever side wrote it,
     with quotes dropped, which is stated as a limitation below rather than
@@ -24,12 +26,18 @@ Open Obligations:
 
 from __future__ import annotations
 
+import os
 import re
 from dataclasses import dataclass
 from pathlib import Path
 
+#: Anchored to this file rather than to the working directory, and beside
+#: the repository rather than inside it, which is where the sibling
+#: checkouts live. LEATTA_PATH overrides it, the same name
+#: test_critical_pair_oracle.py reads.
+_SIBLING = Path(__file__).resolve().parents[4] / "LeaTTa"
 
-CORPUS = Path("/home/user/Dev/LeaTTa/tests/semantics")
+CORPUS = Path(os.environ.get("LEATTA_PATH", _SIBLING)) / "tests" / "semantics"
 
 ANSWER = "LEATTA-ANSWER "
 
