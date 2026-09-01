@@ -65,7 +65,7 @@ about 1.1x and 1.7x on runs minutes apart at the same load, while its inference
 figure was identical every time. Any native-tier ratio inside about 2x is timer
 noise. [measured: table output above; command=python -m
 benchmarks.extension_cost --update; fixture=3000 calls, min-of-3, C reader and
-C extension enabled; commit=WORKTREE]
+C extension enabled; commit=c350f51a5e1318187c4446fb2ceba04fba82e262]
 
 ### Three choices, and none of them is the other two
 
