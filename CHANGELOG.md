@@ -17,8 +17,19 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   crossing, one answer group per term in run()'s own grouping, one bind
   scope over the lot; and `unify` is SIMULTANEOUS when variadic, every
   operand agreeing under one substitution. What `add` accepts, `remove`
-  now takes back (bare symbols and grounded values included), and `-=`
-  drains every unifying occurrence as its docstring always promised.
+  now takes back (bare symbols and grounded values included).
+- **`-=` subtracts one occurrence, the grain that makes it `+=`'s
+  inverse.** Python's own multiset is `collections.Counter`, whose `-=`
+  subtracts the multiplicity given rather than clearing the key, so
+  `s += a; s -= a` now leaves the space it found. The drain moved to the
+  pattern-shaped door it belongs to, `del s[pattern]`, which takes every
+  unifying occurrence in ONE engine crossing rather than one per atom. The
+  engine gained `subtract-atom` for the one-occurrence grain beside
+  upstream's draining `remove-atom`, so a compiled body's `space -= atom`
+  and the Python surface's now mean the same thing, and every door that
+  subtracts (`remove`, its variadic face, `transfer`, `-=`) asks that one
+  head: it refuses an unbound atom by name instead of reading it as every
+  atom at once.
 - **The MeTTa context speaks its space's protocols, and `-=` reads what
   `+=` writes.** The context's generated mirror now carries the container
   and write faces (`+=`, `-=`, `|=`, `in`, `len`, iteration, subscript

@@ -321,6 +321,12 @@ run GATE   cetta         "$PY" "$HERE/tests/conformance/cetta.py" --timeout 25 -
 # since a commit cannot contain its own object ID, so the run counts those and
 # RELEASE=1 refuses them: that is the cut-time check that a release does not
 # ship evidence pointing at an uncommitted worktree.
+# The cheat sheets against the tree and the engine they describe. llms.txt
+# has always OPENED by claiming this lane, and the lane did not exist until
+# 2026-09-01: the library roster drifted to 33 of 34 names behind the claim.
+run GATE llms       "$PY" "$HERE/tests/checks/check_llms_names.py"
+run GATE llms-selftest "$PY" "$HERE/tests/checks/check_llms_selftest.py"
+
 run GATE evidence   "$PY" "$HERE/tests/checks/check_evidence_tags.py"
 
 # The evidence gate is itself a claim, so it is checked the same way. A fixture

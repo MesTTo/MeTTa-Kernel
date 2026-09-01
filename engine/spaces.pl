@@ -312,6 +312,7 @@
             unstore_atom/3,
             remove_equation/6,
             'remove-atom'/3,
+            'subtract-atom'/3,
             remove_sexp/2,
             restricted_callable_name/1,
             restricted_dispatch_name/1,

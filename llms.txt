@@ -34,7 +34,7 @@ re-runs them.
 | `extensions/python/notebooks/tour.ipynb` | the notebook surface, every structural argument a built term | the `notebook` lane |
 | `engine/**/*.pl` | `engine/metta.pl` engine bootstrap consulting the ten `engine/metta/*.pl` units (terms, operators, input_guards, types, effects, space_hooks, runtime, control, interop, registration), `engine/translator.pl` compilation facade over the five `engine/translator/*.pl` units (analysis, lowering, special_forms, typing, runtime), `engine/spaces.pl` store facade over the six `engine/spaces/*.pl` units (catalog, lifecycle, foreign, bounded_matching, native_matching, segment_matching), `engine/filereader.pl` loader over `engine/filereader/source_lifecycle.pl`, `engine/parser.pl` reader and writer (with `engine/reader.c`, 998 lines of C parsing shipped-grammar sources and handing back each source's signature and declaration summaries from the same walk when `engine/reader.so` is built beside it; the Prolog grammar stays the specification, the custom-token path, and the fallback), `engine/json_codec.pl` the one JSON door this repository reads and writes through (with `engine/json_codec.c`, 1,201 lines of C answering a document exactly as `library(json)` answers it or declining to it, when `engine/json_codec.so` is built beside it), `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/duals.pl`, `engine/scc.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta`. Each unit is a plain source file consulted by its umbrella, so predicate ownership and load order are the umbrella's | |
 | `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
-| `lib/lib_*/lib_*.metta` | 33 MeTTa libraries loaded with `!(import! &self (library lib_x))`; from Python the write door imports them, `m += lib.x` | `extensions/python/tests/ch08_data/test_library_door.py` |
+| `lib/lib_*/lib_*.metta` | 34 MeTTa libraries loaded with `!(import! &self (library lib_x))`; from Python the write door imports them, `m += lib.x` | `extensions/python/tests/ch08_data/test_library_door.py` |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
 | `extensions/*/extension.pl` | one control file per seat, read when argv carries `extensions` and never read without it; a seat's `entry(engine, _)` loads only where its declared needs hold and its `entry(host, _)` is recorded for the seat's own runtime to consult, so the engine names neither a host nor a backend | |
 | `extensions/node/src/*.ts` | MeTTa as a TypeScript library, the engine embedded in a Node process over swipl-wasm and the seam's second consumer: interned atoms, spaces as collections, lazy thenable answers, a lowered-source `define`, a traced generator `define`, host `op`s the engine calls back into, and `using` scopes. `extensions/node/bridge.pl` is its Prolog half and calls published surface only | the `node-binding` gate lane, and `extensions/python/tests/ch21_another_language_at_the_seam/test_node_binding.py` answers the same corpus in both hosts |
@@ -185,6 +185,22 @@ compile into their own module, so two spaces can define the same function.
 polars / pandas / mappings / iterables into `(head v1 .. vn)` facts and
 answers how many.
 
+The write family is VARIADIC where n-ary is the meaning, each shape one
+engine crossing inside one transaction: `a.transfer(x, y, to=b)` moves one
+occurrence per atom between spaces, `m.remove(x, y, z)` counts the found
+while the one-atom call keeps its truth value, `m.eval(t1, t2)` answers one
+group per term under one bind scope, and `x.unify(y, z)` is SIMULTANEOUS,
+every operand agreeing under one substitution or the answer is None.
+`+=` and `-=` classify their operand the same way, so the fact stream one
+door stores the other subtracts (`m -= [(S.Edge, a, b), (S.Edge, b, c)]`).
+`-=` takes ONE occurrence per element, Counter's grain, which is what makes
+it `+=`'s inverse; `remove()` is that same grain reporting absence; and
+`del m[pattern]` is the drain, every unifying occurrence in one crossing.
+MeTTa spells the pair `subtract-atom` and `remove-atom`. The `MeTTa` context speaks the same protocols as its own space,
+so `m += lib.dict`, `len(m)`, `atom in m`, `m[pattern]` and `del m[...]`
+work on the process home directly; `bool(m)` is always True, since a space
+is a handle rather than a value that dwindles.
+
 `metta.spaces` composes spaces without copying: `union(*spaces)` reads a set as
 one, `overlay(front, back)` reads both and writes to the front, `readonly(s)`
 refuses writes by capability, `mapped(s, shape)` is a shape view from one
@@ -287,6 +303,22 @@ transport.
 `@m.define` compiles the Python BODY into MeTTa equations. Calling the resulting
 `Defined` evaluates in its owning space and returns every engine answer;
 `S.name(...)` stages the term explicitly, while `.py` keeps the plain function.
+There is no unsupported-construct list. A body may say `try`/`except`/`else`/
+`finally` and `raise`, which ride the engine's own error algebra (a raise
+PRODUCES through `throw`, the body runs under `catch`, `except` matches by
+MRO NAMES so a custom hierarchy matches as `isinstance` would, and `as e`
+reconstructs the live instance); dict and set literals, which lower to
+`lib_dict`'s `dict-space` and reach it through `get-value`, `dict-has`,
+`dict-put`, `dict-remove`, `dict-size` and the view methods, comprehensions
+included; `type X = T`, which IS the rewrite rule it reads as; and `global`,
+which is a pragma over the definition module. `&`, `|`, `^`, `~`, `<<`, `>>`
+and `//` are engine builtins, so they pay no host crossing. Anything else
+odd becomes a visible host island inside the equation, run per application
+and never at decoration time, which is what `py(...)` spells explicitly. The
+refusals that remain cite their ground in one of the two languages: an
+unresolvable name is Python's own NameError, a `nonlocal` targets a frame no
+stored equation outlives, and a `finally` reading a name its `try` rebinds
+is a stale read the compiler names.
 Stacked clauses become a first-match dispatcher. It takes `name=`, and
 `prolog=` to make a Prolog file the function with the Python kept as the
 reference twin. A local assignment such as `result: int = value`
@@ -725,6 +757,11 @@ the ledger of which head is which, what it answers to in the minimal
 instruction set the arbiter presents, and for a derived form still fused into
 the compiler, the measurement that keeps it there.
 
+The exact-integer operators are engine heads rather than library equations:
+`bit-and`, `bit-or`, `bit-xor`, `bit-not`, `bit-shift-left`,
+`bit-shift-right` and `floor-div`, with division by zero answering error
+DATA rather than raising.
+
 `pragma!` accepts `max-time`, `max-inferences`,
 `verify-specializations`, `max-stack-depth`, `type-check`, and
 `interpreter`. The two bounds and `verify-specializations` change live
@@ -780,10 +817,10 @@ unknowns and refuses; the `#` operators POST rather than solve and compose
 across several operations, which is what they are for.
 `examples/ch05-equations-and-evaluation/05-04-arithmetic-that-runs-backwards/02-relational_arithmetic.metta` runs all of it.
 
-33 libraries load with `!(import! &self (library lib_x))`: `lib_builtin_types`,
+34 libraries load with `!(import! &self (library lib_x))`: `lib_builtin_types`,
 `lib_combinatorics`, `lib_conformance`, `lib_constraints`, `lib_crypto`,
-`lib_datastructures`, `lib_datetime`, `lib_derived`, `lib_doc`, `lib_file`,
-`lib_he`,
+`lib_datastructures`, `lib_datetime`, `lib_derived`, `lib_dict`, `lib_doc`,
+`lib_file`, `lib_gitimport`, `lib_he`,
 `lib_import`, `lib_json`, `lib_measure`, `lib_memo`, `lib_mm2`,
 `lib_nars`, `lib_patrick`, `lib_pln`, `lib_redis`, `lib_reflect`, `lib_regex`,
 `lib_roman`, `lib_soft`, `lib_spaces`, `lib_strategy`, `lib_string`, `lib_tabling`, `lib_thread`,

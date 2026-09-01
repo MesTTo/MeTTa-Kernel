@@ -47,6 +47,7 @@ get-atoms                         04-01-03
 if                                04-01-04
 is-space                          04-01-07
 remove-atom                       04-01-08
+subtract-atom                     04-01-10
 cut                               04-02-01
 once                              04-02-01
 empty                             04-02-02

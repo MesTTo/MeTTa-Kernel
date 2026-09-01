@@ -1,12 +1,12 @@
 # The MeTTa standard library, in Python
 
 Every operation MeTTa's standard library declares, and what you write in Python
-instead. 147 of the 181 operations a program can call have a Python
+instead. 148 of the 182 operations a program can call have a Python
 spelling, and every runnable row below was measured on this engine and
 through the Python spelling here. A row names the equivalent unary form
 when this engine's reified strategy application has another arity.
 
-The rows carry this engine's own names and types, 380 distinct names,
+The rows carry this engine's own names and types, 381 distinct names,
 and `extensions/python/tools/phrasebook.py` runs them and fails when a
 spelling stops answering what it says it answers. A third column
 measured against a second engine until 2026-08-31; upstream PeTTa is the
@@ -21,7 +21,7 @@ is that row's own space.
 
 Rows fall in five buckets, and the bucket is the honest part:
 
-- **dissolves** (115) &mdash; Python already has the concept, so there is no metta name at all and the spelling is Python's own syntax, protocol or standard library
+- **dissolves** (116) &mdash; Python already has the concept, so there is no metta name at all and the spelling is Python's own syntax, protocol or standard library
 - **method** (32) &mdash; the concept is MeTTa's own, so it wears a metta name
 - **instruction** (0) &mdash; deep control that stays instruction-tier, reached by building the term at the `S.` door and reducing it
 - **internal** (199) &mdash; a mechanised interpreter's own names, written in MeTTa; this engine writes its interpreter in Prolog, so these names are on neither surface
@@ -60,21 +60,21 @@ They stay separate so the coverage denominator remains exact.
 | `space.compensates(operation, recovery)` | declare the operation that semantically reverses an effectful one | `space.compensates(charge, refund)` |
 | `space.saga(receipts)` | run forward steps whose committed (did ...) receipts drive reverse recovery | `with space.saga(receipts) as saga: ⏎     saga.run(S.charge(S.order_7))` |
 
-Provenance: 380 distinct stdlib names, each with one row.
+Provenance: 381 distinct stdlib names, each with one row.
 
 ## What the Python spelling costs
 
 Section 9e claims that a structure operation on an atom already held in Python
 costs no engine crossing at all. Measured over the rows that run both sides:
-the MeTTa forms cost 84,542,854 engine inferences and the Python spellings
-cost 87,355,588, and 87 of the 132 rows cost the engine EXACTLY
+the MeTTa forms cost 38,503,561 engine inferences and the Python spellings
+cost 39,715,442, and 87 of the 133 rows cost the engine EXACTLY
 NOTHING. `e[0]`, `e[1:]`, `len(e)`, `max([...])` and `S.f(1)` each read the same
 count as an empty measurement block, so the claim holds: the work never reaches
 the engine at all.
 
-`(car-atom (a b c))` costs 968 inferences on this
+`(car-atom (a b c))` costs 970 inferences on this
 engine against 0 for `e[0]`, and `(map-atom (1 2 3) $x (+ $x 1))` costs
-1,495 against 0 for the comprehension.
+1,055 against 0 for the comprehension.
 
 The other side of the same coin, so the comparison is not oversold. Most of a
 MeTTa row's cost is running one form at all: on a fresh engine an unreduced
@@ -302,7 +302,8 @@ Python side does not move. Within one run the counts are exact: three fresh
 | `!(bind! &pb (new-space)) ⏎ !(add-atoms &pb ((f 1) (f 2))) ⏎ !(get-atoms &pb)` | `space += [(S.f, 1), (S.f, 2)] ⏎ space.atoms()` | `(f 1), (f 2)` | dissolves |
 | `!(bind! &pb (new-space)) ⏎ !(add-reduct &pb (total (+ 1 2))) ⏎ !(get-atoms &pb)` | `space += S.total(m.eval(S['+'](1, 2))[0]) ⏎ space.atoms()` | `(total 3)` | dissolves |
 | `!(bind! &pb (new-space)) ⏎ !(add-reducts &pb ((total (+ 1 2)) (total (+ 2 2)))) ⏎ !(get-atoms &pb)` | `for term in [S['+'](1, 2), S['+'](2, 2)]: ⏎     space += S.total(m.eval(term)[0]) ⏎ space.atoms()` | `(total 3), (total 4)` | dissolves |
-| `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(remove-atom &pb (f 1)) ⏎ !(get-atoms &pb)` | `space += S.f(1) ⏎ space -= S.f(1) ⏎ space.atoms()` | `(no answer)` | dissolves |
+| `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(remove-atom &pb (f 1)) ⏎ !(get-atoms &pb)` | `space += S.f(1) ⏎ del space[S.f(1)] ⏎ space.atoms()` | `(no answer)` | dissolves |
+| `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(add-atom &pb (f 1)) ⏎ !(subtract-atom &pb (f 1)) ⏎ !(get-atoms &pb)` | `space += S.f(1) ⏎ space += S.f(1) ⏎ space -= S.f(1) ⏎ space.atoms()` | `(f 1)` | dissolves |
 | `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(get-atoms &pb)` | `space += S.f(1) ⏎ list(space)` | `(f 1)` | method |
 | `!(bind! &pb (new-space)) ⏎ !(add-atom &pb (f 1)) ⏎ !(match &pb (f $x) $x)` | `space += S.f(1) ⏎ assert space.match(S.f(V.x), under=metta.counting).one() == 1 ⏎ space.run('(= (phrasebook-call) yes)') ⏎ assert space.answers(S.phrasebook_call(), under=metta.counting).one() == 1 ⏎ with metta.under(metta.prov): ⏎     annotated = space.match(S.f(V.x)).one() ⏎ assert annotated.annotation == S.one ⏎ assert annotated.under(metta.counting).annotation == 1 ⏎ assert annotated.why() ⏎ declared = metta.algebra(S.phrasebook_max_plus, plus=max, times=lambda a, b: a + b, zero=-100, one=0, order='descending') ⏎ assert declared.name == 'phrasebook-max-plus' ⏎ [row['x'] for row in space[S.f(V.x)]]` | `1` | method |
 | `!(bind! &pb (new-space)) ⏎ !(match% &pb (f $x) $x)` | &mdash; | &mdash; | absent |
@@ -318,7 +319,8 @@ Python side does not move. Within one run the counts are exact: three fresh
 - `add-atoms` `(-> SpaceType Expression (->))` &mdash; The same `+=` door, once per fact: anything that yields tuples is a fact stream. Lists, outer tuples of rows, generators, SQL cursors, and dataframe row iterators each write one atom per yielded item; a built Expression is always one atom.
 - `add-reduct` `(-> SpaceType %Undefined% (->))` &mdash; There is no second door: `+=` adds what you give it, so adding a REDUCT is explicit composition, `space += m.eval(term)[0]`. Bare grounded answers use that door directly; this row wraps the evaluated sum only to retain its `total` relation head. Where they differ: This engine stores `(total (+ 1 2))` UNREDUCED where the Python composition both store `(total 3)`: this engine's add-reduct does not reduce inside an expression whose head has no equations.
 - `add-reducts` `(-> SpaceType %Undefined% (->))` &mdash; The plural of the same composition: evaluate, then write the answers. Where they differ: This engine stores both forms UNREDUCED where the Python composition store `(total 3)` and `(total 4)`, the same non-reduction as `add-reduct`.
-- `remove-atom` `(-> SpaceType Atom Bool)` &mdash; Drains every atom that unifies and answers True either way. `space -= atom` is this door, because `-=` is Python's in-place difference and set difference is total; `space.remove(atom)` is the one-occurrence grain, Python's own `list.remove`, and reports whether it found one; `del space[pattern]` raises when the pattern matches nothing, as Python's `del` does.
+- `remove-atom` `(-> SpaceType Atom Bool)` &mdash; Drains every atom that unifies and answers True either way. `del space[pattern]` is this door, and raises when the pattern matches nothing as Python's `del` does; `subtract-atom` is the one-occurrence grain beside it, which `space -= atom` and `space.remove(atom)` both spell.
+- `subtract-atom` `(-> SpaceType Atom Bool)` &mdash; Takes ONE unifying occurrence and answers whether one was there, the multiset subtraction `remove-atom` gave up when it took upstream's draining law. `space -= atom` is this door, because Python's in-place difference over a multiset is `collections.Counter`'s, which subtracts the multiplicity given rather than clearing the key, and `space.remove(atom)` is the same grain reporting what it found. An unbound atom is refused by name rather than read as every atom at once.
 - `get-atoms` `(-> SpaceType Atom)` &mdash; `space.atoms()`, or `for atom in space` when you want to walk them.
 - `match` `(-> SpaceType Atom Atom %Undefined%)` &mdash; `space[pattern]` is the subscript door and `space.match(pattern)` the named one; the TEMPLATE is built in Python from the answer's bindings. `under=counting|tropical|prov|ranked` changes the annotation algebra; `answers(call, under=...)` is its call twin, `with metta.under(...)` scopes the default, and an annotated answer exposes `.annotation`, `.why()` and `.under(other)` without a re-query. `metta.algebra(...)` constructs arbitrary carriers while remaining their namespace.
 - `match%` `(-> SpaceType Atom Atom %Undefined%)` &mdash; the error-transparent twin of `match`. The form is shown but not run here: this engine leaves the call unreduced.

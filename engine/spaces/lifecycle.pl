@@ -82,6 +82,13 @@ remove_sexp(Space, Atom) :- remove_sexp(Space, Atom, _).
 %row "Represented removal consumes the first exact occurrence", which pins
 %(one two one) minus (one) as (two one) executably].
 %
+%That reading is the PUBLIC 'subtract-atom'/3 now. `remove-atom` took
+%upstream's draining law on 2026-08-30, because a different answer to the same
+%call is the one thing the superset rule forbids, and the subtraction this
+%comment argues for got its own head beside it rather than being lost: it is
+%what `space -= atom` and `space.remove(atom)` reach
+%[source: engine/spaces/foreign.pl, 'subtract-atom'/3].
+%
 %This engine had already decided it everywhere else. The seam declares
 %seam:foreign_remove/3 as "remove one" (EXTENDING.md), and drop_fun_meta/4
 %takes "one variant-equivalent retained equation" at a time

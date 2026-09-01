@@ -349,8 +349,8 @@ kind(deferred_translation_settled/0, event).
 :- multifile automatic_cache_explanation/3.
 kind(automatic_cache_explanation/3, declaration).
 
-%Space writes: every 'add-atom'/3 and 'remove-atom'/3 runs these hooks with
-%the space and the term, after the write. A standing query, a subscription,
+%Space writes: every 'add-atom'/3, 'remove-atom'/3 and 'subtract-atom'/3 runs
+%these hooks with the space and the term, after the write. A standing query, a subscription,
 %an index or a mirror hangs off them; with no handlers nothing changes.
 %A removal hook fires only when something was actually removed, once PER
 %OCCURRENCE, and it carries the occurrence that left rather than the term the
@@ -360,7 +360,9 @@ kind(automatic_cache_explanation/3, declaration).
 %the hook is a ground atom the space held and a handler no longer has to
 %re-read the space to find out which. It carried the caller's pattern and
 %fired once until 2026-08-30, when removal stopped being multiset
-%subtraction. extensions/python/metta/structures.py's LiveView is the worked
+%subtraction, which 'subtract-atom'/3 carries as its own head now: it fires
+%this hook exactly once, for the single occurrence it took.
+%extensions/python/metta/structures.py's LiveView is the worked
 %instance [tested: test_liveview_mirrors_the_space].
 :- multifile atom_added/2.
 kind(atom_added/2, event).

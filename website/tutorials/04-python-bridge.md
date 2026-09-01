@@ -49,4 +49,4 @@ the canonical input and states the strongest observable behavior, from
 `pureStructural` through `oracleIO`. The Python callable runs only when
 evaluation reaches its term. Until then, the expression is data.
 
-Use [Python functions as MeTTa functions](../guide/python-functions) for annotations, generators, defaults, objects, and unregistration. Next, compile supported Python syntax into equations in [05. Writing MeTTa in Python](./05-writing-metta-in-python).
+Use [Python functions as MeTTa functions](../guide/python-functions) for annotations, generators, defaults, objects, and unregistration. Next, compile a Python body into equations in [05. Writing MeTTa in Python](./05-writing-metta-in-python).

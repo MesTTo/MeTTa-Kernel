@@ -598,6 +598,7 @@ metta_semantic_effect('new-space', writesState).
 metta_semantic_effect('fork-space', writesState).
 metta_semantic_effect('add-atom', writesState).
 metta_semantic_effect('remove-atom', writesState).
+metta_semantic_effect('subtract-atom', writesState).
 metta_semantic_effect('bind!', writesState).
 metta_semantic_effect('module-space-no-deps', writesState).
 metta_semantic_effect('print-mods!', writesState).
@@ -783,6 +784,7 @@ metta_builtin_effect_override('trace!', writesState).
 metta_builtin_effect_override('register-token!', writesState).
 metta_builtin_effect_override('unregister-token!', writesState).
 metta_builtin_effect_override('remove-atom', writesState).
+metta_builtin_effect_override('subtract-atom', writesState).
 
 metta_builtin_effect_override(argv, oracleIO).
 metta_builtin_effect_override('current-time', oracleIO).
@@ -941,7 +943,7 @@ metta_effect_plan_compile_arguments(_, '|->', [_, Body], [Body]).
 metta_effect_plan_compile_arguments(_, Operation, [Space, _], [Space]) :-
 % policy-inventory-exempt: mechanism-internal; reason=the five space updates whose SPACE operand compiles, a shape of the operation rather than a policy value a catalog vocabulary could own; evidence=extensions/python/tests/ch15_writing_transactions_and_worlds/test_worlds.py:test_program_write_compilation_is_included_in_world_admission
     memberchk(Operation,
-              ['add-atom', 'remove-atom', 'add-atoms',
+              ['add-atom', 'remove-atom', 'subtract-atom', 'add-atoms',
                'add-reduct', 'add-reducts']).
 metta_effect_plan_compile_arguments(Module, Head, Args, Compiled) :-
     metta_effect_plan_source_special_arguments(
@@ -1542,7 +1544,7 @@ metta_effect_plan_source_special_arguments(_, Operation, [Space, Payload],
                                             metta_program_write(Operation, Space,
                                                                 Payload)]) :-
 % policy-inventory-exempt: mechanism-internal; reason=the three space updates whose payload is written data, mirroring the translator's argument masks rather than any policy; evidence=extensions/python/tests/ch15_writing_transactions_and_worlds/test_worlds.py:test_program_write_compilation_is_included_in_world_admission
-    memberchk(Operation, ['add-atom', 'remove-atom', 'add-atoms']).
+    memberchk(Operation, ['add-atom', 'remove-atom', 'subtract-atom', 'add-atoms']).
 metta_effect_plan_source_special_arguments(_, Operation, [Space, Payload],
                                            [metta_evaluated_source_root(Space),
                                             metta_evaluated_source_root(Payload),

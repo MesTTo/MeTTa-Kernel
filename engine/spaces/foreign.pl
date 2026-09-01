@@ -1245,6 +1245,42 @@ prolog:error_message(metta_builtin_redefinition(Name, Arity, Space)) -->
     ;   space_argument_error('remove-atom', [Space, Term], Result)
     ).
 
+%MULTISET SUBTRACTION: one unifying occurrence goes and the answer says
+%whether one was there. This is the grain `remove-atom` had until 2026-08-30,
+%kept as its own head rather than restored to that one, because upstream
+%answers the drain to `(remove-atom ...)` and a different answer to the same
+%call is what the superset rule forbids. Adding a head upstream does not have
+%is the permitted direction, and the pair is what lets a surface spell the
+%two apart: Python's `-=` and `remove()` are this, `del space[pattern]` and
+%`remove-atom` are the drain, exactly as the section above says the doors
+%divide.
+%
+%WHY IT IS THE ONE `-=` MEANS. Python's own multiset is collections.Counter,
+%whose `-=` subtracts the multiplicity given rather than clearing the key
+%(`Counter(a=3) -= Counter(a=1)` leaves `a=2`), and a drain would break the
+%inverse law that makes the operator pair readable: `s += a` then `s -= a`
+%has to leave the space it found, which it does not when the second takes
+%copies the first never added. `set -= {x}` looks total only because a set
+%has no multiplicity to subtract [user ruling 2026-09-01, "consider python's
+%Counter"].
+%
+%AN UNBOUND TERM IS REFUSED rather than taken as "any one atom". The private
+%metta_remove_atom/3 reads a variable as the whole space and drains it, which
+%is right for the drain door and catastrophic here: `(subtract-atom &s $x)`
+%reading as "take one arbitrary atom" would be a coin toss over the store,
+%and reading as the drain would make this head its own opposite. The refusal
+%names both doors that DO take a pattern.
+'subtract-atom'(Space, Term, Result) :-
+    (   \+ metta_space_name(Space)
+    ->  space_argument_error('subtract-atom', [Space, Term], Result)
+    ;   var(Term)
+    ->  format(string(Unbound),
+               "~w: the atom is unbound, so no single occurrence is named; \c
+use remove-atom to drain every atom, or name a pattern", ['subtract-atom']),
+        metta_error_atom('subtract-atom', [Space, Term], Unbound, Result)
+    ;   metta_host_remove_reported(Space, Term, Result)
+    ).
+
 %EVERY atom that unifies, which is retractall/1's shape and upstream's own:
 %`remove_sexp(Space, [Rel|Args]) :- Term =.. [Space, Rel | Args],
 %retractall(Term).`, under a comment reading "Remove all same atoms"

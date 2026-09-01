@@ -1011,6 +1011,8 @@ translate_special_dl('add-atom', Args, AfterHead, Goals, Out) :-
     translate_space_update_dl('add-atom', Args, AfterHead, Goals, Out).
 translate_special_dl('remove-atom', Args, AfterHead, Goals, Out) :-
     translate_space_update_dl('remove-atom', Args, AfterHead, Goals, Out).
+translate_special_dl('subtract-atom', Args, AfterHead, Goals, Out) :-
+    translate_space_update_dl('subtract-atom', Args, AfterHead, Goals, Out).
 translate_special_dl('add-atoms', Args, AfterHead, Goals, Out) :-
     translate_space_update_dl('add-atoms', Args, AfterHead, Goals, Out).
 translate_special_dl('add-reduct', Args, AfterHead, Goals, Out) :-
@@ -1882,6 +1884,7 @@ embedded_operation_head('new-space').
 embedded_operation_head('fork-space').
 embedded_operation_head('add-atom').
 embedded_operation_head('remove-atom').
+embedded_operation_head('subtract-atom').
 embedded_operation_head('get-atoms').
 embedded_operation_head('bind!').
 embedded_operation_head('import!').
