@@ -146,6 +146,33 @@ that crossed the engine and returned as another C atom. It is a fast,
 non-cryptographic table hash. Object addresses and native byte order make it
 process-local, so it is not a persistent atom identifier.
 
+Unification and substitution are pure C walks too. They do not start the
+engine:
+
+```c
+mt_atom *pattern = E("job", V("who"), V("rank"));
+mt_atom *fact = E("job", "ada", 9);
+mt_atom *template = E("hired", V("who"), V("rank"));
+mt_bindings *bindings = mt_unify(pattern, fact);
+mt_atom *answer = bindings ? mt_substitute(template, bindings) : NULL;
+
+if ( answer ) printf("%s\n", mt_show(answer));  /* (hired ada 9) */
+
+mt_drop(answer);
+mt_bindings_free(bindings);
+mt_drop(template);
+mt_drop(fact);
+mt_drop(pattern);
+```
+
+`mt_unify` borrows both operands and returns an owned normalized binding set.
+Variables on either side bind. `_` remains anonymous. `mt_unifyv` makes every
+operand agree with the first under one shared substitution. A structural
+mismatch returns NULL without setting `mt_error`, while an allocation or
+contract failure records its reason. `mt_binding(bindings, "who")` borrows one
+value; `mt_bindings_len`, `mt_binding_var` and `mt_binding_value` iterate all of
+them. The binding set retains its atoms until `mt_bindings_free`.
+
 Two more rules and you have the memory and error models. A `const mt_atom *`
 BORROWS and a non-`const` one is TAKEN, so every door you hand a fresh term to
 consumes it and the common shape needs no cleanup line; `mt_keep(t)` hands over
