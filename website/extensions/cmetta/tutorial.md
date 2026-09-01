@@ -128,6 +128,18 @@ A bare C string in term position is a SYMBOL, so `mt_expr("+", 1, 2)` is
 in C everything is quoted, so the default is the one MeTTa writes bare. Text is
 `mt_text("...")`.
 
+`mt_show()` is display text for logs and terminals. When the text must be read
+back as the same atom, use the counted writer and reader:
+
+```c
+mt_string source = mt_write_dup(atom);
+mt_atom *copy = mt_parsen(source.data, source.len);
+mt_free(source.data);
+```
+
+The count preserves an embedded NUL. The strict writer refuses a value whose
+presentation spelling would read back as another atom.
+
 Two more rules and you have the memory and error models. A `const mt_atom *`
 BORROWS and a non-`const` one is TAKEN, so every door you hand a fresh term to
 consumes it and the common shape needs no cleanup line; `mt_keep(t)` hands over
@@ -218,7 +230,10 @@ mt_lower(m, (fib $n), (if (< $n 2) $n
 
 The body is C tokens the compiler saw, so there is no quoting, no escaped
 newlines, and unbalanced parentheses are a compile error rather than a runtime
-one. The preprocessor is what makes it possible: Python lowers by reading a
+one. `mt_lower` expands C macros before stringifying, which is useful for a body
+parameterised by operator macros. Use `mt_lower_raw` when a MeTTa symbol
+collides with a C macro and its literal spelling must survive. The preprocessor
+is what makes it possible: Python lowers by reading a
 function's `__code__` and Node by reading its `toString()`, and C has neither
 at run time but has `#`, which is access to the program's own source at the one
 moment C offers it.
