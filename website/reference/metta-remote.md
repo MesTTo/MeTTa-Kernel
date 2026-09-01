@@ -57,6 +57,10 @@ Source: `extensions/python/metta/remote.py`.
 >   - serve compares Bearer credentials with hmac.compare_digest before
 >     consulting the authorization callback [tested
 >     test_bearer_token_uses_constant_time_comparison]
+>   - an omitted payload space resolves to the gateway's served context for both
+>     authorization and execution [tested:
+>     test_an_omitted_remote_space_cannot_cross_the_authorization_boundary;
+>     commit=af5821f5ffb7ce186e516706f003d02f5c1d3b4a]
 >   - connect refuses non-HTTP URLs and refuses credentials over plain HTTP
 >     [tested test_remote_connect_refuses_non_http_urls,
 >     test_remote_connect_refuses_credentials_over_http]
