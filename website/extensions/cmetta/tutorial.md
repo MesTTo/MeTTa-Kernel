@@ -140,6 +140,12 @@ mt_free(source.data);
 The count preserves an embedded NUL. The strict writer refuses a value whose
 presentation spelling would read back as another atom.
 
+For a hash table in your C process, use `mt_hash(atom)` beside `mt_eq(a, b)`.
+Equal atoms always have the same 64-bit hash, including NaNs and live objects
+that crossed the engine and returned as another C atom. It is a fast,
+non-cryptographic table hash. Object addresses and native byte order make it
+process-local, so it is not a persistent atom identifier.
+
 Two more rules and you have the memory and error models. A `const mt_atom *`
 BORROWS and a non-`const` one is TAKEN, so every door you hand a fresh term to
 consumes it and the common shape needs no cleanup line; `mt_keep(t)` hands over
