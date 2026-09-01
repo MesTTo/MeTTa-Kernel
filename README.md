@@ -144,8 +144,12 @@ assert fact(5) == [120]
 The subset is Python as Python means it: rebinding compiles through static
 single assignment, `while` and `for` become tail-recursive equations in
 constant stack, a generator compiles to nondeterminism, a lambda to `|->`,
-comprehensions to `map-atom` and `filter-atom`. Anything outside the subset is
-refused by name and line, never a silent fallback.
+comprehensions to `map-atom` and `filter-atom`, `try`/`except`/`finally` onto
+the engine's error algebra, and dict and set literals into spaces. What the
+vocabulary does not lower natively becomes a VISIBLE host island inside the
+equation, run per application and never at decoration time, which is what
+`py(...)` spells explicitly; the refusals that remain name their construct,
+line and caret, and cite their ground in Python or in MeTTa.
 
 ## What it does that a library cannot
 

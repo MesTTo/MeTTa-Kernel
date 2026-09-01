@@ -1,14 +1,29 @@
 cff-version: 1.2.0
-message: "If you use MeTTa, cite the software using this metadata."
-title: "MeTTa"
+message: >-
+  If you use this software, cite it as below. It follows the semantics of
+  PeTTa, which is a separate work and is cited under references.
+title: "MeTTa Kernel"
 type: software
 authors:
-  - family-names: "Hammer"
-    given-names: "Patrick"
+  - alias: "MesTTo"
+    email: "a.mesto@student.unsw.edu.au"
 repository-code: "https://github.com/MesTTo/MeTTa-Kernel"
-url: "https://github.com/MesTTo/MeTTa-Kernel"
+url: "https://mestto.github.io/MeTTa-Kernel/"
 license: MIT
+version: "0.5.0"
 keywords:
   - MeTTa
   - Prolog
   - symbolic reasoning
+references:
+  - type: software
+    title: "PeTTa"
+    authors:
+      - family-names: "Hammer"
+        given-names: "Patrick"
+    repository-code: "https://github.com/patham9/PeTTa"
+    license: MIT
+    notes: >-
+      The MeTTa implementation whose semantics this engine follows, and the
+      origin of 143 of the examples here; examples/ORIGINS.tsv names each
+      derived file beside the upstream file it came from and who wrote it.
