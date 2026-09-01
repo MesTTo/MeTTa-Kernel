@@ -1,7 +1,10 @@
 <!--
 Purpose: document Space execution, querying, controls, diagnostics, and result handling.
 Guarantees: examples use the narrow core and satellite-qualified specialist APIs;
-all public lint kinds and the named-intent convention are catalogued here.
+all public lint kinds and the named-intent convention are catalogued here;
+variadic and sequence-valued guard composition names the same binary engine
+semantics [tested: test_variadic_boolean_builders_fold_to_binary_terms_and_filter_rows,
+test_guard_sequences_conjoin_without_changing_positional_patterns; commit=WORKTREE].
 [tested: npm run docs:build and test_every_lint_kind_is_named_on_the_page_its_findings_link_to;
 commit=acb40f1912f131ae088083d1af29b4b283019bea]
 -->
@@ -25,7 +28,7 @@ grand.solve()
 # Rows[x, y, z]([Row(x=Symbol('Tom'), y=Symbol('Bob'), z=Symbol('Ann'))])
 ```
 
-`where=` is evaluated by the engine for each match. `limit=` stops the engine at the requested count. `assuming(...)` adds facts only for the `with` block. `prepare(...)` fixes the query shape once, and `solve(given=...)` can add facts for one solve without leaving them behind.
+`where=` is evaluated by the engine for each match. `metta.and_(first, second, *more)` and `metta.or_(first, second, *more)` left-fold guards through the engine's binary connectives. A tuple or list in `where=` is an implicit conjunction, so `where=[V.n.ge(60), V.n.le(70)]` is the same filter. Additional positional arguments to `match` remain stored-atom patterns. `limit=` stops the engine at the requested count. `assuming(...)` adds facts only for the `with` block. `prepare(...)` fixes the query shape once, and `solve(given=...)` can add facts for one solve without leaving them behind.
 
 ## Bounds, stats, and captured output
 
