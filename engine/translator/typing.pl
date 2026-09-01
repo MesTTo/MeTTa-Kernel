@@ -12,7 +12,7 @@
 %   check [tested:
 %   test_a_consistent_chain_is_not_a_static_type_proof,
 %   translator_literal_type_checks:an_untracked_clause_retains_static_and_intrinsic_contracts;
-%   commit=WORKTREE].
+%   commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/translator/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -643,7 +643,7 @@ unchecked_parameter_type(Type) :-
 %unknown. A later policy change recompiles this module through
 %filereader:typing_policy_changed/1; there is no per-call cache probe.
 %[source: Nguyen et al., Soft Contract Verification, POPL 2014,
-%DOI 10.1145/2628136.2628156; commit=WORKTREE]
+%DOI 10.1145/2628136.2628156; commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd]
 with_static_parameter_environment(Module, Function, Arguments, Chains, Goal) :-
     static_parameter_entries(Module, Function, Arguments, Chains, Entries),
     (   nb_current('$metta_static_parameter_environment', Previous)
@@ -748,7 +748,7 @@ type_check_goal(Value, Type, General, Goal) :-
     % [measured: 0.231us intrinsic-first versus 0.240us static-first;
     % command=python -m benchmarks.declared_contracts --calls 100000
     % --reflective-calls 2000 --rounds 7; fixture=compiled-proved-number;
-    % commit=WORKTREE].
+    % commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
     (   nonvar(Type),
         intrinsic_type_test(Type, Value, Fast),
         intrinsic_type_shortcut_goal(Fast, Fallback, Goal)

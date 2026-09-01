@@ -38,7 +38,7 @@
 %     dynamic check for untracked prelude and lambda clauses
 %     [tested:
 %     translator_literal_type_checks:an_untracked_clause_retains_static_and_intrinsic_contracts;
-%     commit=WORKTREE].
+%     commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 %   - A runtime-type-guarded built-in, or format-args, whose written operands
 %     already contradict its declared parameter types is refused before those
 %     operands run, while accepted and undecided operands retain ordinary

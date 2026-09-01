@@ -23,7 +23,7 @@
 %     and the affected retained clauses regain their static proofs
 %     [tested:
 %     filereader_source_rollback:a_failed_source_rule_restores_discharged_contracts;
-%     commit=WORKTREE].
+%     commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

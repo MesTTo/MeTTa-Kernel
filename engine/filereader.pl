@@ -156,7 +156,7 @@
 %     through the same support graph, so the next call sees clauses translated
 %     under the new policy and a removal restores the discharged checks
 %     [tested: test_a_static_parameter_proof_yields_to_a_later_typing_rule;
-%     commit=WORKTREE].
+%     commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 %   - silent/1 has exactly one writer outside the load-time argv directive,
 %     metta_host_set_silent/1, which every host with no command line to read
 %     goes through and which refuses a non-boolean before it retracts

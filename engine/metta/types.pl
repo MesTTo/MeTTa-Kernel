@@ -15,7 +15,7 @@
 %   decisive over numeric and exact witnesses while unrelated type queries
 %   retain their established fast path [tested:
 %   test_a_static_parameter_proof_yields_to_a_later_typing_rule;
-%   commit=WORKTREE].
+%   commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 

@@ -17,7 +17,7 @@
 % and support record are published [tested:
 % translator_literal_type_checks:a_repeated_parameter_contract_has_a_live_static_proof,
 % translator_literal_type_checks:a_stale_transaction_keeps_the_dynamic_contract;
-% commit=WORKTREE].
+% commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % [tested: tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%%% Who owns a space name: the claim door %%%%

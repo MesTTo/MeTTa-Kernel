@@ -17,13 +17,13 @@
 %     widening rule change recompiles that module's retained clauses through
 %     the support graph before the mutation returns [tested:
 %     test_a_static_parameter_proof_yields_to_a_later_typing_rule;
-%     commit=WORKTREE].
+%     commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 %   - with_typing_policy_stable/1 permits static discharge only when it acquired
 %     the policy mutex before the surrounding transaction began. A caller that
 %     reaches it from an older transaction compiles the dynamic check instead
 %     [tested:
 %     translator_literal_type_checks:a_stale_transaction_keeps_the_dynamic_contract;
-%     commit=WORKTREE].
+%     commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Decides:
 %   - rules are tried in registration order, user tier before shipped tier;
 %     the shared overlap reporter names every ordering-sensitive intersection.

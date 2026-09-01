@@ -9,7 +9,7 @@
 %   transaction, so retained type shortcuts survive the instrumentation pass
 %   without crossing a concurrent policy change [tested:
 %   translator_literal_type_checks:a_fuel_recompile_keeps_intrinsic_type_shortcuts;
-%   commit=WORKTREE].
+%   commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 

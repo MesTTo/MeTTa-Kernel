@@ -43,7 +43,7 @@
 %     source and dependencies are published in the support graph immediately
 %     afterward [tested:
 %     translator_literal_type_checks:a_repeated_parameter_contract_has_a_live_static_proof;
-%     commit=WORKTREE].
+%     commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Guarded by: '$metta_typing_policy' is acquired before '$metta_specializer'
 %   and before the publication transaction, so a specialization cannot retain
 %   a static type proof across a concurrent policy change. '$metta_specializer'

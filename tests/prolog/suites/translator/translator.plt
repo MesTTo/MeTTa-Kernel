@@ -40,7 +40,7 @@
 %     typing-policy mutation [tested:
 %     translator_literal_type_checks:an_untracked_clause_retains_static_and_intrinsic_contracts,
 %     translator_literal_type_checks:a_stale_transaction_keeps_the_dynamic_contract;
-%     commit=WORKTREE].
+%     commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

@@ -12,7 +12,7 @@
 %   [tested:
 %   translator_literal_type_checks:an_intrinsic_type_check_is_specialised,
 %   translator_literal_type_checks:a_stale_transaction_keeps_the_dynamic_contract;
-%   commit=WORKTREE].
+%   commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/translator/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 

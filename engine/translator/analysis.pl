@@ -11,7 +11,7 @@
 %   contract shortcut [tested:
 %   translator_literal_type_checks:a_repeated_parameter_contract_has_a_live_static_proof,
 %   translator_literal_type_checks:an_untracked_clause_retains_static_and_intrinsic_contracts;
-%   commit=WORKTREE].
+%   commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/translator/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 

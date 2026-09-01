@@ -14,7 +14,7 @@
 %   a failed load erases its typing rules and recompiles affected retained
 %   clauses under the restored policy [tested:
 %   filereader_source_rollback:a_failed_source_rule_restores_discharged_contracts;
-%   commit=WORKTREE].
+%   commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/reader/filereader.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
