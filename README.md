@@ -688,6 +688,28 @@ samples:
 `extensions/python/examples/` holds runnable, self-verifying integrations that
 the test suite runs, so they cannot drift.
 
+### Citing
+
+Cite PeTTa, whose semantics this engine follows, and this repository for the
+engine and its surfaces. GitHub's "Cite this repository" button reads
+[CITATION.cff](CITATION.cff), which carries both.
+
+```bibtex
+@software{petta,
+  author = {Hammer, Patrick},
+  title  = {PeTTa},
+  url    = {https://github.com/patham9/PeTTa},
+  note   = {The MeTTa implementation whose semantics this engine follows}
+}
+
+@software{metta_kernel,
+  author  = {MesTTo},
+  title   = {MeTTa Kernel},
+  url     = {https://github.com/MesTTo/MeTTa-Kernel},
+  version = {0.5.0}
+}
+```
+
 ### Licence
 
 MIT. See [LICENSE](LICENSE) for the notices it carries, and
