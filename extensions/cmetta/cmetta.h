@@ -373,27 +373,94 @@ MT_API size_t mt_len(const mt_atom *atom);
    or on a non-expression. mt_keep() it to hold it longer. */
 MT_API const mt_atom *mt_at(const mt_atom *atom, size_t index);
 
-/* Structural equality. Two variables are equal when their names are. Answers
-   false and records MT_NOMEM in the one case where it cannot decide, a
-   machine that cannot hold the walk's own stack. */
+/* Structural equality, matching the engine's term identity. Two variables are
+   equal when their names are; signed float zeros differ and every NaN agrees,
+   because SWI canonicalises NaN payloads as they enter a term. Answers false
+   and records MT_NOMEM in the one case where it cannot decide, a machine that
+   cannot hold the walk's own stack. */
 MT_API bool mt_eq(const mt_atom *a, const mt_atom *b);
+
+/* Structural FNV-1a hash matching mt_eq(): equal atoms always hash alike,
+   signed zeros remain distinct, all NaN payloads agree, counted text includes
+   embedded NUL, and C objects hash by identity. This is a non-cryptographic,
+   in-process hash for caller-owned tables, not a persistent or portable wire
+   identifier. NULL records MT_MISUSE and returns 0; an exhausted deep-walk
+   stack records MT_NOMEM and returns 0
+   [tested: tests/test_hash.c;
+   commit=d37f1a5192999fdaa1a617e86191de4fe3570f91]. */
+MT_API uint64_t mt_hash(const mt_atom *atom);
+
+/* A normalized substitution produced by mt_unify() or mt_unifyv(). The
+   object owns its variable and value atoms; the accessors BORROW them until
+   mt_bindings_free(). Entries retain the deterministic binding order of the
+   same last-child-first work-list the Python seat uses.
+
+   Unification is symmetric, iterative and has no occurs check, matching the
+   Python seat: variables in either operand bind, `_` is anonymous, and
+   variadic unification makes every operand agree with the first through one
+   shared substitution. A structural mismatch returns NULL without recording
+   an error; call mt_clear() first when NULL must be distinguished from an
+   allocation or contract failure. Ground equality succeeds with a non-NULL
+   substitution of length zero. Binding values are transitively normalized,
+   while no-occurs-check cycles remain finite.
+
+   mt_substitute() BORROWS both arguments and returns an OWNED atom. It applies
+   one normalized substitution without walking a replacement again, so a
+   cyclic binding such as `$x = (f $x)` remains a finite `(f $x)`.
+   [tested: tests/test_unify.c;
+   commit=e927fffde3a19d9927892bf64a7fc6202b866ae0] */
+typedef struct mt_bindings mt_bindings;
+
+MT_API MT_MUST_USE mt_bindings *mt_unify(const mt_atom *left,
+                                         const mt_atom *right);
+MT_API MT_MUST_USE mt_bindings *mt_unifyv(
+    size_t count, const mt_atom *const *atoms);
+MT_API size_t mt_bindings_len(const mt_bindings *bindings);
+MT_API const mt_atom *mt_binding_var(const mt_bindings *bindings,
+                                     size_t index);
+MT_API const mt_atom *mt_binding_value(const mt_bindings *bindings,
+                                       size_t index);
+/* A value by variable NAME, BORROWED; NULL when the name is unbound. */
+MT_API const mt_atom *mt_binding(const mt_bindings *bindings,
+                                 const char *name);
+MT_API MT_MUST_USE mt_atom *mt_substitute(const mt_atom *atom,
+                                          const mt_bindings *bindings);
+MT_API void mt_bindings_free(mt_bindings *bindings);
 
 /* --- text, through the engine's own reader and writer --- */
 
 /* Read one MeTTa form. The engine's reader is the only reader. */
 MT_API MT_MUST_USE mt_atom *mt_parse(const char *source);
+/* The counted twin, for source containing NUL. */
+MT_API MT_MUST_USE mt_atom *mt_parsen(const char *source, size_t length);
 
-/* Write an atom the way the engine writes it, into a per-thread rotating
+typedef struct mt_string {
+  char  *data;
+  size_t len;
+} mt_string;
+
+/* Present an atom the way the engine displays it, into a per-thread rotating
    buffer so it drops straight into printf:
 
        printf("%s -> %s\n", mt_show(pattern), mt_show(answer));
 
-   The buffer is reused after MT_SHOW_SLOTS further calls on this thread,
-   which is the contract strerror() and inet_ntoa() already gave C. Take a
-   copy with mt_show_dup() to keep it, and free that with mt_free(). */
+   Presentation is deliberately lossy for values with no MeTTa source form. A
+   counted string containing NUL is truncated by this C-string API. The buffer
+   is reused after MT_SHOW_SLOTS further calls on this thread, which is the
+   contract strerror() and inet_ntoa() already gave C. Take a copy with
+   mt_show_dup() to keep it, and free that with mt_free(). */
 #define MT_SHOW_SLOTS 8
 MT_API const char *mt_show(const mt_atom *atom);
 MT_API MT_MUST_USE char *mt_show_dup(const mt_atom *atom);
+
+/* Serialize an atom to MeTTa source that mt_parsen() reads back as an equal
+   atom. `data` is OWNED and counted by `len`; free it with mt_free().
+   {NULL, 0} with the engine's reason when the value has no round-trip source
+   spelling, such as a live C object, a non-finite float or a symbol containing
+   whitespace. The count is what lets a text atom carry NUL without truncation
+   [tested: test_presentation_and_round_trip_text_are_distinct;
+   commit=2e13376bb6e1662655525533a1ab02800940aec5]. */
+MT_API MT_MUST_USE mt_string mt_write_dup(const mt_atom *atom);
 
 /* Free anything this library handed back by pointer that is not an atom. */
 MT_API void mt_free(void *pointer);
@@ -405,6 +472,13 @@ MT_API void mt_free(void *pointer);
 typedef struct metta metta;
 typedef struct mt_space mt_space;
 typedef struct mt_answers mt_answers;
+
+/* An owned array and its length. Doors that take an mt_list take both the
+   atoms and the array, so an mt_all() result composes directly with them. */
+typedef struct mt_list {
+  mt_atom **items;
+  size_t    len;
+} mt_list;
 
 typedef struct mt_config {
   const char *path;      /* engine tree; NULL takes $METTA_PATH then the
@@ -425,7 +499,10 @@ MT_API MT_MUST_USE metta *mt_open(const mt_config *config);
    already collected. Every door that needs the engine refuses afterwards,
    naming mt_open(); the four release doors -- this one, mt_answers_free(),
    mt_space_close() and mt_thread_detach() -- stay no-ops instead, so a host
-   is not punished for the order it tidies up in. */
+   is not punished for the order it tidies up in. A SWI halt hook may cancel
+   cleanup; then the runtime remains open and mt_error() is MT_ERROR. If SWI
+   completes shutdown but cannot reclaim its memory, the handle closes with
+   MT_ERROR and this process refuses a later unsafe restart. */
 MT_API void mt_close(metta *runtime);
 
 /* Whether the engine prints compiled forms. Returns the previous setting. */
@@ -476,6 +553,10 @@ MT_API MT_MUST_USE mt_answers *mt_load(metta *runtime, const char *path);
 #define MT_METTA(tokens)  MT_METTA_(tokens)
 #define MT_METTA_(tokens) #tokens
 
+/* Stringify exactly the tokens written at the call site. Use this when a MeTTa
+   symbol collides with a C macro and expansion would silently change it. */
+#define MT_METTA_RAW(tokens) #tokens
+
 /* Install an equation written as C TOKENS rather than as a string:
 
        mt_lower(m, (twice $x), (* 2 $x));
@@ -519,6 +600,13 @@ MT_API MT_MUST_USE mt_answers *mt_load(metta *runtime, const char *path);
 #define mt_lower(runtime, head, body)                                     \
     mt_do((runtime), "(= " MT_METTA(head) " " MT_METTA(body) ")")
 
+/* The non-expanding twin. Both arguments are stringified in this macro itself,
+   because forwarding either through another macro would expand it first
+   [tested: test_raw_lowering_preserves_tokens_that_are_c_macros;
+   commit=2e13376bb6e1662655525533a1ab02800940aec5]. */
+#define mt_lower_raw(runtime, head, body)                                 \
+    mt_do((runtime), "(= " #head " " #body ")")
+
 /* Run source for its EFFECT and discard the answers: definitions, imports,
    pragmas, anything whose point is what it leaves behind rather than what it
    answers. True when it ran.
@@ -539,6 +627,8 @@ MT_API MT_MUST_USE mt_answers *mt_self_atoms(metta *runtime);
 MT_API MT_MUST_USE mt_answers *mt_space_atoms(mt_space *space);
 MT_API bool mt_self_add(metta *runtime, mt_atom *atom);
 MT_API bool mt_space_add(mt_space *space, mt_atom *atom);
+MT_API bool mt_self_add_all(metta *runtime, mt_list atoms);
+MT_API bool mt_space_add_all(mt_space *space, mt_list atoms);
 MT_API bool mt_self_del(metta *runtime, mt_atom *atom);
 MT_API bool mt_space_del(mt_space *space, mt_atom *atom);
 MT_API size_t mt_self_count(metta *runtime);
@@ -565,6 +655,17 @@ MT_API bool mt_space_wipe(mt_space *space);
 /* Add one atom. TAKES it. */
 #define mt_add(target, atom)    MT_ON((target), add)((target), (atom))
 
+/* Add one batch through one engine call. TAKES every atom and the array;
+   {NULL, 0} is a valid empty batch. A refused member writes none
+   [tested: tests/test_batch_add.c;
+   commit=c591b4e77d4ca20fcedcf4c87a942d5afc2bf625]. At 2,000 atoms the batch
+   costs 12,045 engine inferences against 46,028 sequentially
+   [measured: 46028 sequential and 12045 batch inferences;
+   command=for run in 1 2 3; do extensions/cmetta/tests/test_batch_add; done;
+   fixture=2000 distinct integer atoms per fresh named space;
+   commit=c591b4e77d4ca20fcedcf4c87a942d5afc2bf625]. */
+#define mt_add_all(target, atoms) MT_ON((target), add_all)((target), (atoms))
+
 /* Remove one exact atom; true when it was there. TAKES it. */
 #define mt_del(target, atom)    MT_ON((target), del)((target), (atom))
 
@@ -581,9 +682,9 @@ MT_API bool mt_space_wipe(mt_space *space);
    step, so keep an atom with mt_keep() and text with mt_show_dup(). */
 typedef struct mt_row {
   const mt_atom *atom;   /* the answer itself                              */
-  const char    *text;   /* the engine's own rendering of it, which can show
-                            a value mt_show() refuses: a host-only value or
-                            a non-finite float                             */
+  const char    *text;   /* presentation text, like mt_show(); it can show a
+                            host-only value mt_write_dup() refuses, and its C
+                            string spelling truncates an embedded NUL       */
   size_t         group;  /* which `!` form produced it, counting from 0;
                             always 0 for the lazy doors, which run one goal */
   mt_answers    *of;     /* the cursor it came from, which is what lets
@@ -665,14 +766,6 @@ MT_API int64_t mt_one_int(mt_answers *answers);
 MT_API double mt_one_float(mt_answers *answers);
 MT_API bool mt_one_truth(mt_answers *answers);
 MT_API const char *mt_one_name(mt_answers *answers);
-
-/* An owned array and its length, which are one thing and so travel as one.
-   The alternative is an out-parameter for the count and a loop bound the
-   caller has to keep in step with it by hand. */
-typedef struct mt_list {
-  mt_atom **items;
-  size_t    len;
-} mt_list;
 
 /* Every answer in order, the eager door for a caller who wants them all.
    CONSUMES `answers`. An empty or failed call answers {NULL, 0}, which loops
@@ -782,11 +875,21 @@ MT_API mt_status mt_fail(mt_call *call, const char *message);
 typedef void (*mt_free_fn)(void *value);
 
 /* Wrap a C pointer as a grounded atom. MeTTa carries it by reference, never
-   serialises it, and hands it back unchanged. */
+   serialises it, and hands it back unchanged. The release callback runs when
+   the last C and engine owner lets go; engine blob garbage collection decides
+   the ordinary timing after a value has crossed. */
 MT_API MT_MUST_USE mt_atom *mt_object(void *value, const char *type_name,
                                    mt_free_fn release);
 MT_API void *mt_value(const mt_atom *atom);
 MT_API const char *mt_type(const mt_atom *atom);
+
+/* Deterministically release an object's engine blob and CONSUME this C atom.
+   Other C references keep the box alive until they too are dropped. Existing
+   Prolog aliases become invalid and a later attempt to return one is refused
+   as a released object instead of being dereferenced. Before mt_open(), or
+   after mt_close() has already released every blob, this is mt_drop() with the
+   same take semantics. False only for NULL, a non-object, or an FLI failure. */
+MT_API bool mt_object_free(mt_atom *atom);
 
 /* A C function as a VALUE rather than a name, so `($f 2)` calls it wherever
    the atom lands. This is what C answers to a Python callable being an atom;

@@ -128,6 +128,51 @@ A bare C string in term position is a SYMBOL, so `mt_expr("+", 1, 2)` is
 in C everything is quoted, so the default is the one MeTTa writes bare. Text is
 `mt_text("...")`.
 
+`mt_show()` is display text for logs and terminals. When the text must be read
+back as the same atom, use the counted writer and reader:
+
+```c
+mt_string source = mt_write_dup(atom);
+mt_atom *copy = source.data ? mt_parsen(source.data, source.len) : NULL;
+mt_free(source.data);
+```
+
+The count preserves an embedded NUL. The strict writer refuses a value whose
+presentation spelling would read back as another atom.
+
+For a hash table in your C process, use `mt_hash(atom)` beside `mt_eq(a, b)`.
+Equal atoms always have the same 64-bit hash, including NaNs and live objects
+that crossed the engine and returned as another C atom. It is a fast,
+non-cryptographic table hash. Object addresses and native byte order make it
+process-local, so it is not a persistent atom identifier.
+
+Unification and substitution are pure C walks too. They do not start the
+engine:
+
+```c
+mt_atom *pattern = E("job", V("who"), V("rank"));
+mt_atom *fact = E("job", "ada", 9);
+mt_atom *template = E("hired", V("who"), V("rank"));
+mt_bindings *bindings = mt_unify(pattern, fact);
+mt_atom *answer = bindings ? mt_substitute(template, bindings) : NULL;
+
+if ( answer ) printf("%s\n", mt_show(answer));  /* (hired ada 9) */
+
+mt_drop(answer);
+mt_bindings_free(bindings);
+mt_drop(template);
+mt_drop(fact);
+mt_drop(pattern);
+```
+
+`mt_unify` borrows both operands and returns an owned normalized binding set.
+Variables on either side bind. `_` remains anonymous. `mt_unifyv` makes every
+operand agree with the first under one shared substitution. A structural
+mismatch returns NULL without setting `mt_error`, while an allocation or
+contract failure records its reason. `mt_binding(bindings, "who")` borrows one
+value; `mt_bindings_len`, `mt_binding_var` and `mt_binding_value` iterate all of
+them. The binding set retains its atoms until `mt_bindings_free`.
+
 Two more rules and you have the memory and error models. A `const mt_atom *`
 BORROWS and a non-`const` one is TAKEN, so every door you hand a fresh term to
 consumes it and the common shape needs no cleanup line; `mt_keep(t)` hands over
@@ -180,9 +225,30 @@ the rest, `mt_one_int(r)` and its `_float`, `_truth` and `_name` siblings give
 you the value with no atom to look after, and `mt_all(r)` gives every answer as
 an `mt_list`. Each consumes the cursor.
 
-## Two doors for a C function
+The resulting list can become one space write without rebuilding it:
 
-`mt_def` publishes a C function the engine CALLS:
+```c
+mt_list values = mt_all(mt_run(m, "!(superpose (red green blue))"));
+if ( !mt_add_all(kb, values) ) fprintf(stderr, "%s\n", mt_errmsg());
+```
+
+`mt_add_all` takes the array and every atom, checks every member before the
+write, and reaches the engine once for the whole batch. `{NULL, 0}` is a valid
+empty batch.
+
+## C values and functions
+
+`mt_object(pointer, type_name, release)` carries a C value through MeTTa by
+identity. SWI normally releases its blob during atom garbage collection, and
+the callback runs when that engine reference and every C reference are gone.
+Use `mt_object_free(handle)` when the resource must close immediately. It
+consumes the handle and invalidates any aliases still stored in the engine; an
+attempt to return one reports `MT_UNSUPPORTED` rather than dereferencing the
+released value. A reference retained with `mt_keep` remains valid until it is
+dropped.
+
+There are two doors for a C function. `mt_def` publishes a C function the
+engine CALLS:
 
 ```c
 static mt_status op_hypot(mt_call *call, void *user)
@@ -218,7 +284,10 @@ mt_lower(m, (fib $n), (if (< $n 2) $n
 
 The body is C tokens the compiler saw, so there is no quoting, no escaped
 newlines, and unbalanced parentheses are a compile error rather than a runtime
-one. The preprocessor is what makes it possible: Python lowers by reading a
+one. `mt_lower` expands C macros before stringifying, which is useful for a body
+parameterised by operator macros. Use `mt_lower_raw` when a MeTTa symbol
+collides with a C macro and its literal spelling must survive. The preprocessor
+is what makes it possible: Python lowers by reading a
 function's `__code__` and Node by reading its `toString()`, and C has neither
 at run time but has `#`, which is access to the program's own source at the one
 moment C offers it.

@@ -72,7 +72,7 @@ if ( !mt_ok() ) return mt_fail(c, "wanted two numbers");
 ```
 
 **3. One verb, either receiver.** `mt_eval`, `mt_match`, `mt_atoms`,
-`mt_add`, `mt_del`, `mt_count` and `mt_wipe` each take a `metta *`,
+`mt_add`, `mt_add_all`, `mt_del`, `mt_count` and `mt_wipe` each take a `metta *`,
 meaning its `&self`, or a `mt_space *`. `_Generic` picks, the way `tgmath.h`
 does; the pair it picks between is declared beside each one.
 
@@ -121,11 +121,46 @@ C's single flat namespace. The long names always work.
 | `MT_OBJECT` | a live C value crossing by reference |
 | `MT_HANDLE` | a native engine value held by reference |
 
-Building and reading them starts no engine. `mt_parse()` and `mt_show()`
-do, because text goes through the engine's own reader and writer rather than a
-second one grown here. `mt_show()` writes into a per-thread rotating buffer
-so it drops straight into `printf`, which is the contract `strerror()` already
-gave C; `mt_show_dup()` gives you a copy to keep.
+`mt_eq(a, b)` compares this structure and `mt_hash(a)` supplies the matching
+64-bit hash for a caller-owned table. Equal atoms always hash alike, including
+distinct NaN payloads and distinct C atoms carrying the same object identity.
+The hash is fast and non-cryptographic. It includes process-local object
+addresses and native byte order, so do not store or transmit it as an atom ID.
+
+Pure term unification needs no engine either. `mt_unify(left, right)` borrows
+both atoms and returns an owned `mt_bindings`; `mt_unifyv` makes three or more
+terms agree through the same substitution. Variables in either operand bind,
+values are normalized, and `_` remains anonymous. A mismatch is ordinary
+absence, so it returns NULL without setting the error channel:
+
+```c
+mt_atom *pattern = E("job", V("who"), V("rank"));
+mt_atom *fact = E("job", "ada", 9);
+mt_atom *template = E("hired", V("who"), V("rank"));
+mt_bindings *bindings = mt_unify(pattern, fact);
+mt_atom *answer = bindings ? mt_substitute(template, bindings) : NULL;
+
+if ( answer ) printf("%s\n", mt_show(answer));  /* (hired ada 9) */
+
+mt_drop(answer);
+mt_bindings_free(bindings);
+mt_drop(template);
+mt_drop(fact);
+mt_drop(pattern);
+```
+
+`mt_binding(bindings, "who")` borrows one value. Iterate the whole mapping with
+`mt_bindings_len`, `mt_binding_var` and `mt_binding_value`. Unification retains
+its values, so the inputs may be dropped before those accessors are used.
+
+Building and reading them starts no engine. `mt_parse()`, `mt_parsen()`,
+`mt_show()` and `mt_write_dup()` do, because text goes through the engine's own
+reader and writers rather than a second set grown here. `mt_show()` is
+presentation and writes into a per-thread rotating buffer so it drops straight
+into `printf`; `mt_show_dup()` gives you a copy to keep. `mt_write_dup()` is the
+strict, reader-inverse door. It returns counted `mt_string` data, so an embedded
+NUL survives through `mt_parsen(written.data, written.len)`, and refuses a value
+whose display spelling would read back differently.
 
 ## Answers are stepped, not drained
 
@@ -177,6 +212,18 @@ When you want one value rather than a walk:
 
 Each consumes the cursor. `one` and `first` draw the same line the Python seat
 draws between `one()` and `first()`.
+
+An `mt_list` also composes directly into a space write. `mt_add_all` takes the
+array and every atom in it, validates the whole list before writing, and calls
+the engine's batch door once:
+
+```c
+mt_list values = mt_all(mt_run(m, "!(superpose (red green blue))"));
+if ( !mt_add_all(kb, values) ) fprintf(stderr, "%s\n", mt_errmsg());
+```
+
+Use `{NULL, 0}` for an empty batch. A refused member releases the complete
+owned list and leaves the space unchanged.
 
 `mt_run()` is the eager door, because running a program means running it, and
 each row's `group` says which `!` form the answer came from. When the point is
@@ -231,9 +278,14 @@ mt_atom *handle = mt_object(&account, "account", NULL);
 Each call makes ONE value, and this seat does not intern: two `mt_object` calls
 on the same pointer are two atoms that answer `False` to `==` and fail to
 `unify`, where the Node seat interns by identity and Python answers `True`. Wrap
-once and pass the atom. The blob is released by SWI's garbage collector through
-the `mt_free_fn` you hand it, so not interning costs no memory; what it costs is
-that comparison. `get-type` answers `%Undefined%` for one, because this seat
+once and pass the atom. Every crossing of that one atom uses one engine identity,
+so it can be matched and deleted with `mt_keep(handle)`. Ordinarily SWI's atom
+garbage collector releases the engine reference and the `mt_free_fn` runs after
+the last C reference goes too. When the resource must close now, call
+`mt_object_free(handle)`: it consumes that C reference, invalidates any Prolog
+aliases, and makes a later attempt to return such an alias fail as
+`MT_UNSUPPORTED` rather than touching released memory. Other C references made
+with `mt_keep` remain valid until dropped. `get-type` answers `%Undefined%` for one, because this seat
 declares no `seam:host_object/1`, the seam by which a host tells the engine a
 value is its own; `mt_type()` is how C reads the name back, and MeTTa is not
 told it.
@@ -257,7 +309,11 @@ mt_lower(m, (fib $n), (if (< $n 2) $n
 
 The body is C tokens the compiler saw, so there is no quoting, no escaped
 newlines, and unbalanced parentheses are a compile error rather than a runtime
-one. The preprocessor is what makes this possible: Python lowers by reading a
+one. Ordinary `mt_lower` expands C macros first, which is how the shared `POLY`
+body below works. A MeTTa symbol that collides with a C macro therefore uses
+`mt_lower_raw`; its head and body are stringified without expansion. The
+standalone `MT_METTA_RAW(tokens)` gives the same literal spelling. The
+preprocessor is what makes this possible: Python lowers by reading a
 function's `__code__` and Node by reading its `toString()`, and C has neither
 at run time but has `#`, which is access to the program's own source at the
 one moment C offers it.

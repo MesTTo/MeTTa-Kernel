@@ -38,6 +38,13 @@
 %     no door that closes a cursor without also freeing it, so the C suite
 %     cannot reach the second close; the branch is here so a host that grows
 %     one is not punished for it]
+%   - cursor identifiers are monotone for one runtime's lifetime and opening
+%     one takes one atomic flag update rather than a scan of the open-cursor
+%     table. The C half carries the runtime generation beside the identifier,
+%     so a cursor retained across cleanup cannot close a new runtime's cursor
+%     after SWI resets its flags [tested: extensions/cmetta/tests/test_cursor_ids.c,
+%     test_cursor_ids_are_monotone_and_constant_cost;
+%     commit=b5ddebe73273447caa7c57212d6ee86fc71e0d4a]
 %   - no answer is encoded, tagged, or stringified on the way out: the C half
 %     receives the engine's own term. This seat is in-process with the engine
 %     and has no marshalling boundary to cross, which is the whole reason it
@@ -67,7 +74,12 @@
 
 :- dynamic metta_c_cursor/2.
 :- dynamic metta_c_op_spec/3.
-:- dynamic metta_c_captured/1.
+% Exception rendering is scratch for ONE caller. A normal dynamic predicate is
+% shared, so two attached C threads could retract or read one another's reason.
+% thread_local/1 gives each attached engine its own clause list, which SWI
+% reclaims when that thread detaches
+% [tested: tests/test_threads.c; commit=b339084bb5625996fc88a31608d48ad31c575d1f].
+:- thread_local metta_c_captured/1.
 
 %%%%%%%%%% Rendering an exception %%%%%%%%%%
 %
@@ -112,6 +124,11 @@ metta_c_read(Source, Term, Names) :-
 % its author wrote. With no names the writer numbers them $_0, $_1, which is
 % correct and unhelpful to somebody who wrote $x.
 metta_c_show(Term, Names, Text) :- sdisplay_with_names(Term, Names, Text).
+
+% Serialization stays separate from display. It either answers reader-inverse
+% text or raises the engine's ordinary unwritable-value error; it never falls
+% back to a presentation spelling that would read as a different atom.
+metta_c_write_atom(Term, Names, Text) :- swrite_with_names(Term, Names, Text).
 
 %%%%%%%%%% Running a program %%%%%%%%%%
 %
@@ -255,10 +272,8 @@ metta_c_open_match(Pattern, Space, Inferences, Id) :-
     metta_c_new_cursor(Engine, Id).
 
 metta_c_new_cursor(Engine, Id) :-
-    (   aggregate_all(max(N), metta_c_cursor(N, _), Highest)
-    ->  Id is Highest + 1
-    ;   Id = 1
-    ),
+    flag(metta_c_cursor_id, Previous, Previous + 1),
+    Id is Previous + 1,
     assertz(metta_c_cursor(Id, Engine)).
 
 % [] is exhaustion and [Answer] is one answer, so the C half needs no
@@ -295,6 +310,10 @@ metta_c_close(Id) :-
 % batch may be judged, journalled and announced once lives, and bypassing it
 % is how a seat grows its own half of the write path.
 metta_c_add(Space, Term) :- metta_add_atoms(Space, [Term]).
+
+% The batch form preserves the engine door's transaction and announcement
+% boundary instead of paying it once per term.
+metta_c_add_all(Space, Terms) :- metta_add_atoms(Space, Terms).
 
 % The engine's verdict is the plain boolean `true` when the atom was there
 % [measured 2026-08-27]; anything else means it was not, and the C half is

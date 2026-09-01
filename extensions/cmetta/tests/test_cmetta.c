@@ -12,8 +12,11 @@
 
 #define MT_SHORTHAND
 #include <cmetta.h>
+#include <SWI-Prolog.h>
 
+#include <math.h>
 #include <stdio.h>
+#include <stdint.h>
 #include <string.h>
 
 static int failures = 0;
@@ -96,6 +99,45 @@ static void test_atoms_need_no_engine(void)
 
   mt_drop(sym); mt_drop(text); mt_drop(n); mt_drop(f);
   mt_drop(b); mt_drop(v); mt_drop(e); mt_drop(unit);
+}
+
+static void test_public_scalar_readers_cover_their_whole_domain(void)
+{ static const char counted[] = { 'a', '\0', 'b' };
+  static const char *statuses[] = {
+    "ok", "row", "done", "no answer", "engine error", "out of memory",
+    "misuse", "unsupported value", "stopped by a bound"
+  };
+  static const char *effects[] = {
+    "pureStructural", "readOnlyLookup", "nondeterministicReadOnly",
+    "writesState", "oracleIO"
+  };
+  mt_atom *text = mt_textn(counted, sizeof(counted));
+  mt_atom *yes = B(true), *no = B(false), *wrong = S("true");
+  size_t i;
+
+  CASE("counted names and truth values are read without losing their domain");
+  CHECK(text && mt_name_len(text) == sizeof(counted));
+  CHECK(yes && mt_truth(yes));
+  CHECK(no && !mt_truth(no));
+  CHECK(mt_ok());
+  mt_clear();
+  CHECK(!mt_truth(wrong));
+  CHECK(mt_error() == MT_MISUSE);
+  mt_clear();
+
+  CASE("every public status and effect has one stable name");
+  for (i = 0; i < sizeof(statuses) / sizeof(statuses[0]); i++)
+    CHECK(strcmp(mt_status_str((mt_status)i), statuses[i]) == 0);
+  CHECK(strcmp(mt_status_str((mt_status)99), "unknown status") == 0);
+  for (i = 0; i < sizeof(effects) / sizeof(effects[0]); i++)
+    CHECK(strcmp(mt_effect_str((mt_effect)i), effects[i]) == 0);
+  CHECK(mt_effect_str((mt_effect)99) == NULL);
+  CHECK(strcmp(mt_version(), "0.1.0") == 0);
+
+  mt_drop(text);
+  mt_drop(yes);
+  mt_drop(no);
+  mt_drop(wrong);
 }
 
 static void test_the_builder_coerces_each_child_by_its_c_type(void)
@@ -210,6 +252,21 @@ static void test_a_door_before_the_runtime_refuses(void)
 
   mt_drop(x);
   mt_clear();
+}
+
+typedef struct { int calls; } release_probe;
+
+static void count_release(void *value)
+{ release_probe *probe = value;
+  probe->calls++;
+}
+
+static void test_an_uncrossed_object_can_be_released_without_an_engine(void)
+{ release_probe probe = {0};
+
+  CASE("mt_object_free consumes an uncrossed object before the engine exists");
+  CHECK(mt_object_free(mt_object(&probe, "release-probe", count_release)));
+  CHECK(probe.calls == 1);
 }
 
 static void test_a_failed_child_does_not_leak_its_siblings(void)
@@ -338,7 +395,11 @@ static void test_a_ratio_is_canonical_in_both_halves(metta *m)
   CHECK(mt_kind_of(whole) == MT_INT);
   CHECK(mt_int(whole) == 3);
   CHECK(mt_ratio_of(whole).num == 3 && mt_ratio_of(whole).den == 1);
-  CHECK(mt_eq(whole, N(3)));
+  { mt_atom *three = N(3);
+    CHECK(three != NULL);
+    CHECK(mt_eq(whole, three));
+    mt_drop(three);
+  }
   CHECK(mt_ok());
 
   CASE("and it comes back from a space as the atom that went in");
@@ -483,6 +544,55 @@ static void test_text_crosses_through_the_engine_reader(void)
   CHECK(!mt_ok());
 }
 
+static void test_presentation_and_round_trip_text_are_distinct(void)
+{ static const char counted[] = { 'a', 'b', '\0', 'c', 'd' };
+  mt_atom *text = mt_textn(counted, sizeof(counted));
+  mt_atom *read_back;
+  char *shown;
+  mt_string written;
+
+  CASE("mt_show is presentation, while mt_write_dup round trips counted text");
+  shown = mt_show_dup(text);
+  CHECK(shown != NULL);
+  CHECK(shown && strlen(shown) == 3);       /* quote, a, b, then the NUL */
+  mt_free(shown);
+
+  written = mt_write_dup(text);
+  CHECK(written.data != NULL);
+  CHECK(written.len == 7);                 /* quotes plus all five bytes */
+  CHECK(written.data && written.data[0] == '"');
+  CHECK(written.data && written.data[3] == '\0');
+  CHECK(written.data && written.data[written.len - 1] == '"');
+  read_back = written.data ? mt_parsen(written.data, written.len) : NULL;
+  CHECK(read_back != NULL);
+  CHECK(mt_eq(text, read_back));
+  mt_drop(read_back);
+  mt_free(written.data);
+  mt_drop(text);
+
+  CASE("strict writing refuses a presentation spelling that would read wrong");
+  { mt_atom *spaced = S("has space");
+    mt_clear();
+    written = mt_write_dup(spaced);
+    CHECK(written.data == NULL && written.len == 0);
+    CHECK(mt_error() == MT_ERROR);
+    CHECK(mt_errmsg() && strstr(mt_errmsg(), "printed form would read back"));
+    CHECK(strcmp(mt_show(spaced), "has space") == 0);
+    mt_drop(spaced);
+  }
+
+  CASE("non-finite floats display but have no round-trip source spelling");
+  { mt_atom *infinite = R(INFINITY);
+    mt_clear();
+    CHECK(strcmp(mt_show(infinite), "inf") == 0);
+    written = mt_write_dup(infinite);
+    CHECK(written.data == NULL && written.len == 0);
+    CHECK(mt_error() == MT_ERROR);
+    CHECK(mt_errmsg() && strstr(mt_errmsg(), "printed form would read back"));
+    mt_drop(infinite);
+  }
+}
+
 static void test_run_groups_answers_by_form(metta *m)
 { int seen = 0;
   size_t last_group = 0;
@@ -568,6 +678,13 @@ static void test_one_and_first_make_different_claims(metta *m)
                        mt_int(all.items[2]) == 6);
     mt_list_free(all);
   }
+
+  CASE("the scalar one-answer readers release their answer behind them");
+  mt_clear();
+  CHECK(mt_one_truth(mt_eval(m, B(true))));
+  CHECK(mt_ok());
+  CHECK(strcmp(mt_one_name(mt_eval(m, S("one-name"))), "one-name") == 0);
+  CHECK(mt_ok());
 }
 
 /* ================================================================== *
@@ -635,6 +752,31 @@ static void test_spaces_store_and_query(metta *m)
   mt_space_close(kb);
 }
 
+static void test_catalog_and_file_load_are_live_runtime_doors(metta *m)
+{ mt_space *catalog = mt_catalog(m);
+  mt_answers *loaded;
+  const char *fixture = MT_ENGINE_PATH
+                        "/extensions/cmetta/tests/fixtures/load_test.metta";
+
+  CASE("the catalog handle names and queries the live &metta space");
+  CHECK(catalog != NULL);
+  CHECK(catalog && strcmp(mt_space_name(catalog), "&metta") == 0);
+  CHECK(catalog && mt_count(catalog) > 0);
+
+  CASE("mt_load reaches the reload-aware real-file door");
+  loaded = mt_load(m, fixture);
+  CHECK(loaded != NULL);
+  mt_answers_free(loaded);
+  CHECK(mt_one_int(mt_run(m, "!(cmetta-loaded-value)")) == 73);
+  CHECK(mt_ok());
+
+  loaded = mt_load(m, fixture);
+  CHECK(loaded != NULL);
+  mt_answers_free(loaded);
+  CHECK(mt_one_int(mt_run(m, "!(cmetta-loaded-value)")) == 73);
+  CHECK(mt_ok());
+}
+
 /* A NULL atom is what a failed constructor hands a door, and the errno shape
    invites checking later rather than at once, so the doors have to survive
    it. They did not: space_call() wrote nothing into av[1], the bridge read
@@ -644,6 +786,27 @@ static void test_spaces_store_and_query(metta *m)
    ai-tmp/cseat-probe-d1.c; C32 in ai-cmetta-c-constraints.md]. */
 static void test_a_door_that_takes_an_atom_refuses_null(metta *m)
 { mt_space *kb = mt_space_open(m, "&cmetta-null-atom");
+  release_probe probe = {0};
+
+  CASE("operation callback doors refuse a NULL call instead of dereferencing it");
+  mt_clear();
+  CHECK(mt_arity(NULL) == 0);
+  CHECK(mt_error() == MT_MISUSE);
+  mt_clear();
+  CHECK(mt_arg(NULL, 0) == NULL);
+  CHECK(mt_error() == MT_MISUSE);
+  mt_clear();
+  CHECK(mt_of(NULL) == NULL);
+  CHECK(mt_error() == MT_MISUSE);
+  mt_clear();
+  CHECK(mt_answer(NULL,
+                  mt_object(&probe, "null-call-release", count_release)) ==
+        MT_MISUSE);
+  CHECK(probe.calls == 1);
+  CHECK(mt_error() == MT_MISUSE);
+  mt_clear();
+  CHECK(mt_fail(NULL, "unused") == MT_MISUSE);
+  CHECK(mt_error() == MT_MISUSE);
 
   CASE("a write door refuses a NULL atom instead of matching everything");
   CHECK(kb != NULL);
@@ -854,8 +1017,65 @@ static mt_status op_tag_it(mt_call *call, void *user)
                               mt_keep(mt_arg(call, 0))));
 }
 
+static mt_status op_answer_nothing(mt_call *call, void *user)
+{ (void)call;
+  (void)user;
+  return MT_OK;
+}
+
+typedef struct callback_probe
+{ metta *runtime;
+  bool saw_runtime;
+  mt_status first_answer;
+  mt_status second_answer;
+} callback_probe;
+
+static mt_status op_report_runtime(mt_call *call, void *user)
+{ callback_probe *probe = user;
+  probe->saw_runtime = mt_of(call) == probe->runtime;
+  return mt_answer(call, B(probe->saw_runtime));
+}
+
+static mt_status op_answer_twice(mt_call *call, void *user)
+{ callback_probe *probe = user;
+  probe->first_answer = mt_answer(call, N(1));
+  probe->second_answer = mt_answer(call, N(2));
+  return probe->second_answer;
+}
+
+static mt_status op_fail_silently_after_new_error(mt_call *call, void *user)
+{ (void)call;
+  (void)user;
+  mt_drop(mt_bigint("fresh-operation-error"));
+  return MT_OK;
+}
+
+static void test_an_answerless_operation_uses_only_its_own_error(metta *m)
+{ CASE("an answerless operation does not report a stale errno-shaped failure");
+  CHECK(mt_def(m, (mt_op){ .name = "answer-nothing", .arity = 0,
+                           .effect = MT_PURE, .fn = op_answer_nothing }));
+  mt_drop(mt_bigint("stale-before-operation"));
+  CHECK(mt_run(m, "!(answer-nothing)") == NULL);
+  CHECK(mt_errmsg() && strstr(mt_errmsg(), "answered nothing") != NULL);
+  CHECK(mt_errmsg() && strstr(mt_errmsg(), "stale-before-operation") == NULL);
+
+  CASE("a new callback failure is used even when its status matches the stale one");
+  CHECK(mt_def(m, (mt_op){ .name = "answer-new-error", .arity = 0,
+                           .effect = MT_PURE,
+                           .fn = op_fail_silently_after_new_error }));
+  mt_drop(mt_bigint("another-stale-error"));
+  CHECK(mt_run(m, "!(answer-new-error)") == NULL);
+  CHECK(mt_errmsg() && strstr(mt_errmsg(), "fresh-operation-error") != NULL);
+  CHECK(mt_errmsg() && strstr(mt_errmsg(), "another-stale-error") == NULL);
+
+  CHECK(mt_undef(m, "answer-nothing"));
+  CHECK(mt_undef(m, "answer-new-error"));
+}
+
 static void test_a_c_function_is_callable_from_metta(metta *m)
-{ CASE("a published C function answers a MeTTa call");
+{ callback_probe probe = { .runtime = m };
+
+  CASE("a published C function answers a MeTTa call");
   CHECK(mt_def(m, (mt_op){ .name = "cdouble", .arity = 1,
                                  .effect = MT_PURE, .fn = op_double }));
   CHECK(mt_one_int(mt_run(m, "!(cdouble 21)")) == 42);
@@ -893,6 +1113,26 @@ static void test_a_c_function_is_callable_from_metta(metta *m)
   mt_each (a, mt_run(m, "!(cdouble 21)"))
       CHECK(mt_kind_of(a) == MT_EXPR);
   CHECK(mt_undef(m, "tag_it"));
+
+  CASE("a live callback can recover the runtime that invoked it");
+  CHECK(mt_def(m, (mt_op){ .name = "callback-runtime", .arity = 0,
+                           .effect = MT_PURE, .fn = op_report_runtime,
+                           .user = &probe }));
+  CHECK(mt_one_truth(mt_run(m, "!(callback-runtime)")));
+  CHECK(probe.saw_runtime);
+  CHECK(mt_undef(m, "callback-runtime"));
+
+  CASE("a callback cannot answer one application twice");
+  CHECK(mt_def(m, (mt_op){ .name = "answer-twice", .arity = 0,
+                           .effect = MT_PURE, .fn = op_answer_twice,
+                           .user = &probe }));
+  mt_clear();
+  CHECK(mt_run(m, "!(answer-twice)") == NULL);
+  CHECK(probe.first_answer == MT_OK);
+  CHECK(probe.second_answer == MT_MISUSE);
+  CHECK(mt_error() == MT_ERROR);
+  CHECK(mt_errmsg() && strstr(mt_errmsg(), "already answered"));
+  CHECK(mt_undef(m, "answer-twice"));
 }
 
 typedef struct { int bumps; } counter;
@@ -916,6 +1156,8 @@ static mt_status op_bump(mt_call *call, void *user)
 #define POLY_C_MUL(a, b)        ((a) * (b))
 #define POLY_M_ADD(a, b)        (+ a b)
 #define POLY_M_MUL(a, b)        (* a b)
+#define CMETTA_RAW_LIMIT         17
+#define CMETTA_RAW_FN(x)         ((x) + 1)
 
 static int64_t poly_in_c(int64_t x) { return POLY_BODY(POLY_C_ADD, POLY_C_MUL, x); }
 
@@ -951,9 +1193,33 @@ static void test_a_c_body_lowers_into_an_equation_the_engine_can_see(metta *m)
   CHECK(mt_one_int(mt_run(m, "!(lowered-twice (poly 5))")) == 32);
 }
 
+static void test_raw_lowering_preserves_tokens_that_are_c_macros(metta *m)
+{ const char *raw = MT_METTA_RAW((CMETTA_RAW_LIMIT CMETTA_RAW_FN(1)));
+  mt_atom *equation;
+  const mt_atom *body;
+
+  CASE("MT_METTA_RAW stringifies object-like and function-like macros literally");
+  CHECK(strcmp(raw, "(CMETTA_RAW_LIMIT CMETTA_RAW_FN(1))") == 0);
+  CHECK(strcmp(MT_METTA((CMETTA_RAW_LIMIT)), "(17)") == 0);
+
+  CASE("mt_lower_raw stores the literal MeTTa symbol rather than its C expansion");
+  CHECK(mt_lower_raw(m, (cmetta-raw-collision),
+                     (quote CMETTA_RAW_LIMIT)));
+  equation = mt_one(mt_match(m,
+      E("=", E("cmetta-raw-collision"), V("body"))));
+  CHECK(equation != NULL);
+  body = equation ? mt_at(equation, 2) : NULL;
+  CHECK(body && mt_kind_of(body) == MT_EXPR);
+  CHECK(body && mt_len(body) == 2);
+  CHECK(body && strcmp(mt_name(mt_at(body, 1)), "CMETTA_RAW_LIMIT") == 0);
+  mt_drop(equation);
+}
+
 static void test_a_c_value_crosses_by_reference(metta *m)
 { static counter c = {0};
   mt_atom *handle;
+  mt_space *space;
+  int matched = 0;
 
   CASE("a live C value crosses MeTTa and comes back the same object");
   CHECK(mt_def(m, (mt_op){ .name = "bump", .arity = 1,
@@ -968,8 +1234,86 @@ static void test_a_c_value_crosses_by_reference(metta *m)
   CHECK(mt_one_int(mt_eval(m, E("bump", mt_keep(handle)))) == 2);
   CHECK(c.bumps == 2);
 
+  CASE("the same C object is one engine identity across store, match and delete");
+  space = mt_space_open(m, "&cmetta-object-identity");
+  CHECK(space != NULL);
+  CHECK(mt_add(space, mt_keep(handle)));
+  CHECK(mt_count(space) == 1);
+  mt_each (found, mt_match(space, mt_keep(handle)))
+  { CHECK(mt_value(found) == &c);
+    matched++;
+  }
+  CHECK(matched == 1);
+  CHECK(mt_del(space, mt_keep(handle)));
+  CHECK(mt_count(space) == 0);
+  mt_space_close(space);
+
   mt_drop(handle);
   CHECK(mt_undef(m, "bump"));
+}
+
+static void test_an_object_can_be_released_without_waiting_for_atom_gc(metta *m)
+{ release_probe probe = {0};
+  mt_space *space;
+  mt_answers *answers;
+  mt_atom *handle;
+
+  CASE("mt_object_free releases a crossed object immediately");
+  space = mt_space_open(m, "&cmetta-explicit-release");
+  handle = mt_object(&probe, "release-probe", count_release);
+  CHECK(space != NULL);
+  CHECK(handle != NULL);
+  CHECK(mt_add(space, mt_keep(handle)));
+  CHECK(probe.calls == 0);
+  CHECK(mt_object_free(handle));
+  CHECK(probe.calls == 1);
+
+  CASE("an engine alias left by explicit release is refused without a dereference");
+  mt_clear();
+  answers = mt_match(space, V("x"));
+  CHECK(answers != NULL);
+  CHECK(mt_next(answers) == NULL);
+  CHECK(mt_error() == MT_UNSUPPORTED);
+  CHECK(mt_errmsg() && strstr(mt_errmsg(), "explicitly released") != NULL);
+  mt_answers_free(answers);
+  mt_clear();
+  CHECK(mt_space_wipe(space));
+  mt_space_close(space);
+}
+
+static void test_float_identity_agrees_with_the_engine(metta *m)
+{ mt_atom *positive_zero = R(0.0);
+  mt_atom *negative_zero = R(-0.0);
+  mt_atom *nan_a = R(nan("1"));
+  mt_atom *nan_b = R(-nan("42"));
+  mt_atom *finite_a = R(1.5);
+  mt_atom *finite_b = R(1.5);
+  mt_space *space = mt_space_open(m, "&cmetta-float-identity");
+
+  CASE("float structural equality distinguishes signed zero");
+  CHECK(!mt_eq(positive_zero, negative_zero));
+  CHECK(mt_add(space, mt_keep(positive_zero)));
+  CHECK(!mt_del(space, mt_keep(negative_zero)));
+  CHECK(mt_del(space, mt_keep(positive_zero)));
+
+  CASE("all NaN payloads share the engine's canonical structural identity");
+  CHECK(mt_eq(nan_a, nan_b));
+  CHECK(mt_add(space, mt_keep(nan_a)));
+  CHECK(mt_del(space, mt_keep(nan_b)));
+  CHECK(mt_count(space) == 0);
+
+  CASE("ordinary equal floats remain structurally identical");
+  CHECK(mt_eq(finite_a, finite_b));
+  CHECK(mt_add(space, mt_keep(finite_a)));
+  CHECK(mt_del(space, mt_keep(finite_b)));
+
+  mt_drop(positive_zero);
+  mt_drop(negative_zero);
+  mt_drop(nan_a);
+  mt_drop(nan_b);
+  mt_drop(finite_a);
+  mt_drop(finite_b);
+  mt_space_close(space);
 }
 
 static mt_status fn_triple(mt_call *call, void *user)
@@ -982,13 +1326,21 @@ static mt_status fn_triple(mt_call *call, void *user)
 }
 
 static void test_a_function_value_is_applicable(metta *m)
-{ mt_atom *fn;
+{ release_probe release = {0};
+  mt_atom *fn;
 
   CASE("a C function carried as a value is applied where it lands");
   fn = mt_function(fn_triple, NULL, NULL);
   CHECK(fn != NULL);
   CHECK(mt_one_int(mt_eval(m, E(mt_keep(fn), 5))) == 15);
+
+  CASE("a function value's release callback runs once on explicit release");
   mt_drop(fn);
+  fn = mt_function(fn_triple, &release, count_release);
+  CHECK(fn != NULL);
+  CHECK(mt_one_int(mt_eval(m, E(mt_keep(fn), 7))) == 21);
+  CHECK(mt_object_free(fn));
+  CHECK(release.calls == 1);
 }
 
 /* ================================================================== *
@@ -1016,6 +1368,28 @@ static void test_an_engine_error_reaches_c_as_words(metta *m)
     CHECK(strcmp(mt_name(mt_at(got, 0)), "Error") == 0);
     mt_drop(got);
   }
+}
+
+static void test_a_refused_stack_limit_clears_the_engine_exception(metta *m)
+{ mt_limits old = mt_limits_of(m);
+  mt_limits refused = old;
+
+  CASE("a refused stack limit reports its exception and leaves none pending");
+  refused.stack_bytes = 1;
+  mt_clear();
+  CHECK(!mt_limit(m, refused));
+  CHECK(mt_error() == MT_ERROR);
+  CHECK(mt_errmsg() && strstr(mt_errmsg(), "stack") != NULL);
+  CHECK(PL_exception(0) == 0);
+  CHECK(mt_limits_of(m).seconds == old.seconds);
+  CHECK(mt_limits_of(m).inferences == old.inferences);
+  CHECK(mt_limits_of(m).stack_bytes == old.stack_bytes);
+
+  CASE("the host can call the engine after the caught exception");
+  mt_clear();
+  CHECK(mt_limit(m, old));
+  CHECK(mt_one_int(mt_run(m, "!(+ 1 2)")) == 3);
+  CHECK(mt_ok());
 }
 
 static void test_a_wide_integer_keeps_its_digits(metta *m)
@@ -1077,6 +1451,15 @@ static void test_a_bound_stops_a_runaway_and_says_so(metta *m)
   mt_clear();
   CHECK(mt_run(m, "!(from 0)") == NULL);
   CHECK(mt_error() == MT_LIMIT);
+
+  CASE("a wall bound stops an eager call that does not finish");
+  bounded.inferences = 0;
+  bounded.seconds = 0.001;
+  CHECK(mt_limit(m, bounded));
+  mt_clear();
+  CHECK(mt_run(m, "!(from 0)") == NULL);
+  CHECK(mt_error() == MT_LIMIT);
+  CHECK(mt_errmsg() && strstr(mt_errmsg(), "second") != NULL);
 
   CASE("clearing the bounds restores unbounded evaluation");
   CHECK(mt_limit(m, none));
@@ -1173,6 +1556,7 @@ int main(void)
   /* Before the runtime exists, because that is the only moment its absence
      can be asked about. */
   test_a_door_before_the_runtime_refuses();
+  test_an_uncrossed_object_can_be_released_without_an_engine();
 
   if ( !(m = mt_open(NULL)) )
   { fprintf(stderr, "cannot boot the engine: %s\n", mt_errmsg());
@@ -1180,6 +1564,7 @@ int main(void)
   }
 
   test_atoms_need_no_engine();
+  test_public_scalar_readers_cover_their_whole_domain();
   test_the_builder_coerces_each_child_by_its_c_type();
   test_a_macro_evaluates_each_argument_exactly_once(m);
   test_a_failed_child_does_not_leak_its_siblings();
@@ -1191,10 +1576,12 @@ int main(void)
   test_the_error_state_is_errno_shaped();
   test_reference_counting_holds_under_churn();
   test_text_crosses_through_the_engine_reader();
+  test_presentation_and_round_trip_text_are_distinct();
   test_run_groups_answers_by_form(m);
   test_the_walk_closes_its_cursor_on_break(m);
   test_one_and_first_make_different_claims(m);
   test_spaces_store_and_query(m);
+  test_catalog_and_file_load_are_live_runtime_doors(m);
   test_a_door_that_takes_an_atom_refuses_null(m);
   test_a_deep_term_does_not_overrun_the_stack(m);
   test_closing_an_exhausted_cursor_is_quiet(m);
@@ -1202,10 +1589,15 @@ int main(void)
   test_one_verb_takes_either_receiver(m);
   test_a_user_space_decodes_as_a_space(m);
   test_a_c_function_is_callable_from_metta(m);
+  test_an_answerless_operation_uses_only_its_own_error(m);
   test_a_c_body_lowers_into_an_equation_the_engine_can_see(m);
+  test_raw_lowering_preserves_tokens_that_are_c_macros(m);
   test_a_c_value_crosses_by_reference(m);
+  test_an_object_can_be_released_without_waiting_for_atom_gc(m);
+  test_float_identity_agrees_with_the_engine(m);
   test_a_function_value_is_applicable(m);
   test_an_engine_error_reaches_c_as_words(m);
+  test_a_refused_stack_limit_clears_the_engine_exception(m);
   test_a_wide_integer_keeps_its_digits(m);
   test_variable_identity_survives_the_round_trip();
   test_a_bound_stops_a_runaway_and_says_so(m);

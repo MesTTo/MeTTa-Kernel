@@ -31,6 +31,15 @@
  *     costs heap rather than the 8 MB the thread was given
  *     [tested: tests/test_cmetta.c, test_a_deep_term_does_not_overrun_the_stack;
  *     commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8]
+ *   - allocator sizes, callback lists, space counts, engine counters and stack
+ *     defaults are validated at their representation boundaries
+ *     [tested: tests/test_internal_contracts.c and
+ *     test_a_refused_stack_limit_clears_the_engine_exception;
+ *     commit=da8c4da9df83114ab1d32f3e4049008f37535886]
+ *   - a cursor refusal names the public step door used, and cached predicate
+ *     and variable-pair handles are rebuilt after successful engine cleanup
+ *     [tested: tests/test_cursor_ids.c and tests/test_reopen.c;
+ *     commit=da8c4da9df83114ab1d32f3e4049008f37535886]
  *
  * Owns resources: the process's Prolog runtime, released by mt_close(); the
  *   op table; one malloc'ed box per live mt_object, released when both the
@@ -70,6 +79,7 @@
 #include <SWI-Stream.h>
 
 #include <assert.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -134,6 +144,10 @@ static pl_function_t as_pl_function(mt_anyfn fn)
 #define MT_ERR_MAX 2048
 static MT_TLS char g_err[MT_ERR_MAX];
 static MT_TLS mt_status g_status = MT_OK;
+/* A callback needs to tell a failure raised DURING this application from the
+   errno-shaped failure that was already present when it began. Comparing the
+   status is not enough: two consecutive failures may have the same kind. */
+static MT_TLS uint64_t g_error_generation;
 
 static mt_status err_set(mt_status status, const char *fmt, ...)
 { va_list ap;
@@ -141,6 +155,7 @@ static mt_status err_set(mt_status status, const char *fmt, ...)
   vsnprintf(g_err, sizeof(g_err), fmt, ap);
   va_end(ap);
   g_status = status;
+  g_error_generation++;
   return status;
 }
 
@@ -152,7 +167,20 @@ static void *err_null(mt_status status, const char *fmt, ...)
   vsnprintf(g_err, sizeof(g_err), fmt, ap);
   va_end(ap);
   g_status = status;
+  g_error_generation++;
   return NULL;
+}
+
+static mt_status err_copy(mt_status status, const char *text)
+{ snprintf(g_err, sizeof(g_err), "%s", text);
+  g_status = status;
+  g_error_generation++;
+  return status;
+}
+
+static void err_reclassify(mt_status status)
+{ g_status = status;
+  g_error_generation++;
 }
 
 void mt_clear(void)
@@ -307,13 +335,40 @@ static void frame_close(fid_t f)
     (s)->n = 0;                                                           \
   } while (0)
 
+/* Array arithmetic is checked before allocator arithmetic. malloc(count *
+   width) is otherwise a smaller successful allocation followed by an
+   out-of-bounds walk, not an allocation failure. */
+static bool array_bytes(size_t count, size_t width, size_t *bytes)
+{ if ( width && count > SIZE_MAX / width ) return false;
+  *bytes = count * width;
+  return true;
+}
+
+static bool next_capacity(size_t current, size_t initial, size_t width,
+                          size_t *next, size_t *bytes)
+{ size_t capacity;
+  if ( current )
+  { if ( current > SIZE_MAX / 2 ) return false;
+    capacity = current * 2;
+  } else
+    capacity = initial;
+  if ( !array_bytes(capacity, width, bytes) ) return false;
+  *next = capacity;
+  return true;
+}
+
 /* Twice the room, or the block it was given back unchanged: growing is the
    only part of a push that is not a store, so it is the only part that is a
    function, and a failure leaves the caller's stack intact. */
 static void *stack_grow_(void *items, void *fixed, size_t *cap, size_t width)
-{ size_t bigger = *cap * 2;
-  void *grown = ( items == fixed ) ? malloc(bigger * width)
-                                   : realloc(items, bigger * width);
+{ size_t bigger, bytes;
+  void *grown;
+
+  if ( !next_capacity(*cap, 1, width, &bigger, &bytes) )
+  { err_set(MT_NOMEM, "a term walk is too deep for an addressable stack");
+    return items;
+  }
+  grown = ( items == fixed ) ? malloc(bytes) : realloc(items, bytes);
   if ( !grown ) return items;
   if ( items == fixed ) memcpy(grown, fixed, *cap * width);
   *cap = bigger;
@@ -378,6 +433,15 @@ static mt_atom *atom_text(mt_kind kind, const char *text, size_t len)
   a->u.t.len = len;
   return a;
 }
+
+#ifdef MT_TEST_FAULTS
+/* MT_HANDLE is a native engine value and cannot be constructed by the public
+   C surface. The fault library exposes one only so the pure-C hash regression
+   covers the final kind without inventing a public constructor. */
+mt_atom *mt_test_handle_atom(const char *text)
+{ return atom_text(MT_HANDLE, text, text ? strlen(text) : 0);
+}
+#endif
 
 static void box_release(mt_box_t *box)
 { if ( !box ) return;
@@ -620,12 +684,16 @@ mt_atom *mt_spaceref(const char *name)
 
 mt_atom *mt_exprv(size_t count, mt_atom **children)
 { mt_atom *a;
-  size_t i;
+  size_t bytes, i;
   bool bad = false;
 
   if ( count > 0 && !children )
     return err_null(MT_MISUSE,
                     "mt_exprv was asked for %zu children and given no array",
+                    count);
+  if ( !array_bytes(count, sizeof(*children), &bytes) )
+    return err_null(MT_NOMEM,
+                    "an expression with %zu children exceeds addressable memory",
                     count);
 
   for (i = 0; i < count; i++)
@@ -642,13 +710,13 @@ mt_atom *mt_exprv(size_t count, mt_atom **children)
     return NULL;
   }
   if ( count > 0 )
-  { if ( !(a->u.e.kids = malloc(count * sizeof(*a->u.e.kids))) )
+  { if ( !(a->u.e.kids = malloc(bytes)) )
     { free(a);
       for (i = 0; i < count; i++) mt_drop(children[i]);
       err_set(MT_NOMEM, "out of memory building an expression of %zu", count);
       return NULL;
     }
-    memcpy(a->u.e.kids, children, count * sizeof(*a->u.e.kids));
+    memcpy(a->u.e.kids, children, bytes);
   }
   a->u.e.n = count;
   return a;
@@ -787,7 +855,16 @@ static bool eq_shallow(const mt_atom *a, const mt_atom *b)
       return a->u.t.len == b->u.t.len &&
              memcmp(a->u.t.text, b->u.t.text, a->u.t.len) == 0;
     case MT_INT:      return a->u.i == b->u.i;
-    case MT_FLOAT:    return a->u.f == b->u.f;
+    case MT_FLOAT:
+      /* SWI preserves signed zero but canonicalises NaN payloads when a float
+         enters a term. The space predicates therefore distinguish the zeros
+         and identify every NaN, so the pure-C door must too.
+         [tested: tests/test_cmetta.c,
+         test_float_identity_agrees_with_the_engine;
+         commit=2e13376bb6e1662655525533a1ab02800940aec5] */
+      return (isnan(a->u.f) && isnan(b->u.f)) ||
+             (!isnan(a->u.f) && !isnan(b->u.f) &&
+              memcmp(&a->u.f, &b->u.f, sizeof(a->u.f)) == 0);
     case MT_BOOL:     return a->u.b == b->u.b;
     case MT_RATIONAL: return a->u.r.num == b->u.r.num &&
                                 a->u.r.den == b->u.r.den;
@@ -862,6 +939,632 @@ bool mt_eq(const mt_atom *a, const mt_atom *b)
   return equal;
 }
 
+/* RFC 9923 defines FNV-1a as xor-then-multiply per input octet and recommends
+   it for general non-cryptographic use. This hash is deliberately an
+   in-process table hash rather than a persistent wire value, so native byte
+   order and object addresses are part of its contract
+   [source: https://www.rfc-editor.org/rfc/rfc9923.html#section-2;
+   commit=d37f1a5192999fdaa1a617e86191de4fe3570f91]. */
+#define MT_FNV64_OFFSET UINT64_C(14695981039346656037)
+#define MT_FNV64_PRIME  UINT64_C(1099511628211)
+
+static uint64_t hash_bytes(uint64_t hash, const void *data, size_t len)
+{ const unsigned char *bytes = data;
+  size_t i;
+  for (i = 0; i < len; i++)
+  { hash ^= bytes[i];
+    hash *= MT_FNV64_PRIME;
+  }
+  return hash;
+}
+
+static uint64_t hash_shallow(uint64_t hash, const mt_atom *atom)
+{ unsigned char kind = (unsigned char)atom->kind;
+  hash = hash_bytes(hash, &kind, sizeof(kind));
+  switch ( atom->kind )
+  { case MT_SYMBOL:
+    case MT_VARIABLE:
+    case MT_TEXT:
+    case MT_SPACE:
+    case MT_BIGINT:
+    case MT_HANDLE:
+      hash = hash_bytes(hash, &atom->u.t.len, sizeof(atom->u.t.len));
+      return hash_bytes(hash, atom->u.t.text, atom->u.t.len);
+    case MT_INT:
+      return hash_bytes(hash, &atom->u.i, sizeof(atom->u.i));
+    case MT_FLOAT:
+    { unsigned char nan_value = isnan(atom->u.f) ? 1u : 0u;
+      hash = hash_bytes(hash, &nan_value, sizeof(nan_value));
+      return nan_value ? hash
+                       : hash_bytes(hash, &atom->u.f, sizeof(atom->u.f));
+    }
+    case MT_BOOL:
+    { unsigned char value = atom->u.b ? 1u : 0u;
+      return hash_bytes(hash, &value, sizeof(value));
+    }
+    case MT_RATIONAL:
+      hash = hash_bytes(hash, &atom->u.r.num, sizeof(atom->u.r.num));
+      return hash_bytes(hash, &atom->u.r.den, sizeof(atom->u.r.den));
+    case MT_EXPR:
+      return hash_bytes(hash, &atom->u.e.n, sizeof(atom->u.e.n));
+    case MT_OBJECT:
+    { uintptr_t identity = (uintptr_t)atom->u.box;
+      return hash_bytes(hash, &identity, sizeof(identity));
+    }
+    case MT_NONE:
+      break;
+  }
+  return hash;
+}
+
+typedef struct hash_frame
+{ const mt_atom *atom;
+  size_t at;
+} hash_frame;
+
+typedef MT_STACK(hash_frame) hash_stack;
+
+uint64_t mt_hash(const mt_atom *atom)
+{ hash_frame fixed[MT_WALK_FRAMES];
+  hash_stack frames;
+  const mt_atom *current = atom;
+  uint64_t hash = MT_FNV64_OFFSET;
+
+  if ( !atom )
+  { err_set(MT_MISUSE, "mt_hash was given NULL");
+    return 0;
+  }
+  stack_init(&frames, fixed);
+  while ( current )
+  { hash = hash_shallow(hash, current);
+    if ( current->kind == MT_EXPR && current->u.e.n )
+    { hash_frame frame = { current, 1 };
+      if ( !stack_push(&frames, frame) )
+      { stack_free(&frames);
+        return 0;
+      }
+      current = current->u.e.kids[0];
+      continue;
+    }
+    current = NULL;
+    while ( stack_top(&frames) )
+    { hash_frame *frame = stack_top(&frames);
+      if ( frame->at < frame->atom->u.e.n )
+      { current = frame->atom->u.e.kids[frame->at++];
+        break;
+      }
+      stack_pop(&frames);
+    }
+  }
+  stack_free(&frames);
+  return hash;
+}
+
+/* ================================================================== *
+ * Pure-C unification and substitution
+ * ================================================================== */
+
+typedef struct binding_entry
+{ mt_atom *variable;
+  mt_atom *value;
+} binding_entry;
+
+struct mt_bindings
+{ binding_entry *entries;
+  size_t         len, cap;
+  /* Open-addressed indices, stored plus one so zero remains the empty slot.
+     Bindings are never deleted individually, so no tombstone state exists. */
+  size_t        *slots;
+  size_t         slot_cap;
+};
+
+#define NO_BINDING SIZE_MAX
+
+static bool named_variable(const mt_atom *atom)
+{ return atom && atom->kind == MT_VARIABLE &&
+         !(atom->u.t.len == 1 && atom->u.t.text[0] == '_');
+}
+
+static uint64_t binding_name_hash(const char *name, size_t len)
+{ unsigned char kind = (unsigned char)MT_VARIABLE;
+  uint64_t hash = MT_FNV64_OFFSET;
+  hash = hash_bytes(hash, &kind, sizeof(kind));
+  hash = hash_bytes(hash, &len, sizeof(len));
+  return hash_bytes(hash, name, len);
+}
+
+static bool binding_name_equal(const binding_entry *entry,
+                               const char *name, size_t len)
+{ return entry->variable->u.t.len == len &&
+         memcmp(entry->variable->u.t.text, name, len) == 0;
+}
+
+static size_t binding_index_text(const mt_bindings *bindings,
+                                 const char *name, size_t len)
+{ size_t at, probed;
+
+  if ( !bindings->slot_cap || !bindings->slots || !bindings->entries ||
+       !bindings->len )
+    return NO_BINDING;
+  at = (size_t)binding_name_hash(name, len) & (bindings->slot_cap - 1);
+  for (probed = 0; probed < bindings->slot_cap; probed++)
+  { size_t slot = bindings->slots[at];
+    if ( !slot ) return NO_BINDING;
+    if ( binding_name_equal(&bindings->entries[slot - 1], name, len) )
+      return slot - 1;
+    at = (at + 1) & (bindings->slot_cap - 1);
+  }
+  return NO_BINDING;
+}
+
+static size_t binding_index_atom(const mt_bindings *bindings,
+                                 const mt_atom *variable)
+{ if ( !named_variable(variable) ) return NO_BINDING;
+  return binding_index_text(bindings, variable->u.t.text, variable->u.t.len);
+}
+
+static void binding_insert_slot(size_t *slots, size_t slot_cap,
+                                const binding_entry *entries, size_t index)
+{ const mt_atom *variable = entries[index].variable;
+  size_t at = (size_t)binding_name_hash(variable->u.t.text,
+                                        variable->u.t.len) & (slot_cap - 1);
+  while ( slots[at] ) at = (at + 1) & (slot_cap - 1);
+  slots[at] = index + 1;
+}
+
+/* Reserve both arrays before an entry acquires references. Half-full tables
+   keep an unsuccessful lookup bounded by an empty slot, and power-of-two
+   doubling makes the mask above valid. */
+static bool bindings_reserve_one(mt_bindings *bindings)
+{ if ( !bindings->slot_cap || bindings->len >= bindings->slot_cap / 2 )
+  { size_t slot_cap, bytes, i;
+    size_t *slots;
+    if ( !next_capacity(bindings->slot_cap, 8, sizeof(*slots),
+                        &slot_cap, &bytes) )
+    { err_set(MT_NOMEM, "a binding table exceeds addressable memory");
+      return false;
+    }
+    slots = calloc(1, bytes);
+    if ( !slots )
+    { err_set(MT_NOMEM, "out of memory growing a binding index to %zu slots",
+              slot_cap);
+      return false;
+    }
+    for (i = 0; i < bindings->len; i++)
+      binding_insert_slot(slots, slot_cap, bindings->entries, i);
+    free(bindings->slots);
+    bindings->slots = slots;
+    bindings->slot_cap = slot_cap;
+  }
+
+  if ( bindings->len == bindings->cap )
+  { size_t cap, bytes;
+    binding_entry *entries;
+    if ( !next_capacity(bindings->cap, 8, sizeof(*entries), &cap, &bytes) )
+    { err_set(MT_NOMEM, "a substitution exceeds addressable memory");
+      return false;
+    }
+    entries = realloc(bindings->entries, bytes);
+    if ( !entries )
+    { err_set(MT_NOMEM, "out of memory growing a substitution to %zu entries",
+              cap);
+      return false;
+    }
+    bindings->entries = entries;
+    bindings->cap = cap;
+  }
+  return true;
+}
+
+static void binding_replace_value(binding_entry *entry,
+                                  const mt_atom *value)
+{ mt_atom *kept = mt_keep(value);
+  mt_drop(entry->value);
+  entry->value = kept;
+}
+
+static bool binding_put(mt_bindings *bindings, const mt_atom *variable,
+                        const mt_atom *value)
+{ size_t index = binding_index_atom(bindings, variable);
+  if ( index != NO_BINDING )
+  { assert(bindings->entries && index < bindings->len);
+    binding_replace_value(&bindings->entries[index], value);
+    return true;
+  }
+  if ( !bindings_reserve_one(bindings) ) return false;
+  index = bindings->len;
+  bindings->entries[index].variable = mt_keep(variable);
+  bindings->entries[index].value = mt_keep(value);
+  bindings->len++;
+  binding_insert_slot(bindings->slots, bindings->slot_cap,
+                      bindings->entries, index);
+  return true;
+}
+
+/* Follow aliases without entering expressions. An acyclic path is compressed;
+   len+1 followed bindings proves a cycle, which stays untouched and finite. */
+static const mt_atom *binding_walk(mt_bindings *bindings,
+                                   const mt_atom *atom)
+{ const mt_atom *current = atom, *terminal;
+  size_t followed = 0, i;
+
+  while ( named_variable(current) )
+  { size_t index = binding_index_atom(bindings, current);
+    if ( index == NO_BINDING ) break;
+    if ( followed >= bindings->len ) return current;
+    current = bindings->entries[index].value;
+    followed++;
+  }
+  terminal = current;
+  current = atom;
+  for (i = 0; i < followed; i++)
+  { size_t index = binding_index_atom(bindings, current);
+    const mt_atom *next;
+    if ( index == NO_BINDING ) break;
+    next = bindings->entries[index].value;
+    if ( next != terminal )
+      binding_replace_value(&bindings->entries[index], terminal);
+    current = next;
+  }
+  return terminal;
+}
+
+typedef struct substitution_frame
+{ const mt_atom *source;
+  mt_atom      **kids;
+  size_t         at;
+  size_t         binding_index;
+  bool           is_binding;
+} substitution_frame;
+
+typedef MT_STACK(substitution_frame) substitution_stack;
+
+static void substitution_cleanup(substitution_stack *frames, mt_atom *value)
+{ substitution_frame *frame;
+  mt_drop(value);
+  while ( (frame = stack_top(frames)) != NULL )
+  { if ( !frame->is_binding && frame->kids )
+    { size_t i;
+      for (i = 0; i < frame->at; i++) mt_drop(frame->kids[i]);
+      free(frame->kids);
+    }
+    stack_pop(frames);
+  }
+  stack_free(frames);
+}
+
+/* One post-order mapper serves public one-pass substitution and the unifier's
+   transitive normalization. Replacement values are followed only in the
+   latter mode; active binding names cut no-occurs-check cycles, while resolved
+   names cache completed subgraphs. Unchanged expressions retain their exact
+   node and allocate no child array.
+   [source: extensions/python/metta/atoms.py, _resolve_binding/_map_atoms;
+   commit=e927fffde3a19d9927892bf64a7fc6202b866ae0] */
+static mt_atom *substitute_impl(const mt_atom *root, mt_bindings *bindings,
+                                bool follow_values, unsigned char *active,
+                                unsigned char *resolved)
+{ substitution_frame fixed[MT_WALK_FRAMES];
+  substitution_stack frames;
+  const mt_atom *current = root;
+  mt_atom *value = NULL;
+  bool producing = false;
+
+  stack_init(&frames, fixed);
+  for (;;)
+  { if ( !producing )
+    { size_t index = binding_index_atom(bindings, current);
+      if ( index != NO_BINDING )
+      { if ( !follow_values || resolved[index] )
+        { value = mt_keep(bindings->entries[index].value);
+          producing = true;
+        } else if ( active[index] )
+        { value = mt_keep(current);
+          producing = true;
+        } else
+        { substitution_frame frame = {0};
+          frame.is_binding = true;
+          frame.binding_index = index;
+          if ( !stack_push(&frames, frame) )
+          { err_set(MT_NOMEM,
+                    "out of memory following a nested substitution");
+            substitution_cleanup(&frames, NULL);
+            return NULL;
+          }
+          active[index] = 1;
+          current = bindings->entries[index].value;
+          continue;
+        }
+      } else if ( current->kind == MT_EXPR && current->u.e.n )
+      { substitution_frame frame = {0};
+        frame.source = current;
+        if ( !stack_push(&frames, frame) )
+        { err_set(MT_NOMEM,
+                  "out of memory walking a nested substitution");
+          substitution_cleanup(&frames, NULL);
+          return NULL;
+        }
+        current = current->u.e.kids[0];
+        continue;
+      } else
+      { value = mt_keep(current);
+        producing = true;
+      }
+    }
+
+    while ( producing )
+    { substitution_frame *frame = stack_top(&frames);
+      if ( !frame )
+      { stack_free(&frames);
+        return value;
+      }
+
+      if ( frame->is_binding )
+      { size_t index = frame->binding_index;
+        binding_replace_value(&bindings->entries[index], value);
+        resolved[index] = 1;
+        active[index] = 0;
+        stack_pop(&frames);
+        continue;
+      }
+
+      { size_t index = frame->at;
+        const mt_atom *original = frame->source->u.e.kids[index];
+
+        if ( frame->kids )
+        { frame->kids[index] = value;
+          value = NULL;
+        } else if ( value != original )
+        { size_t bytes, i;
+          if ( !array_bytes(frame->source->u.e.n,
+                            sizeof(*frame->kids), &bytes) ||
+               !(frame->kids = malloc(bytes)) )
+          { mt_drop(value);
+            value = NULL;
+            err_set(MT_NOMEM,
+                    "out of memory rebuilding a substituted expression");
+            substitution_cleanup(&frames, NULL);
+            return NULL;
+          }
+          for (i = 0; i < index; i++)
+            frame->kids[i] = mt_keep(frame->source->u.e.kids[i]);
+          frame->kids[index] = value;
+          value = NULL;
+        } else
+        { /* `value` is the retain this walk just took on `original`, and the
+             live source expression is another owner. Decrementing that known
+             extra reference directly both preserves the source node and tells
+             static analysis why no leaf can be freed here. */
+          unsigned refs_before = MT_DEC(&value->refs);
+          assert(refs_before > 1);
+          (void)refs_before;
+          value = NULL;
+        }
+        frame->at++;
+      }
+
+      if ( frame->at < frame->source->u.e.n )
+      { current = frame->source->u.e.kids[frame->at];
+        producing = false;
+        break;
+      }
+
+      { const mt_atom *source = frame->source;
+        mt_atom **kids = frame->kids;
+        size_t count = source->u.e.n;
+        stack_pop(&frames);
+        if ( kids )
+        { value = mt_exprv(count, kids);
+          free(kids);
+          if ( !value )
+          { substitution_cleanup(&frames, NULL);
+            return NULL;
+          }
+        } else
+          value = mt_keep(source);
+      }
+    }
+  }
+}
+
+static bool bindings_normalize(mt_bindings *bindings)
+{ unsigned char *active, *resolved;
+  size_t i;
+
+  if ( !bindings->len ) return true;
+  active = calloc(bindings->len, sizeof(*active));
+  resolved = calloc(bindings->len, sizeof(*resolved));
+  if ( !active || !resolved )
+  { free(active);
+    free(resolved);
+    err_set(MT_NOMEM, "out of memory normalizing a substitution");
+    return false;
+  }
+
+  /* Direct aliases get the path-compression pass before expression values are
+     rebuilt. This is what keeps a long x0=x1=...=a chain linear. */
+  for (i = 0; i < bindings->len; i++)
+    (void)binding_walk(bindings, bindings->entries[i].variable);
+
+  for (i = 0; i < bindings->len; i++)
+  { mt_atom *value;
+    if ( resolved[i] ) continue;
+    active[i] = 1;
+    value = substitute_impl(bindings->entries[i].value, bindings, true,
+                            active, resolved);
+    active[i] = 0;
+    if ( !value )
+    { free(active);
+      free(resolved);
+      return false;
+    }
+    mt_drop(bindings->entries[i].value);
+    bindings->entries[i].value = value;
+    resolved[i] = 1;
+  }
+  free(active);
+  free(resolved);
+  return true;
+}
+
+/* Robinson's work-list unifier, matching the Python seat's last-child-first
+   stack order and no-occurs-check behavior. `matched` distinguishes a clean
+   structural mismatch from an allocation failure in this C implementation.
+   [source: extensions/python/metta/atoms.py, _unify_symmetric;
+   commit=e927fffde3a19d9927892bf64a7fc6202b866ae0] */
+static bool unify_pair(mt_bindings *bindings, const mt_atom *left,
+                       const mt_atom *right, bool *matched)
+{ pair_frame fixed[MT_WALK_FRAMES];
+  pair_stack frames;
+  const mt_atom *x = left, *y = right;
+
+  *matched = false;
+  stack_init(&frames, fixed);
+  for (;;)
+  { x = binding_walk(bindings, x);
+    y = binding_walk(bindings, y);
+
+    if ( x == y ||
+         (x->kind == y->kind && x->kind != MT_EXPR && eq_shallow(x, y)) )
+      ;
+    else if ( x->kind == MT_VARIABLE )
+    { if ( named_variable(x) && !binding_put(bindings, x, y) )
+      { stack_free(&frames);
+        return false;
+      }
+    } else if ( y->kind == MT_VARIABLE )
+    { if ( named_variable(y) && !binding_put(bindings, y, x) )
+      { stack_free(&frames);
+        return false;
+      }
+    } else if ( x->kind == MT_EXPR && y->kind == MT_EXPR &&
+                x->u.e.n == y->u.e.n )
+    { if ( x->u.e.n )
+      { pair_frame *frame;
+        if ( !pair_push(&frames, x, y, x->u.e.n) )
+        { err_set(MT_NOMEM,
+                  "out of memory unifying two nested expressions");
+          stack_free(&frames);
+          return false;
+        }
+        frame = stack_top(&frames);
+        frame->at = frame->n - 1;
+        x = frame->a->u.e.kids[frame->at];
+        y = frame->b->u.e.kids[frame->at];
+        continue;
+      }
+    } else
+    { stack_free(&frames);
+      return true;
+    }
+
+    for (;;)
+    { pair_frame *frame = stack_top(&frames);
+      if ( !frame )
+      { *matched = true;
+        stack_free(&frames);
+        return true;
+      }
+      if ( frame->at )
+      { frame->at--;
+        x = frame->a->u.e.kids[frame->at];
+        y = frame->b->u.e.kids[frame->at];
+        break;
+      }
+      stack_pop(&frames);
+    }
+  }
+}
+
+mt_bindings *mt_unifyv(size_t count, const mt_atom *const *atoms)
+{ mt_bindings *bindings;
+  size_t i;
+
+  if ( count < 2 )
+    return err_null(MT_MISUSE,
+                    "mt_unifyv needs at least two atoms; it was given %zu",
+                    count);
+  if ( !atoms )
+    return err_null(MT_MISUSE,
+                    "mt_unifyv was given a count and no atom array");
+  for (i = 0; i < count; i++)
+    if ( !atoms[i] )
+      return err_null(MT_MISUSE,
+                      "mt_unifyv atom %zu of %zu was NULL", i + 1, count);
+
+  bindings = calloc(1, sizeof(*bindings));
+  if ( !bindings )
+    return err_null(MT_NOMEM, "out of memory allocating a substitution");
+
+  for (i = 1; i < count; i++)
+  { bool matched;
+    if ( !unify_pair(bindings, atoms[0], atoms[i], &matched) )
+    { mt_bindings_free(bindings);
+      return NULL;
+    }
+    if ( !matched )
+    { mt_bindings_free(bindings);
+      return NULL;
+    }
+  }
+  if ( !bindings_normalize(bindings) )
+  { mt_bindings_free(bindings);
+    return NULL;
+  }
+  return bindings;
+}
+
+mt_bindings *mt_unify(const mt_atom *left, const mt_atom *right)
+{ const mt_atom *atoms[2] = { left, right };
+  return mt_unifyv(2, atoms);
+}
+
+size_t mt_bindings_len(const mt_bindings *bindings)
+{ return bindings ? bindings->len : 0;
+}
+
+const mt_atom *mt_binding_var(const mt_bindings *bindings, size_t index)
+{ return bindings && index < bindings->len
+       ? bindings->entries[index].variable : NULL;
+}
+
+const mt_atom *mt_binding_value(const mt_bindings *bindings, size_t index)
+{ return bindings && index < bindings->len
+       ? bindings->entries[index].value : NULL;
+}
+
+const mt_atom *mt_binding(const mt_bindings *bindings, const char *name)
+{ size_t index;
+  if ( !bindings || !name )
+  { err_set(MT_MISUSE, "mt_binding needs bindings and a variable name");
+    return NULL;
+  }
+  index = binding_index_text(bindings, name, strlen(name));
+  return index == NO_BINDING ? NULL : bindings->entries[index].value;
+}
+
+mt_atom *mt_substitute(const mt_atom *atom, const mt_bindings *bindings)
+{ if ( !atom || !bindings )
+    return err_null(MT_MISUSE,
+                    "mt_substitute needs an atom and a substitution");
+  return substitute_impl(atom, (mt_bindings *)bindings, false, NULL, NULL);
+}
+
+void mt_bindings_free(mt_bindings *bindings)
+{ size_t i;
+  if ( !bindings ) return;
+  for (i = 0; i < bindings->len; i++)
+  { mt_drop(bindings->entries[i].variable);
+    mt_drop(bindings->entries[i].value);
+  }
+  free(bindings->entries);
+  free(bindings->slots);
+  free(bindings);
+}
+
+#undef NO_BINDING
+#undef MT_FNV64_OFFSET
+#undef MT_FNV64_PRIME
+
 void *mt_value(const mt_atom *atom)
 { return ( atom && atom->kind == MT_OBJECT ) ? atom->u.box->value : NULL;
 }
@@ -931,15 +1634,22 @@ typedef struct mt_op_entry
 
 struct metta
 { bool              open;
+  uint64_t          generation;
   char             *path;
   bool              verbose;
   mt_limits    limits;
+  size_t            initial_stack_bytes;
+  predicate_t        space_operand;
+  functor_t          equal_functor;
+  functor_t          pair_functor;
   mt_op_entry_t *ops;
   size_t            nops, cap_ops;
 };
 
 static struct metta g_runtime;
 static bool         g_open = false;
+static bool         g_cleanup_failed = false;
+static uint64_t     g_runtime_generation;
 
 struct mt_space
 { metta *runtime;
@@ -953,6 +1663,16 @@ struct mt_space
    null dereference. */
 static mt_space g_self    = { &g_runtime, (char *)"&self",  true };
 static mt_space g_catalog = { &g_runtime, (char *)"&metta", true };
+
+#ifdef MT_TEST_FAULTS
+/* Inspect only the ownership boundary exercised by the restart regression;
+   this symbol is absent from the installed library
+   [tested: test_restart_replaces_runtime_owned_predicates;
+   commit=802878f86f478c23fc05f7e68cbe605160eedb59]. */
+void *mt_test_cached_space_predicate(void)
+{ return g_runtime.space_operand;
+}
+#endif
 
 /* Every door that reaches the engine asks this first. SWI's foreign-frame
    API reads the calling thread's Prolog environment, so a call made before
@@ -987,27 +1707,38 @@ static bool handle_ready(const void *handle, const char *door)
 /* --- blob type for a live C value --------------------------------- */
 
 static int object_write(IOSTREAM *s, atom_t a, int flags)
-{ mt_box_t *box = PL_blob_data(a, NULL, NULL);
+{ size_t len = 0;
+  mt_box_t *box = PL_blob_data(a, &len, NULL);
   (void)flags;
   /* What it IS, never what it contains: a live value that printed its
      contents would have become text, which is the one thing it must not do. */
-  Sfprintf(s, "<%s>", box->type ? box->type : "cvalue");
+  if ( !box || len != sizeof(*box) ) Sfprintf(s, "<released-cvalue>");
+  else Sfprintf(s, "<%s>", box->type ? box->type : "cvalue");
   return TRUE;
 }
 
 static int object_release_blob(atom_t a)
-{ box_release(PL_blob_data(a, NULL, NULL));
+{ size_t len = 0;
+  mt_box_t *box = PL_blob_data(a, &len, NULL);
+  if ( box && len == sizeof(*box) ) box_release(box);
   return TRUE;
+}
+
+static void object_acquire_blob(atom_t a)
+{ size_t len = 0;
+  mt_box_t *box = PL_blob_data(a, &len, NULL);
+  if ( box && len == sizeof(*box) ) MT_INC(&box->refs);
 }
 
 static PL_blob_t mt_object_blob =
 { .magic   = PL_BLOB_MAGIC,
-  .flags   = PL_BLOB_NOCOPY,
+  .flags   = PL_BLOB_UNIQUE | PL_BLOB_NOCOPY,
   /* The SEAT's spelling, because bridge.pl names this type in blob/2 and the
      two must agree. Like the four foreign predicates above, it is a contract
      with the Prolog half rather than part of the C API's prefix. */
   .name    = "cmetta_object",
   .release = object_release_blob,
+  .acquire = object_acquire_blob,
   .write   = object_write
 };
 
@@ -1055,50 +1786,48 @@ static mt_status call_bridge(const char *name, int arity, term_t av);
    The predicate is a test over a bound atom and cannot throw, so a plain
    call is enough; a failure is the answer "no" rather than an error.
 
-   The handle is resolved once. PL_predicate() interns the name and walks the
-   module's procedure table on every call, and this runs once per decoded
-   atom: caching it takes the question from 3,358 to 2,208 instructions per
-   atom [measured 2026-08-27, perf stat -e instructions:u, minimum of three
-   runs of kit/driver over 500 programs answering 40 symbols each:
+   The handle is resolved once per runtime. PL_predicate() interns the name
+   and walks the module's procedure table on every call, and this runs once
+   per decoded atom: caching it takes the question from 3,358 to 2,208
+   instructions per atom [measured 2026-08-27, perf stat -e instructions:u,
+   minimum of three runs of kit/driver over 500 programs answering 40 symbols each:
    3,018,075,923 asking nothing, 3,085,234,884 resolving per call,
    3,062,228,470 resolving once, so 1,150 saved of 3,358 and +1.46% over
-   asking nothing on a workload that is nothing but symbol decoding]. A static
-   is safe because this binding is one runtime per process by construction
-   (PL_initialise is process-wide, see cmetta.h's "Fails when") and a
-   predicate_t stays valid for the life of that process. */
+   asking nothing on a workload that is nothing but symbol decoding].
+   PL_cleanup() invalidates predicate handles, so the runtime owns this one
+   and mt_open() resolves it again after every successful restart. */
 static bool is_space(term_t t)
-{ static predicate_t space_operand = NULL;
-  fid_t f;
+{ fid_t f;
   int rc;
 
-  if ( !space_operand )
-    space_operand = PL_predicate("metta_c_space_operand", 1, "user");
+  if ( !g_runtime.space_operand )
+  { err_set(MT_ERROR,
+            "the runtime has no metta_c_space_operand/1 predicate handle");
+    return false;
+  }
   if ( !(f = frame_open("decoding a symbol")) ) return false;
-  rc = PL_call_predicate(NULL, PL_Q_NORMAL, space_operand, t);
+  rc = PL_call_predicate(NULL, PL_Q_NORMAL, g_runtime.space_operand, t);
   PL_discard_foreign_frame(f);
   return rc == TRUE;
 }
 
 /* The source name of a variable, from the engine's Name=Var pairs. */
 static char *variable_name(term_t names, term_t var)
-{ term_t head, tail, pair;
+{ term_t head, tail;
   if ( !names ) return term_text(var, CVT_WRITE, NULL);
 
   head = PL_new_term_ref();
-  pair = PL_new_term_ref();
   tail = PL_copy_term_ref(names);
   while ( PL_get_list(tail, head, tail) )
   { term_t nm = PL_new_term_ref();
     term_t vr = PL_new_term_ref();
     /* Both Name=Var and Name-Var are read: the engine's name state uses one
        and a reader's variable_names uses the other. */
-    if ( (PL_is_functor(head, PL_new_functor(PL_new_atom("="), 2)) ||
-          PL_is_functor(head, PL_new_functor(PL_new_atom("-"), 2))) &&
+    if ( (PL_is_functor(head, g_runtime.equal_functor) ||
+          PL_is_functor(head, g_runtime.pair_functor)) &&
          PL_get_arg(1, head, nm) && PL_get_arg(2, head, vr) &&
          PL_compare(vr, var) == 0 )
-    { (void)pair;
       return term_text(nm, CVT_ATOM | CVT_STRING, NULL);
-    }
   }
   return term_text(var, CVT_WRITE, NULL);
 }
@@ -1201,13 +1930,21 @@ static mt_atom *decode_leaf(term_t t, term_t names)
      The PL_BLOB_TEXT mask is the other half: without it an ordinary symbol
      reads as a native value instead. */
   { void *blob;
+    size_t blob_len;
     PL_blob_t *type;
-    if ( PL_get_blob(t, &blob, NULL, &type) && !(type->flags & PL_BLOB_TEXT) )
+    if ( PL_get_blob(t, &blob, &blob_len, &type) &&
+         !(type->flags & PL_BLOB_TEXT) )
     { size_t len;
       char *text;
       mt_atom *a;
       if ( type == &mt_object_blob )
       { mt_box_t *box = blob;
+        if ( !box || blob_len != sizeof(*box) )
+        { err_set(MT_UNSUPPORTED,
+                  "a C object in the engine was explicitly released; its "
+                  "remaining Prolog aliases are invalid");
+          return NULL;
+        }
         MT_INC(&box->refs);
         return object_from_box(box);
       }
@@ -1282,8 +2019,11 @@ static bool decode_frame_push(decode_stack *frames, term_t list)
 
 static inline bool decode_frame_add(decode_frame *f, mt_atom *kid)
 { if ( f->n == f->cap )
-  { size_t cap = f->cap ? f->cap * 2 : 4;
-    mt_atom **grown = realloc(f->kids, cap * sizeof(*grown));
+  { size_t cap, bytes;
+    mt_atom **grown;
+    if ( !next_capacity(f->cap, 4, sizeof(*grown), &cap, &bytes) )
+      return false;
+    grown = realloc(f->kids, bytes);
     if ( !grown ) return false;
     f->kids = grown;
     f->cap = cap;
@@ -1397,12 +2137,23 @@ static bool encode_var(encode_ctx *ctx, const char *name, term_t out)
   if ( strcmp(name, "_") == 0 ) return true;
 
   if ( ctx->n == ctx->cap )
-  { size_t cap = ctx->cap ? ctx->cap * 2 : 4;
-    char **nn = realloc(ctx->names, cap * sizeof(*nn));
-    term_t *vv = realloc(ctx->vars, cap * sizeof(*vv));
-    if ( nn ) ctx->names = nn;
-    if ( vv ) ctx->vars = vv;
-    if ( !nn || !vv ) return false;
+  { size_t cap, name_bytes, var_bytes;
+    char **nn;
+    term_t *vv;
+    if ( !next_capacity(ctx->cap, 4, sizeof(*nn), &cap, &name_bytes) ||
+         !array_bytes(cap, sizeof(*vv), &var_bytes) )
+      return false;
+    nn = malloc(name_bytes);
+    vv = malloc(var_bytes);
+    if ( !nn || !vv ) { free(nn); free(vv); return false; }
+    if ( ctx->n )
+    { memcpy(nn, ctx->names, ctx->n * sizeof(*nn));
+      memcpy(vv, ctx->vars, ctx->n * sizeof(*vv));
+    }
+    free(ctx->names);
+    free(ctx->vars);
+    ctx->names = nn;
+    ctx->vars = vv;
     ctx->cap = cap;
   }
   if ( !(ctx->names[ctx->n] = strdup(name)) ) return false;
@@ -1441,8 +2192,14 @@ static bool encode_leaf(const mt_atom *a, term_t out, encode_ctx *ctx)
       return n > 0 && PL_put_term_from_chars(out, REP_UTF8, (size_t)n, buf);
     }
     case MT_OBJECT:
-      MT_INC(&a->u.box->refs);
-      return PL_put_blob(out, a->u.box, sizeof(*a->u.box), &mt_object_blob);
+      /* PL_put_blob's result reports whether SWI created a blob atom; it is
+         not a success flag. The acquire callback pairs one box reference with
+         each created blob and an existing unique blob needs no second one.
+         [tested: tests/test_cmetta.c,
+         test_the_same_c_object_is_one_engine_identity;
+         commit=2e13376bb6e1662655525533a1ab02800940aec5] */
+      (void)PL_put_blob(out, a->u.box, sizeof(*a->u.box), &mt_object_blob);
+      return true;
     case MT_HANDLE:
       err_set(MT_UNSUPPORTED,
               "a native engine value cannot be sent back by its printed form: "
@@ -1549,12 +2306,63 @@ static bool put_atom_named(const mt_atom *a, term_t out, term_t names)
   { term_t pair = PL_new_term_ref();
     term_t name = PL_new_term_ref();
     ok = PL_put_atom_chars(name, ctx.names[i - 1]) &&
-         PL_cons_functor(pair, PL_new_functor(PL_new_atom("-"), 2),
+         PL_cons_functor(pair, g_runtime.pair_functor,
                          name, ctx.vars[i - 1]) &&
          PL_cons_list(names, pair, names);
   }
   encode_ctx_free(&ctx);
   return ok;
+}
+
+bool mt_object_free(mt_atom *atom)
+{ fid_t f = 0;
+  term_t t = 0;
+  atom_t blob = 0;
+  bool released = false;
+
+  if ( !atom )
+  { err_set(MT_MISUSE, "mt_object_free was given NULL");
+    return false;
+  }
+  if ( atom->kind != MT_OBJECT )
+  { err_set(MT_MISUSE, "mt_object_free needs an object atom, not %s",
+            mt_kind_str(atom->kind));
+    mt_drop(atom);
+    return false;
+  }
+
+  /* PL_cleanup() has already released every registered blob. What remains is
+     the C reference, and consuming it is both sufficient and safe without an
+     FLI engine [tested: test_an_object_can_be_released_without_waiting_for_atom_gc;
+     commit=1bd77577f263374ada1452e47bbc8dea17319d62]. */
+  if ( !g_open )
+  { mt_drop(atom);
+    return true;
+  }
+
+  if ( !(f = frame_open("mt_object_free")) ) goto done;
+  t = PL_new_term_ref();
+  if ( !t || !put_atom(atom, t) || !PL_get_atom(t, &blob) )
+  { if ( mt_ok() )
+      err_set(MT_ERROR, "the engine could not identify the object's blob");
+    goto done;
+  }
+  /* A unique NOCOPY blob has one engine reference regardless of how many
+     terms contain it. PL_free_blob() releases that reference now and makes
+     surviving Prolog aliases explicitly invalid; blob_box() and decode_leaf()
+     reject those aliases before touching their former payload
+     [tested: test_an_object_can_be_released_without_waiting_for_atom_gc;
+     commit=1bd77577f263374ada1452e47bbc8dea17319d62]. */
+  if ( !PL_free_blob(blob) )
+  { err_set(MT_ERROR, "the engine refused to release the object's blob");
+    goto done;
+  }
+  released = true;
+
+done:
+  frame_close(f);
+  mt_drop(atom);
+  return released;
 }
 
 /* ================================================================== *
@@ -1577,8 +2385,7 @@ static void render_ball(term_t ball)
   { if ( PL_next_solution(q) == TRUE )
     { char *text = term_text(av + 1, CVT_ATOM | CVT_STRING, NULL);
       if ( text )
-      { snprintf(g_err, sizeof(g_err), "%s", text);
-        g_status = MT_ERROR;
+      { err_copy(MT_ERROR, text);
         free(text);
         PL_cut_query(q);
         PL_discard_foreign_frame(f);
@@ -1588,9 +2395,8 @@ static void render_ball(term_t ball)
     PL_cut_query(q);
   }
   { char *text = term_text(ball, CVT_WRITE, NULL);
-    snprintf(g_err, sizeof(g_err), "%s",
+    err_copy(MT_ERROR,
              text ? text : "the engine raised a term this binding could not print");
-    g_status = MT_ERROR;
     free(text);
   }
   PL_discard_foreign_frame(f);
@@ -1638,7 +2444,7 @@ static mt_status ball_status(record_t saved, const char *name, int arity)
          it can know. The classification happens here, and the STICKY status
          is what mt_error() reads, so it has to carry the refined answer
          rather than the one the renderer left behind. */
-      g_status = kind;
+      err_reclassify(kind);
     }
     else err_set(MT_ERROR, "%s/%d raised a term that could not be read back",
                  name, arity);
@@ -1705,20 +2511,36 @@ struct mt_call
   bool                failed;
 };
 
+/* A callback context belongs to one invocation, but a host helper can still
+   be handed NULL or retain a stale nullable slot. Every public callback door
+   refuses the missing context through the same errno-shaped channel instead
+   of reading it [tested: test_a_door_that_takes_an_atom_refuses_null;
+   commit=acf9c5e7503903ead353176c0a6e116bbf23f07a]. */
+static bool call_given(const mt_call *call, const char *door)
+{ if ( call ) return true;
+  err_set(MT_MISUSE, "%s was given a NULL operation call", door);
+  return false;
+}
+
 size_t mt_arity(const mt_call *call)
-{ return call->arity;
+{ return call_given(call, "mt_arity") ? call->arity : 0;
 }
 
 const mt_atom *mt_arg(const mt_call *call, size_t index)
-{ return index < call->arity ? call->args[index] : NULL;
+{ return call_given(call, "mt_arg") && index < call->arity
+       ? call->args[index] : NULL;
 }
 
 metta *mt_of(const mt_call *call)
-{ return call->runtime;
+{ return call_given(call, "mt_of") ? call->runtime : NULL;
 }
 
 mt_status mt_answer(mt_call *call, mt_atom *atom)
-{ if ( call->answered )
+{ if ( !call_given(call, "mt_answer") )
+  { mt_drop(atom);
+    return MT_MISUSE;
+  }
+  if ( call->answered )
   { mt_drop(atom);
     return err_set(MT_MISUSE,
                    "this application already answered; a function that has "
@@ -1734,7 +2556,8 @@ mt_status mt_answer(mt_call *call, mt_atom *atom)
 /* Returns MT_ERROR so an op can spell its refusal as one line:
        if ( !mt_ok() ) return mt_fail(call, "wanted two numbers"); */
 mt_status mt_fail(mt_call *call, const char *message)
-{ snprintf(call->error, sizeof(call->error), "%s",
+{ if ( !call_given(call, "mt_fail") ) return MT_MISUSE;
+  snprintf(call->error, sizeof(call->error), "%s",
            message ? message : "the C function refused this application");
   call->failed = true;
   return MT_ERROR;
@@ -1746,14 +2569,16 @@ static foreign_t run_call(const char *name, mt_fn fn, void *user,
                           term_t args, term_t result)
 { struct mt_call call;
   mt_atom **decoded = NULL;
-  size_t n = 0, cap = 4, i;
+  size_t n = 0, cap = 4, bytes, i;
   term_t head = PL_new_term_ref();
   term_t tail = PL_copy_term_ref(args);
   mt_status status;
+  uint64_t error_before;
   foreign_t rc = FALSE;
 
   memset(&call, 0, sizeof(call));
-  if ( !(decoded = malloc(cap * sizeof(*decoded))) )
+  if ( !array_bytes(cap, sizeof(*decoded), &bytes) ||
+       !(decoded = malloc(bytes)) )
     return PL_resource_error("memory");
 
   while ( PL_get_list(tail, head, tail) )
@@ -1763,9 +2588,14 @@ static foreign_t run_call(const char *name, mt_fn fn, void *user,
       goto done;
     }
     if ( n == cap )
-    { mt_atom **grown = realloc(decoded, (cap *= 2) * sizeof(*decoded));
+    { size_t grown_cap;
+      mt_atom **grown;
+      if ( !next_capacity(cap, 4, sizeof(*decoded), &grown_cap, &bytes) )
+      { mt_drop(a); rc = PL_resource_error("memory"); goto done; }
+      grown = realloc(decoded, bytes);
       if ( !grown ) { mt_drop(a); rc = PL_resource_error("memory"); goto done; }
       decoded = grown;
+      cap = grown_cap;
     }
     decoded[n++] = a;
   }
@@ -1774,6 +2604,7 @@ static foreign_t run_call(const char *name, mt_fn fn, void *user,
   call.args = (const mt_atom **)decoded;
   call.arity = n;
 
+  error_before = g_error_generation;
   status = fn(&call, user);
 
   if ( status == MT_OK && call.answered )
@@ -1786,8 +2617,14 @@ static foreign_t run_call(const char *name, mt_fn fn, void *user,
        machinery carries it and bridge.pl's prolog:message//1 renders it. A
        bare mt_error(...) printed as "Unknown message: ..."
        [measured 2026-08-27]. */
+    /* Only an error written during this invocation may explain its silence;
+       an errno-shaped thread channel otherwise lends the next call a stale
+       and unrelated reason
+       [tested: test_an_answerless_operation_uses_only_its_own_error;
+       commit=2e13376bb6e1662655525533a1ab02800940aec5]. */
     const char *why = call.failed ? call.error
-                    : (mt_errmsg() ? mt_errmsg()
+                    : (g_error_generation != error_before && mt_errmsg()
+                    ? mt_errmsg()
                     : "the C function answered nothing");
     term_t ball = PL_new_term_ref();
     if ( PL_unify_term(ball,
@@ -1847,9 +2684,12 @@ static foreign_t pl_cmetta_dispatch(term_t name, term_t args, term_t result)
 
 static mt_box_t *blob_box(term_t t)
 { void *blob;
+  size_t len;
   PL_blob_t *type;
-  if ( PL_get_blob(t, &blob, NULL, &type) && type == &mt_object_blob )
-    return blob;
+  if ( PL_get_blob(t, &blob, &len, &type) && type == &mt_object_blob )
+  { if ( blob && len == sizeof(mt_box_t) ) return blob;
+    PL_existence_error("cmetta_object", t);
+  }
   return NULL;
 }
 
@@ -1859,7 +2699,13 @@ static foreign_t pl_cmetta_object_callable(term_t t)
 }
 
 static foreign_t pl_cmetta_apply(term_t t, term_t args, term_t result)
-{ mt_box_t *box = blob_box(t);
+{ size_t arity;
+  mt_box_t *box;
+
+  if ( PL_skip_list(args, 0, &arity) != PL_LIST )
+    return PL_type_error("list", args);
+  (void)arity;
+  box = blob_box(t);
   if ( !box || !box->apply ) return FALSE;
   return run_call(box->type ? box->type : "function",
                   box->apply, box->user, args, result);
@@ -1872,13 +2718,114 @@ static foreign_t pl_cmetta_apply(term_t t, term_t args, term_t result)
 static bool goal(const char *text)
 { fid_t f = frame_open("running an engine goal");
   term_t t;
-  bool ok;
+  mt_status status;
 
   if ( !f ) return false;
   t = PL_new_term_ref();
-  ok = t && PL_chars_to_term(text, t) && PL_call(t, NULL);
+  if ( !t )
+    status = err_set(MT_NOMEM, "out of memory holding an engine goal");
+  else if ( !PL_chars_to_term(text, t) )
+  { term_t ex = PL_exception(0);
+    if ( ex )
+    { record_t saved = PL_record(ex);
+      PL_clear_exception();
+      status = saved ? ball_status(saved, "reading an engine goal", 1)
+                     : err_set(MT_ERROR,
+                               "the engine goal was invalid and its exception "
+                               "could not be copied");
+    } else
+      status = err_set(MT_ERROR, "the engine goal could not be read");
+  } else
+    status = call_bridge("call", 1, t);
   PL_discard_foreign_frame(f);
-  return ok;
+  return status == MT_OK;
+}
+
+/* Pass one atom argument as term data. Engine paths used to be pasted into a
+   quoted Prolog term, so an ordinary apostrophe in a directory name changed
+   the term rather than naming the directory
+   [tested: test_engine_path_is_passed_as_data;
+   commit=2ed500695e8c9ecefaeeaa2b3fd30e4fef32a8e2]. SWI defines
+   REP_FN as the platform's filename representation, rather than the legacy
+   byte interpretation used by PL_put_atom_chars
+   [source: https://github.com/SWI-Prolog/swipl-devel/blob/dec2acf760a8571381fb6b554438bd7d90c8cacf/src/SWI-Prolog.h#L969-L981;
+   commit=2ed500695e8c9ecefaeeaa2b3fd30e4fef32a8e2]. */
+static bool goal_atom(const char *name, const char *value)
+{ fid_t f = frame_open("running an engine goal with an atom argument");
+  term_t av;
+  mt_status status;
+
+  if ( !f ) return false;
+  av = PL_new_term_refs(1);
+  if ( !av )
+    status = err_set(MT_NOMEM, "out of memory holding the argument for %s/1",
+                     name);
+  else if ( !PL_put_chars(av, PL_ATOM | REP_FN, (size_t)-1, value) )
+  { term_t ex = PL_exception(0);
+    if ( ex )
+    { record_t saved = PL_record(ex);
+      PL_clear_exception();
+      status = saved ? ball_status(saved, name, 1)
+                     : err_set(MT_ERROR,
+                               "%s/1 rejected its filename argument and its "
+                               "exception could not be copied", name);
+    } else
+      status = err_set(MT_NOMEM,
+                       "the filename argument for %s/1 could not be copied",
+                       name);
+  }
+  else
+    status = call_bridge(name, 1, av);
+  frame_close(f);
+  return status == MT_OK;
+}
+
+/* Read and write a size-valued Prolog flag as a bound term. Besides avoiding
+   source interpolation, these helpers keep the size_t/Prolog-integer boundary
+   explicit on platforms where their ranges differ. */
+static bool prolog_size_flag(const char *name, size_t *value)
+{ fid_t f = frame_open("reading a Prolog size flag");
+  term_t av;
+  uint64_t wide;
+  mt_status status;
+
+  if ( !f ) return false;
+  av = PL_new_term_refs(2);
+  if ( !av || !PL_put_atom_chars(av, name) )
+    status = err_set(MT_NOMEM, "out of memory reading Prolog flag %s", name);
+  else
+    status = call_bridge("current_prolog_flag", 2, av);
+  if ( status == MT_OK && !PL_get_uint64(av + 1, &wide) )
+    status = err_set(MT_ERROR, "Prolog flag %s was not an unsigned integer",
+                     name);
+  if ( status == MT_OK && sizeof(size_t) < sizeof(wide) && wide > SIZE_MAX )
+    status = err_set(MT_ERROR,
+                     "Prolog flag %s exceeds this platform's size_t range",
+                     name);
+  if ( status == MT_OK ) *value = (size_t)wide;
+  frame_close(f);
+  return status == MT_OK;
+}
+
+static bool set_prolog_size_flag(const char *name, size_t value)
+{ fid_t f = frame_open("setting a Prolog size flag");
+  term_t av;
+  mt_status status;
+
+  if ( !f ) return false;
+  av = PL_new_term_refs(2);
+  if ( sizeof(size_t) > sizeof(uint64_t) && value > (size_t)UINT64_MAX )
+    status = err_set(MT_UNSUPPORTED,
+                     "requested Prolog flag %s exceeds uint64_t", name);
+  else if ( !av || !PL_put_atom_chars(av, name) ||
+            !PL_put_uint64(av + 1, (uint64_t)value) )
+    status = err_set(MT_NOMEM,
+                     "could not represent the requested Prolog flag %s",
+                     name);
+  else
+    status = call_bridge("set_prolog_flag", 2, av);
+  frame_close(f);
+  return status == MT_OK;
 }
 
 static char *default_path(void)
@@ -1893,8 +2840,15 @@ metta *mt_open(const mt_config *config)
   char *path;
   char *buf;
   size_t bufsz;
+  size_t initial_stack_bytes;
+  functor_t equal_functor, pair_functor;
 
   if ( !config ) config = &defaults;
+
+  if ( g_cleanup_failed )
+    return err_null(MT_ERROR,
+                    "a previous SWI-Prolog cleanup could not reclaim the "
+                    "runtime; this process cannot safely initialise it again");
 
   if ( g_open )
   { /* One runtime per process; PL_initialise sets up the process's single
@@ -1928,6 +2882,18 @@ metta *mt_open(const mt_config *config)
                       as_pl_function((mt_anyfn)pl_cmetta_apply), 0);
   PL_register_blob_type(&mt_object_blob);
 
+  if ( !prolog_size_flag("stack_limit", &initial_stack_bytes) )
+  { free(path);
+    return NULL;
+  }
+  equal_functor = PL_new_functor(PL_new_atom("="), 2);
+  pair_functor = PL_new_functor(PL_new_atom("-"), 2);
+  if ( !equal_functor || !pair_functor )
+  { free(path);
+    return err_null(MT_NOMEM,
+                    "out of memory caching the engine's pair functors");
+  }
+
   bufsz = strlen(path) + 128;
   if ( !(buf = malloc(bufsz)) )
   { free(path);
@@ -1935,12 +2901,9 @@ metta *mt_open(const mt_config *config)
   }
 
   if ( config->stack_limit )
-  { snprintf(buf, bufsz, "set_prolog_flag(stack_limit, %zu)",
-             config->stack_limit);
-    if ( !goal(buf) )
+  { if ( !set_prolog_size_flag("stack_limit", config->stack_limit) )
     { free(path); free(buf);
-      return err_null(MT_ERROR, "the stack limit %zu was refused",
-                     config->stack_limit);
+      return NULL;
     }
   }
 
@@ -1950,7 +2913,7 @@ metta *mt_open(const mt_config *config)
   if ( !goal(config->verbose ? "set_prolog_flag(argv, [extensions])"
                              : "set_prolog_flag(argv, [silent, extensions])") )
   { free(path); free(buf);
-    return err_null(MT_ERROR, "the engine refused its argv");
+    return NULL;
   }
 
   /* The purge FIRST, and this seat is the one that has to ask for it. A host
@@ -1982,29 +2945,30 @@ metta *mt_open(const mt_config *config)
      and the Python seat has run the same shape through main.pl all along
      [measured 2026-08-29: 6/6, examples/hello, set made stale by touching
      engine/spaces/foreign.pl; commit=888a73c7d231188cd90fafcb8b0cce3799ef5e97]. */
-  snprintf(buf, bufsz, "consult('%s/engine/qlf_boot.pl')", path);
-  if ( !goal(buf) )
-  { void *refused =
-      err_null(MT_ERROR,
-              "the engine's artifact freshness check would not load from %s; "
-              "set config.path or METTA_PATH to the tree holding engine/",
-              path);
-    free(path); free(buf);
-    return refused;
+  snprintf(buf, bufsz, "%s/engine/qlf_boot.pl", path);
+  if ( !goal_atom("consult", buf) )
+  { free(path); free(buf);
+    return NULL;
   }
 
-  snprintf(buf, bufsz, "consult('%s/engine/metta.pl')", path);
-  if ( !goal(buf) )
-  { void *refused =
-      err_null(MT_ERROR,
-              "the engine would not load from %s; set config.path or "
-              "METTA_PATH to the tree holding engine/, lib/ and "
-              "extensions/", path);
-    free(path); free(buf);
-    return refused;
+  snprintf(buf, bufsz, "%s/engine/metta.pl", path);
+  if ( !goal_atom("consult", buf) )
+  { free(path); free(buf);
+    return NULL;
   }
   free(buf);
 
+  /* predicate_t values point into SWI's procedure table and PL_cleanup()
+     invalidates them. Resolve the cache after the bridge has loaded, then
+     clear it only after cleanup succeeds
+     [tested: test_restart_replaces_runtime_owned_predicates;
+     commit=802878f86f478c23fc05f7e68cbe605160eedb59]. */
+  g_runtime.space_operand =
+    PL_predicate("metta_c_space_operand", 1, "user");
+  g_runtime.equal_functor = equal_functor;
+  g_runtime.pair_functor = pair_functor;
+  g_runtime.initial_stack_bytes = initial_stack_bytes;
+  g_runtime.generation = ++g_runtime_generation;
   g_runtime.open = true;
   g_runtime.path = path;
   g_runtime.verbose = config->verbose;
@@ -2020,17 +2984,38 @@ static void show_ring_release(void);
 
 void mt_close(metta *runtime)
 { size_t i;
+  int cleaned;
+
   if ( !runtime || !g_open ) return;
+
+  /* Halt hooks may cancel cleanup. Until SWI confirms completion, every C
+     handle and the g_open state still describe the live engine and must stay
+     intact. A failed reclamation has passed the point of cancellation but
+     cannot be restarted safely, so it is closed and remembered as terminal. */
+  cleaned = PL_cleanup(0);
+  if ( cleaned == PL_CLEANUP_CANCELED )
+  { err_set(MT_ERROR,
+            "SWI-Prolog canceled runtime cleanup; the runtime remains open");
+    return;
+  }
+  if ( cleaned == PL_CLEANUP_RECURSIVE )
+  { err_set(MT_ERROR,
+            "mt_close was called recursively from SWI-Prolog cleanup; the "
+            "outer cleanup still owns the runtime");
+    return;
+  }
+
+  g_cleanup_failed = cleaned != PL_CLEANUP_SUCCESS;
   for (i = 0; i < runtime->nops; i++) free(runtime->ops[i].name);
   free(runtime->ops);
-  runtime->ops = NULL;
-  runtime->nops = runtime->cap_ops = 0;
   free(runtime->path);
-  runtime->path = NULL;
-  runtime->open = false;
+  memset(runtime, 0, sizeof(*runtime));
   g_open = false;
   show_ring_release();
-  PL_cleanup(0);
+  if ( g_cleanup_failed )
+    err_set(MT_ERROR,
+            "SWI-Prolog cleanup failed to reclaim the runtime; this process "
+            "cannot safely initialise it again");
 }
 
 bool mt_verbose(metta *runtime, bool verbose)
@@ -2080,17 +3065,16 @@ void mt_thread_detach(void)
 /* No runtime argument on the text doors either: they need the ENGINE, and
    there is one of those per process. Threading a handle through them was
    ceremony that never chose anything. */
-mt_atom *mt_parse(const char *source)
+static mt_atom *parse_n(const char *source, size_t length, const char *door)
 { fid_t f;
   term_t av;
   mt_atom *out = NULL;
 
-  if ( !source ) return err_null(MT_MISUSE, "mt_parse needs source text");
-  if ( !engine_ready("mt_parse") ) return NULL;
+  if ( !engine_ready(door) ) return NULL;
 
-  if ( !(f = frame_open("mt_parse")) ) return NULL;
+  if ( !(f = frame_open(door)) ) return NULL;
   av = PL_new_term_refs(3);
-  if ( !av || !PL_put_string_chars(av, source) )
+  if ( !av || !PL_put_string_nchars(av, length, source) )
   { PL_discard_foreign_frame(f);
     return err_null(MT_NOMEM, "out of memory holding the source");
   }
@@ -2098,6 +3082,16 @@ mt_atom *mt_parse(const char *source)
     out = decode(av + 1, av + 2);
   PL_discard_foreign_frame(f);
   return out;
+}
+
+mt_atom *mt_parse(const char *source)
+{ if ( !source ) return err_null(MT_MISUSE, "mt_parse needs source text");
+  return parse_n(source, strlen(source), "mt_parse");
+}
+
+mt_atom *mt_parsen(const char *source, size_t length)
+{ if ( !source ) return err_null(MT_MISUSE, "mt_parsen needs source text");
+  return parse_n(source, length, "mt_parsen");
 }
 
 char *mt_show_dup(const mt_atom *atom)
@@ -2112,6 +3106,22 @@ char *mt_show_dup(const mt_atom *atom)
        call_bridge("metta_c_show", 3, av) == MT_OK &&
        !(text = term_text(av + 2, CVT_ATOM | CVT_STRING, NULL)) )
     err_set(MT_NOMEM, "out of memory copying the engine's rendering");
+  PL_discard_foreign_frame(f);
+  return text;
+}
+
+mt_string mt_write_dup(const mt_atom *atom)
+{ fid_t f;
+  term_t av;
+  mt_string text = { NULL, 0 };
+
+  if ( !engine_ready("mt_write_dup") ) return text;
+  if ( !(f = frame_open("mt_write_dup")) ) return text;
+  av = PL_new_term_refs(3);
+  if ( av && put_atom_named(atom, av, av + 1) &&
+       call_bridge("metta_c_write_atom", 3, av) == MT_OK &&
+       !(text.data = term_text(av + 2, CVT_ATOM | CVT_STRING, &text.len)) )
+    err_set(MT_NOMEM, "out of memory copying the engine's written form");
   PL_discard_foreign_frame(f);
   return text;
 }
@@ -2268,6 +3278,56 @@ bool mt_space_add(mt_space *space, mt_atom *atom)
   return status == MT_OK;
 }
 
+static bool atom_list_given(mt_list atoms, const char *door)
+{ size_t i;
+
+  if ( atoms.len && !atoms.items )
+  { err_set(MT_MISUSE, "%s was given a length but no atom array", door);
+    return false;
+  }
+  for (i = 0; i < atoms.len; i++)
+    if ( !atoms.items[i] )
+    { err_set(MT_MISUSE, "%s was given NULL at index %zu", door, i);
+      return false;
+    }
+  return true;
+}
+
+/* Build the complete Prolog list before calling metta_add_atoms/2. Each atom
+   gets its own variable-name context, as it does through repeated mt_add(),
+   while the bridge receives one batch and therefore one engine transaction. */
+bool mt_space_add_all(mt_space *space, mt_list atoms)
+{ mt_status status = MT_MISUSE;
+  fid_t f = 0;
+  term_t av = 0, item = 0;
+  size_t i;
+
+  if ( handle_ready(space, "mt_space_add_all") &&
+       atom_list_given(atoms, "mt_space_add_all") )
+  { f = frame_open("mt_space_add_all");
+    av = f ? PL_new_term_refs(2) : 0;
+    item = av ? PL_new_term_ref() : 0;
+    if ( !av || !item || !PL_put_atom_chars(av, space->name) ||
+         !PL_put_nil(av + 1) )
+      status = err_set(MT_NOMEM, "out of memory encoding an atom batch");
+    else
+    { status = MT_OK;
+      for (i = atoms.len; i > 0; i--)
+        if ( !put_atom(atoms.items[i - 1], item) ||
+             !PL_cons_list(av + 1, item, av + 1) )
+        { status = mt_ok()
+                 ? err_set(MT_NOMEM, "the engine could not hold an atom batch")
+                 : mt_error();
+          break;
+        }
+      if ( status == MT_OK ) status = call_bridge("metta_c_add_all", 2, av);
+    }
+  }
+  frame_close(f);
+  mt_list_free(atoms);
+  return status == MT_OK;
+}
+
 bool mt_space_del(mt_space *space, mt_atom *atom)
 { fid_t f = 0;
   term_t av = 0;
@@ -2287,19 +3347,35 @@ bool mt_space_del(mt_space *space, mt_atom *atom)
   return removed;
 }
 
+static bool space_count_value(term_t term, size_t *count)
+{ uint64_t wide;
+
+  if ( !PL_get_uint64(term, &wide) )
+  { err_set(MT_ERROR,
+            "the space answered a negative or non-integer count");
+    return false;
+  }
+  if ( sizeof(size_t) < sizeof(wide) && wide > SIZE_MAX )
+  { err_set(MT_ERROR, "the space count exceeds this platform's size_t range");
+    return false;
+  }
+  *count = (size_t)wide;
+  return true;
+}
+
 size_t mt_space_count(mt_space *space)
 { fid_t f = 0;
   term_t av = 0;
   mt_status status = MT_MISUSE;
-  int64_t n = 0;
+  size_t n = 0;
 
   if ( handle_ready(space, "mt_space_count") )
     status = space_call("metta_c_count", space, NULL, 2, &av, &f);
 
-  if ( status == MT_OK && !PL_get_int64(av + 1, &n) )
-    err_set(MT_ERROR, "the space did not answer a count");
+  if ( status == MT_OK && !space_count_value(av + 1, &n) )
+    status = MT_ERROR;
   frame_close(f);
-  return status == MT_OK ? (size_t)n : 0;
+  return status == MT_OK ? n : 0;
 }
 
 bool mt_space_wipe(mt_space *space)
@@ -2311,6 +3387,11 @@ bool mt_space_wipe(mt_space *space)
    reaches. Written out rather than generated so each one is greppable. */
 bool mt_self_add(metta *runtime, mt_atom *atom)
 { return mt_space_add(mt_self(runtime), atom); }
+bool mt_self_add_all(metta *runtime, mt_list atoms)
+{ mt_space *self = mt_self(runtime);
+  return self ? mt_space_add_all(self, atoms)
+              : (mt_list_free(atoms), false);
+}
 bool mt_self_del(metta *runtime, mt_atom *atom)
 { return mt_space_del(mt_self(runtime), atom); }
 size_t mt_self_count(metta *runtime)
@@ -2322,16 +3403,21 @@ bool mt_self_wipe(metta *runtime)
  * Answers
  * ================================================================== */
 
+typedef struct eager_answer
+{ mt_atom *atom;
+  char    *text;
+  size_t   group;
+} eager_answer;
+
 /* A cursor is one of two things wearing one face: a table of answers a run
    already computed, or an engine suspended between them. */
 struct mt_answers
 { metta        *runtime;
+  uint64_t       generation;     /* runtime that owns a lazy cursor id */
   bool          lazy;
   mt_atom      *pattern;        /* what mt_bound lines each answer against */
   int64_t       cursor_id;      /* lazy: the bridge's engine id     */
-  mt_atom **rows;          /* eager: every answer, in order    */
-  char        **texts;
-  size_t       *groups;
+  eager_answer *items;          /* eager: every answer, in order    */
   size_t        n, at;
   bool          started, done;
   mt_atom      *current;
@@ -2343,8 +3429,45 @@ struct mt_answers
 static mt_answers *answers_alloc(metta *runtime)
 { mt_answers *a = calloc(1, sizeof(*a));
   if ( !a ) err_set(MT_NOMEM, "out of memory opening a cursor");
-  else a->runtime = runtime;
+  else
+  { a->runtime = runtime;
+    a->generation = runtime->generation;
+  }
   return a;
+}
+
+#ifdef MT_TEST_FAULTS
+/* One-shot fault injection for the separate allocator regression binary. It
+   is absent from the installed library and counts successful vector growths
+   before refusing one [tested: test_eager_growth_is_transactional;
+   commit=31075a6fadc4bf7508bd089f7abb2a542ec9a787]. */
+static MT_TLS size_t test_eager_grows_before_failure = SIZE_MAX;
+
+void mt_test_fail_eager_grow_after(size_t successful_grows)
+{ test_eager_grows_before_failure = successful_grows;
+}
+
+/* Expose the identifier but not the engine-owned cursor itself. The regression
+   uses it to prove that an emptied table cannot recycle a stale identifier
+   [tested: test_cursor_ids_are_monotone_and_constant_cost;
+   commit=b5ddebe73273447caa7c57212d6ee86fc71e0d4a]. */
+int64_t mt_test_cursor_id(const mt_answers *answers)
+{ return answers && answers->lazy ? answers->cursor_id : -1;
+}
+#endif
+
+static void *eager_grow(void *items, size_t bytes)
+{
+#ifdef MT_TEST_FAULTS
+  if ( test_eager_grows_before_failure != SIZE_MAX )
+  { if ( test_eager_grows_before_failure == 0 )
+    { test_eager_grows_before_failure = SIZE_MAX;
+      return NULL;
+    }
+    test_eager_grows_before_failure--;
+  }
+#endif
+  return realloc(items, bytes);
 }
 
 /* Read the engine's Groups term: a list of groups, each a list of answers. */
@@ -2354,9 +3477,7 @@ static mt_status collect_groups(term_t groups, mt_answers *out)
   term_t answer = PL_new_term_ref();
   size_t cap = 8, index = 0;
 
-  if ( !(out->rows = malloc(cap * sizeof(*out->rows))) ||
-       !(out->texts = malloc(cap * sizeof(*out->texts))) ||
-       !(out->groups = malloc(cap * sizeof(*out->groups))) )
+  if ( !(out->items = malloc(cap * sizeof(*out->items))) )
     return err_set(MT_NOMEM, "out of memory collecting answers");
 
   while ( PL_get_list(gtail, group, gtail) )
@@ -2379,16 +3500,23 @@ static mt_status collect_groups(term_t groups, mt_answers *out)
         return MT_UNSUPPORTED;
       }
       if ( out->n == cap )
-      { cap *= 2;
-        out->rows = realloc(out->rows, cap * sizeof(*out->rows));
-        out->texts = realloc(out->texts, cap * sizeof(*out->texts));
-        out->groups = realloc(out->groups, cap * sizeof(*out->groups));
-        if ( !out->rows || !out->texts || !out->groups )
+      { eager_answer *grown;
+        size_t next;
+
+        if ( cap > SIZE_MAX / 2 ||
+             (next = cap * 2) > SIZE_MAX / sizeof(*out->items) ||
+             !(grown = eager_grow(out->items,
+                                  next * sizeof(*out->items))) )
+        { mt_drop(atom);
+          free(text);
           return err_set(MT_NOMEM, "out of memory collecting answers");
+        }
+        out->items = grown;
+        cap = next;
       }
-      out->rows[out->n] = atom;
-      out->texts[out->n] = text;
-      out->groups[out->n] = index;
+      out->items[out->n].atom = atom;
+      out->items[out->n].text = text;
+      out->items[out->n].group = index;
       out->n++;
     }
     index++;
@@ -2555,13 +3683,13 @@ static void clear_current(mt_answers *answers)
   answers->current_text = NULL;
 }
 
-static mt_status answers_step(mt_answers *answers)
+static mt_status answers_step(mt_answers *answers, const char *door)
 { fid_t f;
   term_t av;
   mt_status status;
   term_t head, tail;
 
-  if ( !answers ) return err_set(MT_MISUSE, "mt_answers_step needs a cursor");
+  if ( !answers ) return err_set(MT_MISUSE, "%s needs a cursor", door);
   if ( answers->done ) return MT_DONE;
 
   if ( !answers->lazy )
@@ -2571,20 +3699,26 @@ static mt_status answers_step(mt_answers *answers)
       answers->current_text = NULL;
       return MT_DONE;
     }
-    answers->current = answers->rows[answers->at];
-    answers->current_text = answers->texts[answers->at];
-    answers->current_group = answers->groups[answers->at];
+    answers->current = answers->items[answers->at].atom;
+    answers->current_text = answers->items[answers->at].text;
+    answers->current_group = answers->items[answers->at].group;
     answers->at++;
     return MT_ROW;
   }
 
   /* Only the lazy half needs the engine; a run's answers are C memory and a
      caller may walk them after mt_close(). */
-  if ( !engine_ready("mt_next") ) return MT_MISUSE;
+  if ( !engine_ready(door) ) return MT_MISUSE;
+  if ( answers->generation != g_runtime.generation )
+  { answers->done = true;
+    return err_set(MT_MISUSE,
+                   "%s was given a cursor from a previous engine runtime",
+                   door);
+  }
 
   clear_current(answers);
 
-  if ( !(f = frame_open("mt_next")) ) return MT_NOMEM;
+  if ( !(f = frame_open(door)) ) return MT_NOMEM;
   av = PL_new_term_refs(3);
   if ( !av || !PL_put_int64(av, answers->cursor_id) ||
        !PL_put_float(av + 1, answers->runtime->limits.seconds) )
@@ -2628,13 +3762,13 @@ static mt_status answers_step(mt_answers *answers)
    whether that was exhaustion or a failure. */
 const mt_atom *mt_next(mt_answers *answers)
 { if ( !answers ) return NULL;
-  return answers_step(answers) == MT_ROW ? answers->current : NULL;
+  return answers_step(answers, "mt_next") == MT_ROW ? answers->current : NULL;
 }
 
 /* The same step reported in full. The row lives in the cursor and is
    refreshed here, so it is a pointer and costs no copy per answer. */
 const mt_row *mt_row_next(mt_answers *answers)
-{ if ( !mt_next(answers) ) return NULL;
+{ if ( !answers || answers_step(answers, "mt_row_next") != MT_ROW ) return NULL;
   answers->row.atom  = answers->current;
   answers->row.text  = answers->current_text;
   answers->row.group = answers->current_group;
@@ -2716,8 +3850,12 @@ mt_list mt_all(mt_answers *answers)
   if ( !answers ) return out;
   while ( (found = mt_next(answers)) != NULL )
   { if ( out.len == cap )
-    { size_t grown_cap = cap ? cap * 2 : 8;
-      mt_atom **grown = realloc(out.items, grown_cap * sizeof(*grown));
+    { size_t grown_cap, bytes;
+      mt_atom **grown;
+      if ( !next_capacity(cap, 8, sizeof(*grown), &grown_cap, &bytes) )
+        grown = NULL;
+      else
+        grown = realloc(out.items, bytes);
       if ( !grown )
       { mt_list_free(out);
         mt_answers_free(answers);
@@ -2751,9 +3889,10 @@ void mt_list_free(mt_list list)
    This is one variable's half of the directional match the Python seat spells
    `unify(pattern, atom)`, whose documented reconstruction is
    `substitute(pattern, unify(pattern, atom))`
-   [source: extensions/python/metta/atoms.py, _match/unify]. Narrower on
-   purpose: a caller asking for one name does not need the whole binding set
-   built to be handed one term out of it. */
+   [source: extensions/python/metta/atoms.py, _match/unify;
+   commit=e927fffde3a19d9927892bf64a7fc6202b866ae0].
+   Narrower on purpose: a caller asking for one answer-row name does not need
+   the whole mt_unify() binding set built to be handed one term out of it. */
 static size_t shorter_of(const mt_atom *a, const mt_atom *b)
 { return a->u.e.n < b->u.e.n ? a->u.e.n : b->u.e.n;
 }
@@ -2819,7 +3958,13 @@ void mt_answers_free(mt_answers *answers)
   mt_drop(answers->pattern);
 
   if ( answers->lazy )
-  { if ( g_open )
+  { /* SWI resets flag/3 state at PL_cleanup(), so the first cursor after a
+       restart may reuse the old runtime's numeric id. The generation is the
+       other half of the handle: an old C cursor can release its own memory,
+       but cannot close a new runtime's engine
+       [tested: test_cursor_ids_are_monotone_and_constant_cost;
+       commit=b5ddebe73273447caa7c57212d6ee86fc71e0d4a]. */
+    if ( g_open && answers->generation == g_runtime.generation )
     { fid_t f = frame_open("mt_answers_free");
       term_t av = f ? PL_new_term_refs(1) : 0;
       if ( av && PL_put_int64(av, answers->cursor_id) )
@@ -2829,12 +3974,10 @@ void mt_answers_free(mt_answers *answers)
     clear_current(answers);
   } else
   { for (i = 0; i < answers->n; i++)
-    { mt_drop(answers->rows[i]);
-      free(answers->texts[i]);
+    { mt_drop(answers->items[i].atom);
+      free(answers->items[i].text);
     }
-    free(answers->rows);
-    free(answers->texts);
-    free(answers->groups);
+    free(answers->items);
   }
   free(answers);
 }
@@ -2845,18 +3988,11 @@ void mt_answers_free(mt_answers *answers)
 
 bool mt_limit(metta *runtime, mt_limits limits)
 { if ( !handle_ready(runtime, "mt_limit") ) return false;
+  if ( !set_prolog_size_flag("stack_limit",
+                             limits.stack_bytes ? limits.stack_bytes
+                                                : runtime->initial_stack_bytes) )
+    return false;
   runtime->limits = limits;
-
-  if ( runtime->limits.stack_bytes )
-  { char goal_text[96];
-    snprintf(goal_text, sizeof(goal_text),
-             "set_prolog_flag(stack_limit, %zu)", runtime->limits.stack_bytes);
-    if ( !goal(goal_text) )
-    { err_set(MT_ERROR, "the stack ceiling %zu was refused",
-              runtime->limits.stack_bytes);
-      return false;
-    }
-  }
   return true;
 }
 
@@ -2878,13 +4014,72 @@ mt_limits mt_limits_of(const metta *runtime)
  * Measuring
  * ================================================================== */
 
+static bool number_as_double(term_t term, double *value)
+{ int64_t signed_value;
+  uint64_t unsigned_value;
+
+  if ( PL_get_float(term, value) ) return true;
+  if ( PL_get_int64(term, &signed_value) )
+  { *value = (double)signed_value;
+    return true;
+  }
+  if ( PL_get_uint64(term, &unsigned_value) )
+  { *value = (double)unsigned_value;
+    return true;
+  }
+  return false;
+}
+
+static bool decode_stats(term_t list, mt_stats *out)
+{ term_t head = PL_new_term_ref();
+  term_t tail = PL_copy_term_ref(list);
+  uint64_t integers[4];
+  double times[2];
+  size_t i;
+
+  if ( !head || !tail )
+  { err_set(MT_NOMEM, "out of memory decoding the engine counters");
+    return false;
+  }
+  for (i = 0; i < 6; i++)
+  { if ( !PL_get_list(tail, head, tail) )
+    { err_set(MT_ERROR,
+              "the engine answered %zu counters where six were expected", i);
+      return false;
+    }
+    if ( i == 1 || i == 4 )
+    { size_t time_index = i == 1 ? 0 : 1;
+      if ( !number_as_double(head, &times[time_index]) )
+      { err_set(MT_ERROR, "engine counter %zu was not numeric", i + 1);
+        return false;
+      }
+    } else
+    { size_t integer_index = i == 0 ? 0 : i == 2 ? 1 : i == 3 ? 2 : 3;
+      if ( !PL_get_uint64(head, &integers[integer_index]) )
+      { err_set(MT_ERROR,
+                "engine counter %zu was not an unsigned integer", i + 1);
+        return false;
+      }
+    }
+  }
+  if ( !PL_get_nil(tail) )
+  { err_set(MT_ERROR, "the engine answered more than six counters");
+    return false;
+  }
+  out->inferences = integers[0];
+  out->cputime = times[0];
+  out->gc_count = integers[1];
+  out->gc_freed = integers[2];
+  out->gc_time = times[1] / 1000.0;
+  out->table_bytes = integers[3];
+  return true;
+}
+
 mt_stats mt_stats_now(metta *runtime)
 { fid_t f;
-  term_t av, head, tail;
+  term_t av;
   mt_status status;
-  double values[6] = {0, 0, 0, 0, 0, 0};
   mt_stats out = {0, 0, 0, 0, 0, 0};
-  size_t i = 0;
 
   if ( !handle_ready(runtime, "mt_stats_now") ) return out;
   if ( !(f = frame_open("mt_stats_now")) ) return out;
@@ -2892,29 +4087,9 @@ mt_stats mt_stats_now(metta *runtime)
   av = PL_new_term_refs(1);
   status = av ? call_bridge("metta_c_stats", 1, av)
               : err_set(MT_NOMEM, "out of memory sampling the counters");
-  if ( status == MT_OK )
-  { head = PL_new_term_ref();
-    tail = PL_copy_term_ref(av);
-    while ( i < 6 && PL_get_list(tail, head, tail) )
-    { int64_t whole;
-      if ( PL_get_int64(head, &whole) ) values[i] = (double)whole;
-      else if ( !PL_get_float(head, &values[i]) ) values[i] = 0;
-      i++;
-    }
-    if ( i < 6 )
-      status = err_set(MT_ERROR,
-                       "the engine answered %zu counters where six were "
-                       "expected", i);
-  }
+  if ( status == MT_OK && !decode_stats(av, &out) ) status = MT_ERROR;
   PL_discard_foreign_frame(f);
   if ( status != MT_OK ) return out;
-
-  out.inferences  = (uint64_t)values[0];
-  out.cputime     = values[1];
-  out.gc_count    = (uint64_t)values[2];
-  out.gc_freed    = (uint64_t)values[3];
-  out.gc_time     = values[4] / 1000.0;   /* the engine reports milliseconds */
-  out.table_bytes = (uint64_t)values[5];
   return out;
 }
 
@@ -2928,6 +4103,148 @@ mt_stats mt_stats_since(mt_stats before, mt_stats after)
   spent.table_bytes = after.table_bytes - before.table_bytes;
   return spent;
 }
+
+#ifdef MT_TEST_FAULTS
+/* Fault-library probes exercise engine terms that the public bridge cannot
+   honestly produce. They keep invalid fixtures out of the installed surface
+   while testing the conversion helpers themselves. */
+static int test_handle_write(IOSTREAM *stream, atom_t atom, int flags)
+{ (void)atom;
+  (void)flags;
+  Sfprintf(stream, "<cmetta-test-handle>");
+  return TRUE;
+}
+
+static PL_blob_t test_handle_blob =
+{ .magic = PL_BLOB_MAGIC,
+  .flags = PL_BLOB_UNIQUE,
+  .name  = "cmetta_test_handle",
+  .write = test_handle_write
+};
+
+/* Construct somebody else's real SWI blob inside the fault library, decode it
+   through the MT_HANDLE branch, then prove its printed name cannot be encoded
+   as though it were the engine value. No public constructor is invented for a
+   native value C cannot itself own.
+   [tested: tests/test_internal_contracts.c,
+   test_native_handle_decode_and_encode_contract;
+   commit=1156a16d24228f183466264ba51f9086ce435266] */
+bool mt_test_native_handle_codec_is_guarded(void)
+{ static const unsigned payload = UINT32_C(0xc0decafe);
+  fid_t frame = frame_open("testing a native engine handle");
+  term_t encoded, destination;
+  mt_atom *decoded = NULL;
+  bool guarded = false;
+
+  if ( !frame ) return false;
+  encoded = PL_new_term_ref();
+  destination = PL_new_term_ref();
+  if ( !encoded || !destination ||
+       !PL_put_blob(encoded, (void *)&payload, sizeof(payload),
+                    &test_handle_blob) )
+    goto done;
+  decoded = decode(encoded, 0);
+  if ( !decoded || decoded->kind != MT_HANDLE ||
+       strcmp(decoded->u.t.text, "<cmetta-test-handle>") != 0 )
+    goto done;
+  mt_clear();
+  guarded = !put_atom(decoded, destination) &&
+            mt_error() == MT_UNSUPPORTED && mt_errmsg() &&
+            strstr(mt_errmsg(), "cannot be sent back by its printed form");
+done:
+  mt_drop(decoded);
+  frame_close(frame);
+  return guarded;
+}
+
+bool mt_test_improper_apply_is_rejected(void)
+{ fid_t f = frame_open("testing an improper apply list");
+  term_t callable, args, head, tail, result;
+  char *text = NULL;
+  bool rejected = false;
+
+  if ( !f ) return false;
+  callable = PL_new_term_ref();
+  args = PL_new_term_ref();
+  head = PL_new_term_ref();
+  tail = PL_new_term_ref();
+  result = PL_new_term_ref();
+  if ( callable && args && head && tail && result &&
+       PL_put_atom_chars(head, "head") && PL_put_atom_chars(tail, "not_a_list") &&
+       PL_cons_list(args, head, tail) &&
+       pl_cmetta_apply(callable, args, result) == FALSE )
+  { term_t exception = PL_exception(0);
+    if ( exception )
+    { text = term_text(exception, CVT_WRITE, NULL);
+      rejected = text && strstr(text, "type_error(list") != NULL;
+      PL_clear_exception();
+    }
+  }
+  free(text);
+  frame_close(f);
+  return rejected;
+}
+
+bool mt_test_negative_count_is_rejected(void)
+{ fid_t f = frame_open("testing a negative space count");
+  term_t value;
+  size_t count = 0;
+  bool rejected;
+
+  if ( !f ) return false;
+  value = PL_new_term_ref();
+  rejected = value && PL_put_int64(value, -1) &&
+             !space_count_value(value, &count);
+  frame_close(f);
+  return rejected;
+}
+
+bool mt_test_large_stats_are_exact(void)
+{ static const uint64_t first = UINT64_C(9007199254740993);
+  static const uint64_t last = UINT64_C(9007199254740995);
+  fid_t f = frame_open("testing exact large counters");
+  term_t list, head, tail;
+  mt_stats stats = {0};
+  bool ok = false;
+  int i;
+
+  if ( !f ) return false;
+  list = PL_new_term_ref();
+  head = PL_new_term_ref();
+  tail = PL_new_term_ref();
+  if ( !list || !head || !tail || !PL_put_nil(list) ) goto done;
+  for (i = 5; i >= 0; i--)
+  { bool put = i == 0 ? PL_put_uint64(head, first)
+             : i == 1 ? PL_put_float(head, 1.5)
+             : i == 2 ? PL_put_uint64(head, 7)
+             : i == 3 ? PL_put_uint64(head, 9)
+             : i == 4 ? PL_put_float(head, 2.0)
+                      : PL_put_uint64(head, last);
+    if ( !put || !PL_put_term(tail, list) ||
+         !PL_cons_list(list, head, tail) )
+      goto done;
+  }
+  ok = decode_stats(list, &stats) && stats.inferences == first &&
+       stats.table_bytes == last && stats.gc_count == 7 &&
+       stats.gc_freed == 9 && stats.cputime == 1.5 &&
+       stats.gc_time == 0.002;
+done:
+  frame_close(f);
+  return ok;
+}
+
+bool mt_test_decode_growth_overflow_is_rejected(void)
+{ decode_frame frame = { .kids = NULL, .n = SIZE_MAX, .cap = SIZE_MAX,
+                         .tail = 0 };
+  return !decode_frame_add(&frame, NULL);
+}
+
+size_t mt_test_stack_limit(void)
+{ size_t value = 0;
+  (void)prolog_size_flag("stack_limit", &value);
+  return value;
+}
+#endif
 
 /* ================================================================== *
  * Publishing C functions

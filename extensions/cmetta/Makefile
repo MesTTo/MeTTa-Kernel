@@ -22,6 +22,11 @@
 #   boots with no environment set, and $METTA_PATH still overrides it at run
 #   time. A checkout that moves needs a rebuild, which is the same bargain
 #   setup.py makes when it copies the runtime into the Python wheel.
+#   Every ordinary build treats warnings as errors, refuses undefined shared-
+#   library symbols, and emits stack-protected full-RELRO objects. `make
+#   sanitize` rebuilds in root ai-tmp so sanitizer and ordinary objects never
+#   contaminate one another [tested: make -C extensions/cmetta sanitize;
+#   commit=b339084bb5625996fc88a31608d48ad31c575d1f].
 
 SWIPL       ?= swipl
 PLBASE      := $(shell $(SWIPL) --dump-runtime-variables 2>/dev/null | sed -n 's/^PLBASE="\(.*\)";$$/\1/p')
@@ -52,14 +57,22 @@ endif
 
 CC      ?= cc
 CFLAGS  ?= -O2 -g
-CFLAGS  += -std=c11 -Wall -Wextra -Wpedantic -fPIC -I. -I$(PLBASE)/include \
-           -DMT_ENGINE_PATH='"$(ENGINE_PATH)"'
-LDFLAGS += -L$(PLLIBDIR) -Wl,-rpath,$(PLLIBDIR)
+CFLAGS  += -std=c11 -Wall -Wextra -Wpedantic -Werror -fPIC \
+           -D_FORTIFY_SOURCE=2 -fstack-protector-strong \
+           -I. -I$(PLBASE)/include -DMT_ENGINE_PATH='"$(ENGINE_PATH)"'
+LDFLAGS += -L$(PLLIBDIR) -Wl,-rpath,$(PLLIBDIR) -Wl,-z,defs \
+           -Wl,-z,relro,-z,now
 LDLIBS  += -lswipl
 
 LIB       := libcmetta.so
+FAULT_LIB := tests/libcmetta_fault.so
 EXAMPLES  := examples/hello examples/ops examples/stream examples/lower
-TESTS     := tests/test_cmetta
+FAULT_TESTS := tests/test_alloc_failure tests/test_cursor_ids tests/test_reopen \
+               tests/test_internal_contracts tests/test_hash
+THREAD_TESTS := tests/test_threads
+TESTS     := tests/test_cmetta tests/test_bad_boot tests/test_quoted_path \
+             tests/test_batch_add tests/test_unify $(FAULT_TESTS) \
+             $(THREAD_TESTS)
 KIT       := kit/driver
 BENCH     := benchmarks/cases
 
@@ -91,8 +104,8 @@ SOVERSION := 0
 SOFILE    := libcmetta.so.$(VERSION)
 SONAME    := libcmetta.so.$(SOVERSION)
 
-.PHONY: all test bench examples kit surface docs version install uninstall \
-        install-check clean FORCE
+.PHONY: all test bench examples kit surface docs version hardening sanitize \
+        install uninstall install-check clean FORCE
 
 kit: $(KIT)
 
@@ -105,6 +118,10 @@ all: $(LIB) examples $(KIT) $(BENCH)
 
 $(LIB): cmetta.c cmetta.h
 	$(CC) $(CFLAGS) -shared -o $@ cmetta.c $(LDFLAGS) $(LDLIBS)
+
+$(FAULT_LIB): cmetta.c cmetta.h
+	$(CC) $(CFLAGS) -DMT_TEST_FAULTS -shared -o $@ cmetta.c \
+	    $(LDFLAGS) $(LDLIBS)
 
 examples: $(EXAMPLES)
 
@@ -119,6 +136,14 @@ benchmarks/%: benchmarks/%.c $(LIB)
 
 tests/%: tests/%.c $(LIB)
 	$(CC) $(CFLAGS) -o $@ $< -L. -Wl,-rpath,$(CURDIR) -lcmetta $(LDFLAGS) $(LDLIBS) -lm
+
+$(FAULT_TESTS): %: %.c $(FAULT_LIB)
+	$(CC) $(CFLAGS) -DMT_TEST_FAULTS -o $@ $< -Ltests \
+	    -Wl,-rpath,$(CURDIR)/tests -lcmetta_fault $(LDFLAGS) $(LDLIBS) -lm
+
+$(THREAD_TESTS): %: %.c $(LIB)
+	$(CC) $(CFLAGS) -o $@ $< -pthread -L. -Wl,-rpath,$(CURDIR) \
+	    -lcmetta $(LDFLAGS) $(LDLIBS) -lm
 
 # Every MT_API declaration must have a definition in the library. A header and
 # an implementation drift apart silently: an edit that removes a function
@@ -159,8 +184,25 @@ docs:
 # The examples run too. An example that no longer compiles, or that compiles
 # and then fails, is documentation that lies, and the README quotes all four
 # directly. The Python seat gates its examples for the same reason.
-test: $(TESTS) $(EXAMPLES) surface docs
+test: $(TESTS) $(EXAMPLES) $(KIT) surface docs version hardening
 	@./tests/test_cmetta
+	@./tests/test_bad_boot
+	@set -e; \
+	fixture="$(abspath ../../ai-tmp)/cmetta-path-o'brien-unicodé-$$$$"; \
+	mkdir -p "$(abspath ../../ai-tmp)"; \
+	trap 'rm -f "$$fixture"' 0 1 2 15; \
+	rm -f "$$fixture"; \
+	ln -s "$(ENGINE_PATH)" "$$fixture"; \
+	CMETTA_TEST_ENGINE_PATH="$$fixture" ./tests/test_quoted_path
+	@./tests/test_alloc_failure
+	@./tests/test_cursor_ids
+	@./tests/test_reopen
+	@./tests/test_internal_contracts
+	@./tests/test_batch_add
+	@./tests/test_unify
+	@./tests/test_hash
+	@./tests/test_threads
+	@python3 ./tests/test_kit.py ./kit/driver "$(abspath ../../ai-tmp)"
 	@for example in $(EXAMPLES); do \
 	    ./$$example > /dev/null || { echo "$$example failed" >&2; exit 1; }; \
 	    echo "$$example ok"; \
@@ -179,6 +221,23 @@ version: $(LIB)
 they name the same release and must agree" >&2; exit 1; \
 	fi; \
 	echo "version: $(VERSION), and mt_version() agrees"
+
+# These are link properties, so ask the linked object rather than trusting the
+# flags above. Both are cheap and stay in the ordinary test dependency graph.
+hardening: $(LIB) $(FAULT_LIB)
+	@for library in $(LIB) $(FAULT_LIB); do \
+	    readelf -lW $$library | grep -q 'GNU_RELRO' || { \
+	        echo "$$library has no GNU_RELRO segment" >&2; exit 1; }; \
+	    readelf -dW $$library | grep -Eq 'BIND_NOW|FLAGS.*NOW' || { \
+	        echo "$$library does not request immediate binding" >&2; exit 1; }; \
+	done
+	@echo "hardening: GNU_RELRO and BIND_NOW on both shared libraries"
+
+# AddressSanitizer cannot model SWI's private stacks. UBSan and standalone
+# LeakSanitizer can, and sanitize.sh keeps their differently instrumented
+# objects outside this directory so no target can silently reuse the wrong one.
+sanitize:
+	@sh ./sanitize.sh
 
 # The installed library is a DIFFERENT build: it bakes the installed engine's
 # path rather than this checkout's, so a program linked against it boots
@@ -212,7 +271,7 @@ cmetta.pc: Makefile
 	    'URL: https://github.com/MesTTo/MeTTa-Kernel' \
 	    'Version: $(VERSION)' \
 	    'Libs: -L$${libdir} -lcmetta' \
-	    'Cflags: -I$${includedir}' > $@
+	    'Cflags: -I$${includedir} -std=c11' > $@
 
 # The engine tree, its libraries, and this seat's own control file, which is
 # what the engine globs to find the C bridge. The .qlf files are NOT installed:
@@ -260,7 +319,7 @@ install-check:
 	@cd build/install-check && \
 	    export PKG_CONFIG_PATH=$(CURDIR)/build/install-check/lib/pkgconfig && \
 	    flags=$$(pkg-config --cflags --libs cmetta) && \
-	    $(CC) -std=c11 -o consumer $(CURDIR)/tests/install_consumer.c $$flags \
+	    $(CC) -o consumer $(CURDIR)/tests/install_consumer.c $$flags \
 	        -Wl,-rpath,$(CURDIR)/build/install-check/lib $(LDFLAGS) $(LDLIBS)
 	@answer=$$(env -u METTA_PATH ./build/install-check/consumer); \
 	if [ "$$answer" != "5" ]; then \
@@ -269,7 +328,7 @@ install-check:
 	@echo "install-check: a consumer outside this checkout booted the installed engine"
 
 clean:
-	rm -f $(LIB) $(SOFILE) cmetta.pc .enginedir-stamp \
+	rm -f $(LIB) $(FAULT_LIB) $(SOFILE) cmetta.pc .enginedir-stamp \
 	      .version-probe .version-probe.c \
 	      $(EXAMPLES) $(TESTS) $(KIT) $(BENCH)
 	rm -rf build/install-check
