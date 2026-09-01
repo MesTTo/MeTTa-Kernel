@@ -19,7 +19,7 @@ Guarantees:
     shape reports nothing [tested: this file is its own test, run by the gate]
   - the real sheets are read by the lane itself, never edited here, so a
     planted fault cannot race the lane reading the shipped file [tested:
-    tests/checks/check_llms_names.py; commit=WORKTREE]
+    tests/checks/check_llms_names.py; commit=c6a40460b1db341198a6150e3600f502831a6e83]
 Open Obligations:
   To Do: None
   Hacks: None
