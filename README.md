@@ -28,31 +28,6 @@ Python library alone. Both are written to be read once and used, with exact
 return shapes and no prose you have to guess at, and a gate checks their
 names against the live engine.
 
-## Why "kernel"
-
-Because the point is what plugs into it. Integration runs along three axes,
-and a thing you want to use lands on one of them rather than needing a fork:
-
-**Lower it.** Host code BECOMES equations. `@m.define` compiles a Python body
-into MeTTa the engine can read, specialise and match on, and a translator
-rule adds syntax that costs nothing at run time.
-
-**Extend it.** The engine CALLS your code. A Python function, a Prolog
-predicate, a C foreign predicate or a reader token class each become an
-ordinary MeTTa function or literal, priced from 0.02 to 3.87 microseconds a
-call depending on how far the value travels.
-
-**Back it.** The atoms LIVE somewhere else. A space is an interface, so
-SQLite, DuckDB, NetworkX, a live Python object, another process or a whole
-`&mork` store can BE a space, and a query against one joins with a native
-one.
-
-The third is the one people underestimate, and it is the smallest: a space is
-an INTERFACE, so anything that can list its atoms is one. [Spaces backed by
-anything](#spaces-backed-by-anything) below is the whole of it — a class, one
-method, and a SQL table or a dataframe or a service answers `match` like a
-native space and joins with one.
-
 ## What it does that a library cannot
 
 A function you wrote forwards runs backwards. `solve` takes the answer and
@@ -101,98 +76,6 @@ assert "(price apple)" in heads           # the program can read itself
 
 Everything below builds on those three: the space holds both the facts and the
 program, evaluation is matching, and nothing is closed to inspection.
-
-## A motivating example
-
-In 1986 Swanson found that fish oil might treat Raynaud's syndrome. No paper
-said so. One literature reported that fish oil lowers blood viscosity; another,
-which did not cite the first, reported that raised blood viscosity aggravates
-Raynaud's. The conclusion followed from the two together, was stated by
-neither, and went unnoticed partly because the two literatures did not share
-vocabulary.
-
-That problem needs both halves of a neurosymbolic system, which is why it is
-the example. This is `extensions/python/examples/reasoning/literature_discovery.py`,
-which the gate runs:
-
-```python
-import torch
-from metta import TRUE, G, S, V, counting, prov, space
-from metta.arrays import EmbeddingStore
-
-m = space()
-
-# Two literatures that never cite each other, and a red herring. Each claim
-# carries the paper it came from. Nothing here states a conclusion.
-for paper, agent, verb, target in [
-    ("p1", "omega-3", "lowers", "blood-viscosity"),
-    ("p2", "blood-viscosity", "aggravates", "raynaud"),
-    ("p4", "omega-3", "lowers", "platelet-aggregation"),
-    ("p5", "platelet-aggregation", "aggravates", "raynaud"),
-    ("p3", "aspirin", "lowers", "inflammation"),
-]:
-    m.add_tagged_fact(S[paper], S.reports(S[agent], S[verb], S[target]))
-
-# Swanson's ABC rule, tagged like any other source.
-m.add_tagged_rule(
-    S.abc,
-    S.suggests(V.agent, V.condition),
-    S.reports(V.agent, S.lowers, V.factor),
-    S.reports(V.factor, S.aggravates, V.condition),
-)
-
-TERMS = {"omega-3": [0.90, 0.10, 0.0], "fish-oil": [0.88, 0.16, 0.0],
-         "aspirin": [0.10, 0.90, 0.0], "blood-viscosity": [0.0, 0.10, 0.90]}
-store = EmbeddingStore(m, name="terms", mirror=False)
-for term, vector in TERMS.items():
-    store.add(S[term], torch.tensor(vector))
-
-class Like:
-    """Unifies with whatever the embedding puts within `floor`. `match_` is the
-    whole interface: no registration, and it composes with `unify`."""
-    def __init__(self, key, floor=0.95):
-        self.key, self.floor = key, floor
-    def match_(self, other):
-        for key, score in store.ranked(self.key, len(TERMS)):
-            if str(key) == str(other) and float(score) >= self.floor:
-                yield other
-
-near_fish_oil = S.unify(G(Like(S.fish_oil)), V.agent, TRUE, S.superpose(()))
-
-# Symbolically there is nothing. No paper contains the phrase.
-assert m.match(S.reports(S.fish_oil, S.lowers, V.factor)).to_dicts() == []
-
-# The same corpus, asked with a term the embedding can place. The join is the
-# engine's; deciding that fish-oil IS omega-3 is the tensor's.
-found = m.match(S.suggests(V.agent, S.raynaud), where=near_fish_oil, under=prov).one()
-assert str(found.value) == "(suggests omega-3 raynaud)"
-
-# How much independent support? The same question under a different algebra.
-assert m.match(S.suggests(S["omega-3"], S.raynaud), under=counting).one() == 2
-
-# Which papers? A provenance polynomial: `times` is joint use, `plus` is an
-# alternative derivation. Read it as "the rule with p1 and p2, or with p4 and p5".
-assert str(found.annotation) == (
-    "(plus (times (times abc p1) p2) (times (times abc p4) p5))"
-)
-assert all(name in found.why().render() for name in ("abc", "p1", "p2", "p4", "p5"))
-```
-
-The answer is not a plausible sentence. It is a derivation naming `abc`, `p1`
-and `p2`, which a reader can go and check.
-
-And the evidence is algebra rather than bookkeeping. The same question under
-`counting` says how many independent literature paths support the hypothesis;
-under `prov` it says which papers, as a polynomial. Neither costs a line of
-tracking code, because tags compose through the join the way the join composes
-[Green, Karvounarakis and Tannen, *Provenance semirings*, PODS 2007].
-
-Neither half of this works alone. A language model does not do reliable
-multi-hop chaining and cannot show its working; a symbolic prover cannot cross
-a vocabulary gap where two names share nothing but their meaning. The embedding
-decides what unifies, the engine decides what follows, and the answer carries
-its own citations. The neural gate, the tagged rule and the semiring are all in
-that one query, and none of them is a plugin: they are the same seam.
 
 ## Three axes
 
@@ -428,6 +311,98 @@ python -m metta lint program.metta       # nonzero exit on findings
 python -m metta doc car-atom
 ```
 
+## A motivating example
+
+In 1986 Swanson found that fish oil might treat Raynaud's syndrome. No paper
+said so. One literature reported that fish oil lowers blood viscosity; another,
+which did not cite the first, reported that raised blood viscosity aggravates
+Raynaud's. The conclusion followed from the two together, was stated by
+neither, and went unnoticed partly because the two literatures did not share
+vocabulary.
+
+That problem needs both halves of a neurosymbolic system, which is why it is
+the example. This is `extensions/python/examples/reasoning/literature_discovery.py`,
+which the gate runs:
+
+```python
+import torch
+from metta import TRUE, G, S, V, counting, prov, space
+from metta.arrays import EmbeddingStore
+
+m = space()
+
+# Two literatures that never cite each other, and a red herring. Each claim
+# carries the paper it came from. Nothing here states a conclusion.
+for paper, agent, verb, target in [
+    ("p1", "omega-3", "lowers", "blood-viscosity"),
+    ("p2", "blood-viscosity", "aggravates", "raynaud"),
+    ("p4", "omega-3", "lowers", "platelet-aggregation"),
+    ("p5", "platelet-aggregation", "aggravates", "raynaud"),
+    ("p3", "aspirin", "lowers", "inflammation"),
+]:
+    m.add_tagged_fact(S[paper], S.reports(S[agent], S[verb], S[target]))
+
+# Swanson's ABC rule, tagged like any other source.
+m.add_tagged_rule(
+    S.abc,
+    S.suggests(V.agent, V.condition),
+    S.reports(V.agent, S.lowers, V.factor),
+    S.reports(V.factor, S.aggravates, V.condition),
+)
+
+TERMS = {"omega-3": [0.90, 0.10, 0.0], "fish-oil": [0.88, 0.16, 0.0],
+         "aspirin": [0.10, 0.90, 0.0], "blood-viscosity": [0.0, 0.10, 0.90]}
+store = EmbeddingStore(m, name="terms", mirror=False)
+for term, vector in TERMS.items():
+    store.add(S[term], torch.tensor(vector))
+
+class Like:
+    """Unifies with whatever the embedding puts within `floor`. `match_` is the
+    whole interface: no registration, and it composes with `unify`."""
+    def __init__(self, key, floor=0.95):
+        self.key, self.floor = key, floor
+    def match_(self, other):
+        for key, score in store.ranked(self.key, len(TERMS)):
+            if str(key) == str(other) and float(score) >= self.floor:
+                yield other
+
+near_fish_oil = S.unify(G(Like(S.fish_oil)), V.agent, TRUE, S.superpose(()))
+
+# Symbolically there is nothing. No paper contains the phrase.
+assert m.match(S.reports(S.fish_oil, S.lowers, V.factor)).to_dicts() == []
+
+# The same corpus, asked with a term the embedding can place. The join is the
+# engine's; deciding that fish-oil IS omega-3 is the tensor's.
+found = m.match(S.suggests(V.agent, S.raynaud), where=near_fish_oil, under=prov).one()
+assert str(found.value) == "(suggests omega-3 raynaud)"
+
+# How much independent support? The same question under a different algebra.
+assert m.match(S.suggests(S["omega-3"], S.raynaud), under=counting).one() == 2
+
+# Which papers? A provenance polynomial: `times` is joint use, `plus` is an
+# alternative derivation. Read it as "the rule with p1 and p2, or with p4 and p5".
+assert str(found.annotation) == (
+    "(plus (times (times abc p1) p2) (times (times abc p4) p5))"
+)
+assert all(name in found.why().render() for name in ("abc", "p1", "p2", "p4", "p5"))
+```
+
+The answer is not a plausible sentence. It is a derivation naming `abc`, `p1`
+and `p2`, which a reader can go and check.
+
+And the evidence is algebra rather than bookkeeping. The same question under
+`counting` says how many independent literature paths support the hypothesis;
+under `prov` it says which papers, as a polynomial. Neither costs a line of
+tracking code, because tags compose through the join the way the join composes
+[Green, Karvounarakis and Tannen, *Provenance semirings*, PODS 2007].
+
+Neither half of this works alone. A language model does not do reliable
+multi-hop chaining and cannot show its working; a symbolic prover cannot cross
+a vocabulary gap where two names share nothing but their meaning. The embedding
+decides what unifies, the engine decides what follows, and the answer carries
+its own citations. The neural gate, the tagged rule and the semiring are all in
+that one query, and none of them is a plugin: they are the same seam.
+
 ## TypeScript
 
 `extensions/node/` runs the engine inside Node over WebAssembly, so no
@@ -510,6 +485,32 @@ atom-vector spaces come from a MeTTa library the engine fetches on request:
 ```metta
 !(git-import! "https://github.com/patham9/faiss_ffi" "build.sh")
 ```
+
+## Why "kernel"
+
+Because the point is what plugs into it. Anything you want to use lands on
+one of three seams rather than needing a fork. (Not to be confused with the
+three axes above, which are the choices a single crossing makes.)
+
+**Lower it.** Host code BECOMES equations. `@m.define` compiles a Python body
+into MeTTa the engine can read, specialise and match on, and a translator
+rule adds syntax that costs nothing at run time.
+
+**Extend it.** The engine CALLS your code. A Python function, a Prolog
+predicate, a C foreign predicate or a reader token class each become an
+ordinary MeTTa function or literal, priced from 0.02 to 3.87 microseconds a
+call depending on how far the value travels.
+
+**Back it.** The atoms LIVE somewhere else. A space is an interface, so
+SQLite, DuckDB, NetworkX, a live Python object, another process or a whole
+`&mork` store can BE a space, and a query against one joins with a native
+one.
+
+The third is the one people underestimate, and it is the smallest: a space is
+an INTERFACE, so anything that can list its atoms is one. [Spaces backed by
+anything](#spaces-backed-by-anything) below is the whole of it — a class, one
+method, and a SQL table or a dataframe or a service answers `match` like a
+native space and joins with one.
 
 ## What the examples show
 

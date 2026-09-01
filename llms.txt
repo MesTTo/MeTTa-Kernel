@@ -168,7 +168,7 @@ column. Both keep `cls` for type checkers.
 `m.batch()` collects `add()` calls and crosses once at exit.
 `m.limits(timeout=, inferences=)` sets scoped defaults for every call inside.
 
-## The three axes of integration
+## The three seams anything plugs into
 
 It is a KERNEL because the point is what plugs into it. **Lower it**: host
 code becomes equations (`@m.define`, translator rules). **Extend it**: the
