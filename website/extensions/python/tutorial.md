@@ -22,7 +22,7 @@ Here is a whole program. It installs a rewrite and runs it, stores three facts,
 and joins two patterns across them.
 
 ```python
-from metta import MeTTa, S, V
+from metta import MeTTa, S, V, equation
 
 m = MeTTa().space()
 
@@ -168,7 +168,7 @@ def triple(x: int) -> int:
     return x * 3
 
 m.eval(S.triple(7))                              # [Grounded(21)]
-len(m.match(S["="](S.triple(V.x), V.body)))      # 1
+len(m.match(equation(S.triple(V.x)).to(V.body)))  # 1
 ```
 
 The second line is the point. The definition became an ordinary `(= (triple $x)

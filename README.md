@@ -194,16 +194,16 @@ The program is data. An equation is an atom, so adding one at run time changes
 what the program means, and the equations are queryable like anything else:
 
 ```python
-from metta import S, V, space
+from metta import S, V, equation, space
 
 m = space()
-m.add(S["="](S.price(V.x), 10))           # an equation is an atom you add
+m.add(equation(S.price(V.x)).to(10))      # an equation is an atom you add
 assert m.eval(S.price(S.apple)) == [10]
 
-m.add(S["="](S.price(S.apple), 3))        # a second one, at run time
+m.add(equation(S.price(S.apple)).to(3))   # a second one, at run time
 assert sorted(a.value for a in m.eval(S.price(S.apple))) == [3, 10]
 
-heads = {str(row.head) for row in m.match(S["="](V.head, V.body))}
+heads = {str(row.head) for row in m.match(equation(V.head).to(V.body))}
 assert "(price apple)" in heads           # the program can read itself
 ```
 
@@ -225,26 +225,29 @@ body lives decides whether Python runs at all. What it may observe decides
 whether the engine may cache it.
 
 ```python
+import statistics
+
 from metta import space
 
 m = space()
 
-# CALLED: the body stays Python and the engine calls it. The decorator says
-# what it may observe, which is the only thing the engine cannot see for
-# itself.
-@m.pure
-def called(x: int) -> int:
-    return x + 1
+# CALLED: the body stays Python and the engine calls it, so a Python library
+# is simply in scope. The decorator says what it may observe, the one thing
+# the engine cannot see for itself; transport="raw" hands it Python values.
+@m.pure(transport="raw")
+def spread(values) -> float:
+    return statistics.pstdev(values)
 
-# LOWERED: the body becomes MeTTa equations. No Python at run time, and no
-# effect to declare, because now the engine can read the code.
+# LOWERED: the body BECOMES equations. No Python at run time and no effect to
+# declare, because now the engine can read the code -- a comprehension is
+# MeTTa's own filter-atom and map-atom, written the way Python writes them.
 @m.define
-def lowered(x):
-    return x + 1
+def loud(readings, limit: int):
+    return [value for value in readings if value > limit]
 
-assert list(m.fn.called(41)) == [42]
-assert lowered(41) == [42]
-assert lowered.effect == "pureStructural"      # derived, not declared
+assert list(m.fn.spread([1, 2, 3, 4]))[0].value == statistics.pstdev([1, 2, 3, 4])
+assert str(loud((7, 12, 30), 10)[0]) == "(12 30)"
+assert loud.effect == "pureStructural"         # derived, not declared
 ```
 
 Four decorators, ordered, each admitting everything below it. Only `pure` may
@@ -306,21 +309,21 @@ The engine runs on its own thread and every door is awaitable.
 
 ```python
 import metta
-from metta import G, S, space
+from metta import S, V, space
 
 m = space()
-
-# Branches on real threads. The answers come back as a list, so `collapse` has
-# nothing to do here and the order is not fixed.
-assert sorted(a.value for a in m.parallel(G(1) + 1, G(2) + 2)) == [2, 4]
+m += [(S.Reading, S.north, 12), (S.Reading, S.south, 30)]
 
 @m.define
-def double(x):
-    return 2 * x
+def above(limit: int) -> int:
+    return len(m.match(S.Reading(V.site, V.value), where=S[">="](V.value, limit)))
 
-# A parallel MAP is a different promise: it keeps the input's order, where
-# the fan-out above answers in completion order.
-assert str(m.eval(metta.par_map(S.double, (1, 2, 3)))[0]) == "(2 4 6)"
+# Branches run on real threads over the one shared space, and answer in
+# COMPLETION order, so `collapse` has nothing to do here.
+assert sorted(a.value for a in m.parallel(S.above(10), S.above(20))) == [1, 2]
+
+# A parallel MAP is a different promise: it keeps the INPUT's order.
+assert str(m.eval(metta.par_map(S.above, (10, 20)))[0]) == "(2 1)"
 ```
 
 `lib_thread` also carries futures (`spawn` answers a space), `await`, channels
