@@ -7,6 +7,9 @@
  *     asked above it
  *   - a construct with no MeTTa meaning refuses at DEFINITION time, naming
  *     both the construct and the remedy
+ *   - a null literal lowers to MeTTa's empty expression rather than a symbol
+ *     that only renders the same way [tested: "lowers null to the empty
+ *     expression"; commit=191f969429df26e26769391d44234f20af481fff]
  * Open Obligations:
  *   To Do: None
  *   Hacks: None
@@ -64,6 +67,20 @@ describe("a lowered body", () => {
     assert.equal(String(await divisor(91, 2).one()), "7");
     assert.equal(String(await divisor(97, 2).one()), "97");
     assert.equal(findDivisor(91, 2), 7, "the same body still runs in TypeScript");
+  });
+
+  it("lowers null to the empty expression", async () => {
+    const nothing = m.define(function nothing(): null {
+      return null;
+    });
+    const equation = nothing.equations[0] as Expression;
+    const body = equation.items[2];
+    assert.ok(body instanceof Expression);
+    assert.deepEqual(body.items, []);
+
+    const answer = await nothing().one();
+    assert.ok(answer instanceof Expression);
+    assert.deepEqual(answer.items, []);
   });
 
   it("installs the head TypeScript's own casing images to", () => {
@@ -158,6 +175,19 @@ describe("a lowered body", () => {
     );
   });
 
+  it("does not resolve inherited names from an explicit lowering scope", () => {
+    assert.throws(
+      () =>
+        m.define(
+          function inheritedScopeName(n: number): unknown {
+            return toString(n);
+          },
+          { scope: {} },
+        ),
+      (error: MettaError) => error.code === "ERR_METTA_LOWER" && /toString/.test(error.message),
+    );
+  });
+
   it("refuses a body with no name at all, naming both ways to give it one", () => {
     assert.throws(
       () => m.define((n: number): number => n),
@@ -167,6 +197,7 @@ describe("a lowered body", () => {
 });
 
 declare function somethingUndeclared(n: number): unknown;
+declare function toString(n: number): unknown;
 
 describe("a traced body", () => {
   it("becomes a nest of goals, which is what a conjunction is in MeTTa", async () => {
@@ -244,6 +275,19 @@ describe("a traced body", () => {
 });
 
 describe("a host operation", () => {
+  it("dispatches the currently registered arity at a shared name", async () => {
+    const first = m.op(function pickByArity(_value: number): string {
+      return "one";
+    }, { name: "pick-by-arity", effect: "pureStructural" });
+    const second = m.op(function pickByArity(_left: number, _right: number): string {
+      return "two";
+    }, { name: "pick-by-arity", effect: "pureStructural" });
+
+    assert.equal(String(await second(1, 2).one()), '"two"');
+    first.forget();
+    assert.equal(String(await second(1, 2).one()), '"two"', "a stale handle removed its replacement");
+  });
+
   it("answers once, and its arguments are ordinary host values", async () => {
     const doubled = m.op(function doubled(n: number): number {
       assert.equal(typeof n, "number", "an op received something other than a number");

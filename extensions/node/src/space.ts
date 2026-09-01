@@ -15,6 +15,29 @@
  *     first-seen order, and values are ATOMS, so an answer composes straight
  *     back into the next term
  *   - `atoms()` walks stored atoms without evaluating any of them
+ *   - a transaction returns every answer in engine order rather than only the
+ *     last [tested: "keeps every answer of a nondeterministic transaction";
+ *     commit=f79cfa2133ee8691c8c21b8a6a59928ddbad7352]
+ *   - `runOne` enforces exact cardinality instead of selecting one answer from
+ *     a nondeterministic result [tested: "runOne refuses a term with more than
+ *     one answer"; commit=90e3efc3f3723d9f87928755a9dea84d5002305a]
+ *   - `solve` walks each side's variables once, and `readsThrough` consumes
+ *     each public parent identity directly [tested: "walks solve's left
+ *     variables once"; "reads through each parent identity without a name
+ *     adapter"; commit=b9b4cbcf7b9bf0b77df7ecde3c38d9d5dfe46395]
+ *   - a ground expression remains a structured space identity across every
+ *     collection, query, reflection, and lifecycle door [tested: "keeps
+ *     parametric space identities structured and collision-free";
+ *     commit=e112cbc47bf8f77f002a8edf5c2668aa5f337c5f]
+ *   - each delivered watch admission releases the one-shot bridge job that
+ *     drained it [tested: "releases each drain job after delivering an
+ *     admission"; commit=d3b3d62e19cd5dc941a6af8df24bc48992327236]
+ *   - every space resolves the engine's canonical reflection-space object
+ *     [tested: "resolves one canonical catalog from every space";
+ *     commit=62369c406ca1afee026539a825fa2469c768d957]
+ *   - concurrent takes return only after deleting an exact candidate; a loser
+ *     retries [tested: "lets concurrent takes consume distinct matching atoms";
+ *     commit=62369c406ca1afee026539a825fa2469c768d957]
  * Decides: the collection verbs are SYNCHRONOUS. The transport is in process,
  *   so a synchronous twin genuinely exists, and the async-primary law asks for
  *   an async surface where the transport needs one rather than everywhere. The
@@ -32,7 +55,7 @@ import {
   Grounded,
   type Term,
   Expression,
-  type SpaceHandle,
+  SpaceHandle,
   Sym,
   type Var,
   expr,
@@ -72,6 +95,12 @@ import { atomFromWire, wireFromAtom } from "./wire.ts";
 /** The engine's own space, where a declaration ABOUT a space goes. */
 const CATALOG = "&metta";
 
+/** The canonical reflection-space object for each live engine. */
+const catalogByEngine = new WeakMap<Engine, Space>();
+
+/** A source-safe operation name for one admission guard. */
+let nextAdmissionGuard = 1;
+
 /** Refuse a word outside a closed vocabulary, naming the ones there are. */
 function requireWord<T extends string>(
   what: string,
@@ -108,7 +137,7 @@ export interface SpaceOptions {
    * A child reads its parent's atoms and writes its own, which is the engine's
    * own overlay and what a world is built on.
    */
-  readonly parent?: Space | SpaceHandle | string;
+  readonly parent?: Space | SpaceIdentity | string;
   /**
    * The capabilities a restricted space grants.
    *
@@ -118,6 +147,9 @@ export interface SpaceOptions {
    */
   readonly grants?: readonly SpaceCapability[];
 }
+
+/** An atomic or parametric identity the engine recognizes as a space. */
+export type SpaceIdentity = SpaceHandle | Expression;
 
 /** One admission a watch saw. */
 export interface Admission {
@@ -171,13 +203,20 @@ export class Space {
   #engine: Engine;
 
   /** The space's own atom, which is what a term holds. */
-  readonly handle: SpaceHandle;
+  readonly handle: SpaceIdentity;
+
+  /** The transport operand for this identity. @internal */
+  readonly reference: unknown;
 
   /** @internal Use `m.space(...)`. */
-  constructor(engine: Engine, handle: SpaceHandle) {
+  constructor(engine: Engine, handle: SpaceIdentity) {
     this.#engine = engine;
     this.handle = handle;
-    engine.knownSpaces.add(handle.name);
+    this.reference = handle instanceof SpaceHandle ? handle.name : engine.encodeAtom(handle);
+    if (handle instanceof SpaceHandle) {
+      engine.knownSpaces.add(handle.name);
+      if (handle.name === CATALOG) catalogByEngine.set(engine, this);
+    }
   }
 
   /**
@@ -189,20 +228,20 @@ export class Space {
    * one argument rather than two.
    */
   get catalog(): Space {
-    return new Space(this.#engine, spaceAtom("&metta"));
+    return catalogByEngine.get(this.#engine) ?? new Space(this.#engine, spaceAtom(CATALOG));
   }
 
   /** The ampersand-prefixed engine name. */
   get name(): string {
-    return this.handle.name;
+    return this.handle.text;
   }
 
   toString(): string {
-    return this.handle.name;
+    return this.handle.text;
   }
 
   get [Symbol.toStringTag](): string {
-    return `Space(${this.handle.name})`;
+    return `Space(${this.handle.text})`;
   }
 
   #command(command: readonly unknown[]): Job {
@@ -244,14 +283,14 @@ export class Space {
    */
   add(...atoms: readonly Term[]): this {
     if (atoms.length === 0) return this;
-    this.#command(["add", this.name, atoms.map((atom) => this.#wire(atom))]).sync();
+    this.#command(["add", this.reference, atoms.map((atom) => this.#wire(atom))]).sync();
     return this;
   }
 
   /** The awaiting twin, for a space whose admission gate reaches an async operation. */
   async added(...atoms: readonly Term[]): Promise<this> {
     if (atoms.length === 0) return this;
-    await this.#command(["add", this.name, atoms.map((atom) => this.#wire(atom))]).all();
+    await this.#command(["add", this.reference, atoms.map((atom) => this.#wire(atom))]).all();
     return this;
   }
 
@@ -265,7 +304,10 @@ export class Space {
    * honest presence verdict, so the two grains stay explicit.
    */
   delete(atom: Term): boolean {
-    const verdict = valueOf(this.#command(["remove", this.name, this.#wire(atom)]).sync(), "delete");
+    const verdict = valueOf(
+      this.#command(["remove", this.reference, this.#wire(atom)]).sync(),
+      "delete",
+    );
     return isTrue(verdict);
   }
 
@@ -283,7 +325,7 @@ export class Space {
    * process, which is the one thing a digest is for.
    */
   digest(): string {
-    return String(hostValue(valueOf(this.#command(["digest", this.name]).sync(), "digest")));
+    return String(hostValue(valueOf(this.#command(["digest", this.reference]).sync(), "digest")));
   }
 
   /**
@@ -304,7 +346,7 @@ export class Space {
   handles(pattern: Term, fidelity: Fidelity, options: { readonly det?: Determinism } = {}): Atom {
     requireWord("fidelity", fidelity, Fidelity);
     if (options.det !== undefined) requireWord("det", options.det, Determinism);
-    const parts = [sym("handles"), sym(this.name), toAtom(pattern), sym(fidelity)];
+    const parts = [sym("handles"), this.handle, toAtom(pattern), sym(fidelity)];
     if (options.det !== undefined) parts.push(sym(options.det));
     // A `handles` row is keyed by SHAPE as well as by space, so declaring one
     // for a second shape adds rather than replaces: queries route by the most
@@ -324,7 +366,7 @@ export class Space {
    */
   covers(effect: EffectClass): Atom {
     requireWord("effect", effect, EffectClass);
-    return this.#declare(expr(sym("covers"), sym(this.name), sym(effect)), 2);
+    return this.#declare(expr(sym("covers"), this.handle, sym(effect)), 2);
   }
 
   /**
@@ -339,7 +381,7 @@ export class Space {
    */
   writes(atomicity: Atomicity): Atom {
     requireWord("atomicity", atomicity, Atomicity);
-    return this.#declare(expr(sym("writes"), sym(this.name), sym(atomicity)), 2);
+    return this.#declare(expr(sym("writes"), this.handle, sym(atomicity)), 2);
   }
 
   /**
@@ -352,7 +394,7 @@ export class Space {
    */
   emits(policy: AnswerPolicy): Atom {
     requireWord("policy", policy, AnswerPolicy);
-    return this.#declare(expr(sym("emits"), sym(this.name), sym(policy)), 2);
+    return this.#declare(expr(sym("emits"), this.handle, sym(policy)), 2);
   }
 
   /**
@@ -407,7 +449,7 @@ export class Space {
     if (!Number.isInteger(limit) || limit < 1) {
       throw new MettaError(`capacity is a positive whole number, not ${String(limit)}`);
     }
-    const declared = this.#declare(expr(sym("capacity"), sym(this.name), G(limit)), 2);
+    const declared = this.#declare(expr(sym("capacity"), this.handle, G(limit)), 2);
     // The row is DATA; claiming the gate is what makes it act, and this is
     // sugar for the claim rather than a consequence of the row. That
     // separation is the engine's and it is load-bearing: the pre-add hook
@@ -419,7 +461,8 @@ export class Space {
     // Both halves are published builtins, so this is the same claim the other
     // seats make, written in MeTTa rather than reaching into the engine.
     if (!this.#claimed) {
-      const guard = `space-admission-guard-${this.name}`;
+      const guard = `space-admission-guard-${String(nextAdmissionGuard)}`;
+      nextAdmissionGuard += 1;
       this.#command([
         "run",
         `(= (${guard} $x) (space-admission-verdict ${this.name} $x))\n` +
@@ -455,7 +498,7 @@ export class Space {
    * first when several match one write.
    */
   reacts(pattern: Term, operation: Term, options: { readonly priority?: number } = {}): Atom {
-    const parts: Atom[] = [sym("on"), sym(this.name), toAtom(pattern), toAtom(operation)];
+    const parts: Atom[] = [sym("on"), this.handle, toAtom(pattern), toAtom(operation)];
     if (options.priority !== undefined) {
       if (!Number.isInteger(options.priority)) {
         throw new MettaError(`priority is a whole number, not ${String(options.priority)}`);
@@ -496,8 +539,8 @@ export class Space {
     }
     const atom =
       options.by === undefined
-        ? expr(sym("agenda"), sym(this.name), sym(policy))
-        : expr(sym("agenda"), sym(this.name), sym(policy), sym(options.by));
+        ? expr(sym("agenda"), this.handle, sym(policy))
+        : expr(sym("agenda"), this.handle, sym(policy), sym(options.by));
     // Two shapes, with and without the scoring function, so both are swept.
     return this.#declare(atom, 2, [1, 2]);
   }
@@ -539,37 +582,37 @@ export class Space {
     const held = this.#command([
       "eval",
       this.#wire(expr(sym("transaction"), toAtom(target))),
-      this.name,
+      this.reference,
     ]);
-    const answers: Atom[] = [];
-    for (;;) {
-      const event = held.sync();
-      if (event === null) break;
-      if (event.kind === "answer") answers.push(event.atom);
-    }
-    return answers;
+    return held
+      .syncAll()
+      .filter((event): event is JobEvent & { readonly kind: "answer" } => event.kind === "answer")
+      .map((event) => event.atom);
   }
 
   /** Whether an atom unifying with this pattern is stored. */
   has(pattern: Term): boolean {
-    const verdict = valueOf(this.#command(["has", this.name, this.#wire(pattern)]).sync(), "has");
+    const verdict = valueOf(
+      this.#command(["has", this.reference, this.#wire(pattern)]).sync(),
+      "has",
+    );
     return isTrue(verdict);
   }
 
   /** How many atoms are stored. */
   get size(): number {
-    const count = valueOf(this.#command(["count", this.name]).sync(), "size");
+    const count = valueOf(this.#command(["count", this.reference]).sync(), "size");
     return Number(hostValue(count));
   }
 
   /** Remove every atom. */
   clear(): void {
-    this.#command(["clear", this.name]).sync();
+    this.#command(["clear", this.reference]).sync();
   }
 
   /** Every stored atom, one at a time, without evaluating any of them. */
   atoms(options: AskOptions = {}): Answers<Atom> {
-    return this.#stream(`atoms(${this.name})`, ["atoms", this.name], options);
+    return this.#stream(`atoms(${this.name})`, ["atoms", this.reference], options);
   }
 
   /** Iterating a space walks its stored atoms, which is what a collection does. */
@@ -615,13 +658,14 @@ export class Space {
     const engine = this.#engine;
     const wire = engine.encodeAtom(query);
     const name = this.name;
+    const reference = this.reference;
     // Built directly rather than through `.map`, because a derived ask carries
     // no PLAN and a traced body needs the plan to lower this goal into an
     // equation rather than run it.
     return new Answers<Row>(
       `match(${name}, ${matched.text})`,
       () => {
-        const answers = answerIterator(engine.start(["eval", wire, name]));
+        const answers = answerIterator(engine.start(["eval", wire, reference]));
         return {
           async next(): Promise<IteratorResult<Row>> {
             const step = await answers.next();
@@ -634,7 +678,7 @@ export class Space {
         };
       },
       options.signal,
-      { kind: "match", space: name, pattern: matched, vars },
+      { kind: "match", space: this.handle, pattern: matched, vars },
     );
   }
 
@@ -659,7 +703,10 @@ export class Space {
    */
   explain(...patterns: readonly Term[]): string {
     const wires = patterns.map((pattern) => this.#wire(pattern));
-    const report = valueOf(this.#command(["explain", this.name, wires]).sync(), "explain");
+    const report = valueOf(
+      this.#command(["explain", this.reference, wires]).sync(),
+      "explain",
+    );
     return String(hostValue(report));
   }
 
@@ -677,6 +724,7 @@ export class Space {
   watch(pattern: Term, options: WatchOptions = {}): Answers<Admission> {
     const engine = this.#engine;
     const name = this.name;
+    const reference = this.reference;
     const wire = this.#wire(pattern);
     const edges = options.edges ?? ["add", "remove"];
     const pollMs = options.pollMs ?? 5;
@@ -685,7 +733,7 @@ export class Space {
       description,
       (signal) => {
         const id = options.watchId ?? engine.nextWatchId();
-        engine.start(["watch", id, name, wire, [...edges]]).sync();
+        engine.start(["watch", id, reference, wire, [...edges]]).sync();
         let closed = false;
         const close = (): void => {
           if (closed) return;
@@ -700,7 +748,13 @@ export class Space {
                 close();
                 throw signal.reason as Error;
               }
-              const event = await engine.start(["drain", id]).next();
+              const job = engine.start(["drain", id]);
+              let event: JobEvent | null;
+              try {
+                event = await job.next();
+              } finally {
+                job.close();
+              }
               if (event !== null && event.kind === "admission") {
                 return {
                   done: false,
@@ -752,7 +806,12 @@ export class Space {
   solve(pattern: Term, subject: Term, options: AskOptions = {}): Answers<Row> {
     const left = toAtom(pattern);
     const right = toAtom(subject);
-    const columns = [...termVars(left), ...termVars(right).filter((v) => !termVars(left).includes(v))];
+    const leftVars = termVars(left);
+    const leftNames = new Set(leftVars.map((variable) => variable.name));
+    const columns = [
+      ...leftVars,
+      ...termVars(right).filter((variable) => !leftNames.has(variable.name)),
+    ];
     if (columns.length === 0) {
       throw new MettaError("solve needs at least one variable in its pattern or its subject");
     }
@@ -780,7 +839,7 @@ export class Space {
     const target = toAtom(type);
     if (UNCHECKED.has(target.text)) return hostValue(atom);
     const verdict = valueOf(
-      this.#command(["cast", this.name, this.#wire(atom), this.#wire(target)]).sync(),
+      this.#command(["cast", this.reference, this.#wire(atom), this.#wire(target)]).sync(),
       "cast",
     );
     if (isTrue(verdict)) return hostValue(atom);
@@ -802,13 +861,22 @@ export class Space {
    */
   runOne(term: Term): Atom {
     const built = toAtom(term);
-    const event = this.#command(["eval", this.#wire(built), this.name]).sync();
-    if (event === null || event.kind !== "answer") {
+    const answers = this.#command(["eval", this.#wire(built), this.reference])
+      .syncAll()
+      .filter((event): event is JobEvent & { readonly kind: "answer" } => event.kind === "answer");
+    const answer = answers[0];
+    if (answer === undefined) {
       throw new ResultError(
         `${built.text} answered nothing, where one answer was required`,
       );
     }
-    return event.atom;
+    if (answers.length > 1) {
+      throw new ResultError(
+        `more than one answer to ${built.text}, where exactly one was required`,
+        { code: "ERR_METTA_AMBIGUOUS" },
+      );
+    }
+    return answer.atom;
   }
 
   /**
@@ -824,10 +892,11 @@ export class Space {
     const built = toAtom(target);
     const wire = this.#wire(built);
     const name = this.name;
+    const reference = this.reference;
     const depth = options.depth ?? -1;
     return new Answers<Atom>(
       `derivation(${built.text})`,
-      () => answerIterator(engine.start(["derivation", name, wire, depth])),
+      () => answerIterator(engine.start(["derivation", reference, wire, depth])),
       options.signal,
     ).map(derivationOf);
   }
@@ -851,11 +920,10 @@ export class Space {
    * Wait until an atom matching this pattern is here, remove ONE, and answer
    * its row. Linda's `in`.
    *
-   * The read and the removal are two engine calls with nothing between them,
-   * and this host is single-threaded, so no other JavaScript can take the same
-   * atom in between. That is what makes it a take rather than a race, and it is
-   * a property of THIS transport rather than of the engine: a second host
-   * against one engine would need the engine's own atomic door.
+   * Finding a candidate awaits and therefore lets other JavaScript interleave
+   * before the removal. The removal's boolean result is the arbiter: this
+   * waiter returns only after deleting the exact instantiated atom it saw, and
+   * retries when another waiter deleted that candidate first.
    */
   async take(pattern: Term, options: WaitOptions = {}): Promise<Row> {
     return this.#await(pattern, options, true);
@@ -882,20 +950,28 @@ export class Space {
 
   /** Grant this space a restricted set of capabilities. */
   restrict(grants: readonly SpaceCapability[]): this {
-    this.#command(["restrict", this.name, [...grants]]).sync();
+    this.#command(["restrict", this.reference, [...grants]]).sync();
     return this;
   }
 
   /** Declare that this space reads through `parent` and writes locally. */
-  readsThrough(parent: Space | SpaceHandle | string): this {
-    this.#command(["child", this.name, nameOf(parent)]).sync();
+  readsThrough(parent: Space | SpaceIdentity | string): this {
+    const reference =
+      parent instanceof Space
+        ? parent.reference
+        : parent instanceof Expression
+          ? this.#engine.encodeAtom(parent)
+          : typeof parent === "string"
+            ? parent
+            : parent.name;
+    this.#command(["child", this.reference, reference]).sync();
     return this;
   }
 
   /** Mark this space releasable, and release it. */
   release(): void {
-    this.#command(["releasable", this.name]).sync();
-    this.#command(["release", this.name]).sync();
+    this.#command(["releasable", this.reference]).sync();
+    this.#command(["release", this.reference]).sync();
   }
 
   // --- internals ------------------------------------------------------------
@@ -904,9 +980,10 @@ export class Space {
     const engine = this.#engine;
     const wire = engine.encodeAtom(term);
     const name = this.name;
+    const reference = this.reference;
     return new Answers<Atom>(
       description,
-      () => answerIterator(engine.start(["eval", wire, name])),
+      () => answerIterator(engine.start(["eval", wire, reference])),
       options.signal,
     );
   }
@@ -1000,10 +1077,4 @@ function isTrue(atom: Atom): boolean {
   if (typeof value === "boolean") return value;
   // Either spelling reads to the one constant, so both are accepted here.
   return atom instanceof Sym && (atom.name === "true" || atom.name === "True");
-}
-
-/** The engine name behind whatever names a space. */
-export function nameOf(space: Space | SpaceHandle | string): string {
-  if (typeof space === "string") return space;
-  return space instanceof Space ? space.name : space.name;
 }

@@ -8,6 +8,11 @@
  *   - Number and BigInt cross the signed-i64 boundary without losing a digit
  *   - an abandoned stream leaves the rest of an unbounded generator uncomputed
  *   - nothing the engine says reaches the host's console
+ *   - `byStandardOrder` sorts the portable ground image exactly as SWI `msort`
+ *     while variables and opaque values retain one host-stable order across
+ *     engine sessions [tested: "sorts the portable ground image exactly as the
+ *     engine's msort", "keeps host-only order stable across reverse engine
+ *     allocation"; commit=74e1edc753da5aae13d8dcf128ea6a51545e06db]
  * Open Obligations:
  *   To Do: None
  *   Hacks: None
@@ -21,6 +26,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 
 import {
+  Expression,
+  G,
   Grounded,
   type MeTTa,
   MettaError,
@@ -29,6 +36,10 @@ import {
   Superpose,
   V,
   atomFromWire,
+  byStandardOrder,
+  expr,
+  exprOf,
+  float,
   hostText,
   isError,
   metta,
@@ -303,6 +314,49 @@ describe("running a program", () => {
 });
 
 describe("the codec, through the engine", () => {
+  it("sorts the portable ground image exactly as the engine's msort", async () => {
+    const atoms = [
+      expr(sym("z")),
+      expr(sym("a"), sym("b")),
+      expr(sym("a")),
+      expr(),
+      sym("z"),
+      sym("Apple"),
+      G("kiwi"),
+      G(false),
+      G(true),
+      space("&space"),
+      G(Number.NaN),
+      G(Number.NEGATIVE_INFINITY),
+      G(-0),
+      float(0),
+      G(0),
+      G(0n),
+      G(2n ** 60n),
+      G(2n ** 60n + 1n),
+    ];
+    const [answer] = await m.eval(S.msort(exprOf(atoms))).toArray();
+    assert.ok(answer instanceof Expression);
+    assert.deepEqual(answer.items.map(String), [...atoms].sort(byStandardOrder).map(String));
+  });
+
+  it("keeps host-only order stable across reverse engine allocation", async () => {
+    const first = G({});
+    const second = G({});
+    const order = (): string[] =>
+      [first, second]
+        .sort(byStandardOrder)
+        .map((atom) => (atom === first ? "first" : "second"));
+    const before = order();
+
+    // SWI sees these in the opposite order. That session-local handle order
+    // cannot change a context-free comparator over host atoms.
+    await m.eval(second).toArray();
+    await m.eval(first).toArray();
+
+    assert.deepEqual(order(), before);
+  });
+
   it("tells a MeTTa integer from a MeTTa float", () => {
     const integer = m.run("!(+ 1 1)")[0]!.answers[0]!;
     const float = m.run("!(+ 1.0 1.0)")[0]!.answers[0]!;

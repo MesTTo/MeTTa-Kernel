@@ -6,6 +6,13 @@
  *   - a binding row survives a bound value that names a function, which a bare
  *     tuple template would have reduced [measured 2026-08-27]
  *   - a world's restore leaves its parent exactly as it was
+ *   - `runOne` refuses nondeterministic terms instead of silently returning
+ *     their final answer [tested: "runOne refuses a term with more than one
+ *     answer"; commit=12defbe4bc38e57030705bc131e54f138bbf2b15]
+ *   - solving walks each side's variables once, and parent-space composition
+ *     accepts each public identity directly [tested: "walks solve's left
+ *     variables once"; "reads through each parent identity without a name
+ *     adapter"; commit=b9b4cbcf7b9bf0b77df7ecde3c38d9d5dfe46395]
  * Open Obligations:
  *   To Do: None
  *   Hacks: None
@@ -16,6 +23,7 @@ import { strict as assert } from "node:assert";
 import { after, before, describe, it } from "node:test";
 
 import {
+  type Atom,
   type Library,
   type MeTTa,
   MettaError,
@@ -25,6 +33,7 @@ import {
   Sym,
   V,
   arrow,
+  expr,
   hostValue,
   metta,
   space,
@@ -38,6 +47,10 @@ const fresh = (): Space => {
   counter += 1;
   return m.space(`&t${String(counter)}`);
 };
+
+/** How many bridge jobs still own an SWI engine. */
+const liveJobs = (): number =>
+  Number(m.engine.once("aggregate_all(count, metta_node_job(_,_), N)")["N"]);
 
 before(async () => {
   m = await metta();
@@ -78,11 +91,47 @@ describe("a space is a collection", () => {
     assert.equal(String(S.holds(kb.handle)), `(holds ${kb.name})`);
   });
 
-  it("names a parametric space by a whole atom", () => {
-    const one = m.space(S.cache(S.primary, 100));
-    const two = m.space(S.cache(S.primary, 200));
-    assert.notEqual(one.name, two.name);
-    assert.equal(m.space(S.cache(S.primary, 100)), one, "one name is one space");
+  it("keeps parametric space identities structured and collision-free", async () => {
+    const identity = S.cache(S.primary, 100);
+    const one = m.space(identity);
+    const flat = m.space(S["cache-primary-100"]);
+    const spaced = m.space(S.cache(S["primary 100"]));
+
+    assert.equal(one.handle, identity);
+    assert.equal(one.name, "(cache primary 100)");
+    assert.notEqual(one, flat);
+    assert.notEqual(one, spaced);
+    assert.notEqual(flat, spaced);
+    assert.equal(m.space(S.cache(S.primary, 100)), one, "one atom identity is one space");
+
+    one.add(S.entry(S.structured));
+    flat.add(S.entry(S.flat));
+    spaced.add(S.entry(S.spaced));
+    assert.deepEqual((await one.match(S.entry(V.which))).map((row) => String(row["which"])), [
+      "structured",
+    ]);
+    assert.deepEqual((await flat.match(S.entry(V.which))).map((row) => String(row["which"])), [
+      "flat",
+    ]);
+    assert.deepEqual((await spaced.match(S.entry(V.which))).map((row) => String(row["which"])), [
+      "spaced",
+    ]);
+    assert.equal(one.size, 1);
+    assert.ok(one.has(S.entry(S.structured)));
+    assert.deepEqual((await one.atoms()).map(String), ["(entry structured)"]);
+
+    const here = m.op(function parametricSpaceHere() {
+      return m.currentSpace().handle;
+    });
+    assert.equal(await one.eval(expr(here.atom)).one(), identity);
+    assert.deepEqual(m.run("!(match (cache primary 100) (entry $which) $which)")[0]?.texts, [
+      "structured",
+    ]);
+    assert.ok(m.spaces().includes(identity));
+
+    assert.throws(() => m.space(S.cache(V.open, 100)), /must be ground/);
+    assert.throws(() => m.space(expr()), /nonempty ground expression/);
+    assert.throws(() => m.attach(identity, new Map()), /needs an atomic space identity/);
   });
 });
 
@@ -136,6 +185,37 @@ describe("rows", () => {
     kb.add(S.n(2), S.n(3));
     const doubled = await kb.match(S.n(V.x), S["*"](V.x, 2));
     assert.deepEqual(doubled.map(String).sort(), ["4", "6"]);
+  });
+});
+
+describe("one synchronous answer", () => {
+  it("runOne refuses a term with more than one answer", () => {
+    assert.throws(
+      () => m.runOne(S.superpose([1, 2, 3])),
+      (error: MettaError) => error.code === "ERR_METTA_AMBIGUOUS",
+    );
+  });
+});
+
+describe("solving backwards", () => {
+  it("walks solve's left variables once", () => {
+    const left = expr(S.left.atom, V.x);
+    const itemReadsFor = (right: Atom): number => {
+      let itemReads = 0;
+      const observed = new Proxy(left, {
+        get(target, key) {
+          if (key === "items") itemReads += 1;
+          return Reflect.get(target, key, target) as unknown;
+        },
+      });
+      void m.solve(observed, right);
+      return itemReads;
+    };
+
+    assert.equal(
+      itemReadsFor(expr(S.right.atom, V.a, V.b, V.c)),
+      itemReadsFor(expr(S.right.atom, V.a)),
+    );
   });
 });
 
@@ -216,6 +296,20 @@ describe("a child space", () => {
     assert.equal((await child.match(S.fromChild(V.n))).length, 1);
     assert.equal((await parent.match(S.fromChild(V.n))).length, 0, "a local write reached the parent");
   });
+
+  it("reads through each parent identity without a name adapter", async () => {
+    const atomic = fresh();
+    atomic.add(S.inherited(S.atomic));
+    assert.equal((await fresh().readsThrough(atomic.name).match(S.inherited(S.atomic))).length, 1);
+    assert.equal((await fresh().readsThrough(atomic.handle).match(S.inherited(S.atomic))).length, 1);
+
+    const parametric = m.space(S.parent(S.structured, counter));
+    parametric.add(S.inherited(S.parametric));
+    assert.equal(
+      (await fresh().readsThrough(parametric.handle).match(S.inherited(S.parametric))).length,
+      1,
+    );
+  });
 });
 
 describe("a world", () => {
@@ -269,6 +363,49 @@ describe("a world", () => {
     assert.deepEqual(after, ["(todo 1 done)"]);
   });
 
+  it("has sees inherited rows and honours journalled removals", async () => {
+    const kb = fresh();
+    kb.add(S.todo(1, S.active));
+    const w = m.world(kb);
+
+    assert.ok(await w.has(S.todo(V.id, S.active)));
+    w.remove(S.todo(1, S.active));
+    assert.ok(!(await w.has(S.todo(V.id, S.active))));
+    w.add(S.todo(2, S.active));
+    assert.ok(await w.has(S.todo(V.id, S.active)));
+  });
+
+  it("keeps one visible copy after removing one duplicate in a world", async () => {
+    const kb = fresh();
+    kb.add(S.flag(S.held), S.flag(S.held));
+    const w = m.world(kb);
+
+    w.remove(S.flag(S.held));
+    assert.equal((await w.match(S.flag(S.held))).length, 1);
+    assert.ok(await w.has(S.flag(S.held)));
+    w.commit();
+    assert.equal((await kb.match(S.flag(S.held))).length, 1);
+  });
+
+  it("spends one removal budget for a nonground journal entry", async () => {
+    const kb = fresh();
+    kb.add(S.todo(1, S.active), S.todo(2, S.active));
+    const w = m.world(kb);
+
+    w.remove(S.todo(V.id, S.active));
+    assert.equal((await w.match(S.todo(V.id, S.active))).length, 1);
+    w.commit();
+    assert.equal((await kb.match(S.todo(V.id, S.active))).length, 1);
+
+    const any = fresh();
+    any.add(S.first(), S.second());
+    const anyWorld = m.world(any);
+    anyWorld.remove(V.atom);
+    assert.equal((await anyWorld.match(V.atom)).length, 1);
+    anyWorld.commit();
+    assert.equal(any.size, 1, "a bare variable removes one occurrence, not the whole space");
+  });
+
   it("refuses a second settlement, by code", () => {
     const w = m.world(fresh());
     w.commit();
@@ -295,6 +432,23 @@ describe("a state cell", () => {
 });
 
 describe("watching a space", () => {
+  it("releases each drain job after delivering an admission", async () => {
+    const kb = fresh();
+    const baseline = liveJobs();
+    const watcher = kb.watch(S.tick(V.n), { pollMs: 1 })[Symbol.asyncIterator]();
+    kb.add(S.tick(1), S.tick(2), S.tick(3), S.tick(4), S.tick(5));
+    try {
+      for (let at = 0; at < 5; at += 1) {
+        const admission = await watcher.next();
+        assert.equal(admission.done, false);
+      }
+      assert.equal(liveJobs(), baseline, "each delivered admission released its drain job");
+    } finally {
+      await watcher.return?.();
+    }
+    assert.equal(liveJobs(), baseline, "closing the watch left no drain job behind");
+  });
+
   it("answers admissions as they happen", async () => {
     const kb = fresh();
     const seen: string[] = [];

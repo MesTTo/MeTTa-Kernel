@@ -22,6 +22,22 @@
  *   - an `AbortSignal` stops the pull at the next answer boundary, which is
  *     best-effort in exactly the way `fetch` states, because the engine polls
  *     at answer boundaries and nowhere finer
+ *   - successive deadlines and cancellation signals compose, so a wrapper
+ *     cannot discard a bound the ask already carried
+ *     [tested: "composes successive cancellation signals instead of replacing the first",
+ *     "preserves a branch's own deadline while adding race cancellation"; commit=0fc1435242a699749fdd6ba3995239648c02242e]
+ *   - rendering a row table scans widths iteratively, so the row count is not
+ *     constrained by V8's function-argument ceiling [tested: "formats more
+ *     rows than V8 accepts as function arguments"; commit=d3b3d62e19cd5dc941a6af8df24bc48992327236]
+ *   - existence is decided by iterator completion rather than the answer's
+ *     value, and invalid chunk sizes raise the matching `UnsupportedError`
+ *     [tested: "finds an undefined answer by iterator completion";
+ *     "classifies invalid chunk sizes as unsupported";
+ *     commit=db25ab2390c2b20fea7201f085fbf2d4e5e9f235]
+ *   - negative positions retain a circular tail with constant work per answer
+ *     and use `Array.prototype.at`'s numeric-index coercion
+ *     [tested: "keeps a circular tail with Array.at index coercion";
+ *     commit=db25ab2390c2b20fea7201f085fbf2d4e5e9f235]
  * Decides: an Answers is RE-RUNNABLE. Awaiting it twice asks twice, because a
  *   lazy description that cached would be a result pretending to be a query,
  *   and a knowledge base can change between the two asks.
@@ -33,7 +49,7 @@
 
 import { Atom, Expression, Sym } from "./atom.ts";
 import type { Var } from "./atom.ts";
-import { MettaError, ResultError, branchFailure } from "./errors.ts";
+import { MettaError, ResultError, UnsupportedError, branchFailure } from "./errors.ts";
 import { showsAs } from "./present.ts";
 
 /**
@@ -75,8 +91,8 @@ export function errorOf(atom: Expression): MettaError {
 export type Plan =
   | {
       readonly kind: "match";
-      /** The space to search, by engine name. */
-      readonly space: string;
+      /** The space to search, by its complete engine identity. */
+      readonly space: Atom;
       /** The pattern, as written. */
       readonly pattern: Atom;
       /** Its variables, in first-seen order: the row's columns. */
@@ -84,8 +100,8 @@ export type Plan =
     }
   | {
       readonly kind: "eval";
-      /** The space to reduce in, by engine name. */
-      readonly space: string;
+      /** The space to reduce in, by its complete engine identity. */
+      readonly space: Atom;
       /** The term to reduce. */
       readonly term: Atom;
     };
@@ -297,7 +313,11 @@ export class Answers<T> implements AsyncIterable<T>, PromiseLike<T[]> {
 
   /** Whether there is any answer at all. Stops at the first one. */
   async exists(): Promise<boolean> {
-    return (await this.find()) !== undefined;
+    const iterator = this[Symbol.asyncIterator]();
+    const first = await iterator.next();
+    if (first.done === true) return false;
+    await iterator.return?.(undefined);
+    return true;
   }
 
   /**
@@ -426,7 +446,9 @@ export class Answers<T> implements AsyncIterable<T>, PromiseLike<T[]> {
 
   /** The same ask under a deadline or a cancellation. */
   until(signal: AbortSignal): Answers<T> {
-    return new Answers<T>(this.description, this.#open, signal, this.plan);
+    const combined =
+      this.#signal === undefined ? signal : AbortSignal.any([this.#signal, signal]);
+    return new Answers<T>(this.description, this.#open, combined, this.plan);
   }
 
   /**
@@ -447,23 +469,29 @@ export class Answers<T> implements AsyncIterable<T>, PromiseLike<T[]> {
    * pulling as soon as it is reached, so `ans.at(0)` costs one answer.
    */
   async at(index: number): Promise<T | undefined> {
-    if (index >= 0) {
+    const position = Number.isNaN(index) ? 0 : Math.trunc(index);
+    if (position >= 0) {
       let seen = 0;
       for await (const answer of this) {
-        if (seen === index) return answer;
+        if (seen === position) return answer;
         seen += 1;
       }
       return undefined;
     }
+    if (position === Number.NEGATIVE_INFINITY) return undefined;
     // From the end: keep the last |index| answers in a ring rather than the
     // whole set, so `at(-1)` over a million answers holds one.
-    const wanted = -index;
+    const wanted = -position;
     const ring: T[] = [];
+    let write = 0;
     for await (const answer of this) {
-      ring.push(answer);
-      if (ring.length > wanted) ring.shift();
+      if (ring.length < wanted) ring.push(answer);
+      else {
+        ring[write] = answer;
+        write = (write + 1) % wanted;
+      }
     }
-    return ring.length === wanted ? ring[0] : undefined;
+    return ring.length === wanted ? ring[write] : undefined;
   }
 
   /** The last answer, or undefined. Pulls the whole set, holding one answer. */
@@ -493,10 +521,8 @@ export class Answers<T> implements AsyncIterable<T>, PromiseLike<T[]> {
    * than one per answer.
    */
   chunk(size: number): Answers<T[]> {
-    if (size <= 0) {
-      throw new MettaError(`a chunk needs a positive size, not ${String(size)}`, {
-        code: "ERR_METTA_UNSUPPORTED",
-      });
+    if (!Number.isSafeInteger(size) || size <= 0) {
+      throw new UnsupportedError(`a chunk needs a positive whole-number size, not ${String(size)}`);
     }
     return this.#derive<T[]>(`${this.description}.chunk(${String(size)})`, (source) =>
       chunking(source, size),
@@ -747,16 +773,26 @@ export class Rows extends Array<Row> {
 
   /** Every row as plain text, which is what a log or a CSV wants. */
   toTable(): string {
-    const widths = this.columns.map((name) =>
-      Math.max(name.length, ...this.map((row) => String(row[name] ?? "").length), 0),
-    );
+    const widths = this.columns.map((name) => name.length);
+    const rendered: string[][] = [];
+    for (const row of this) {
+      const cells: string[] = [];
+      for (let at = 0; at < this.columns.length; at += 1) {
+        const name = this.columns[at] as string;
+        const cell = String(row[name] ?? "");
+        cells.push(cell);
+        widths[at] = Math.max(widths[at] ?? 0, cell.length);
+      }
+      rendered.push(cells);
+    }
     const line = (cells: readonly string[]): string =>
       cells.map((cell, at) => cell.padEnd(widths[at] ?? 0)).join("  ").trimEnd();
-    return [
+    const lines = [
       line(this.columns),
       line(this.columns.map((_, at) => "-".repeat(widths[at] ?? 0))),
-      ...this.map((row) => line(this.columns.map((name) => String(row[name] ?? "")))),
-    ].join("\n");
+    ];
+    for (const cells of rendered) lines.push(line(cells));
+    return lines.join("\n");
   }
 
   override toString(): string {

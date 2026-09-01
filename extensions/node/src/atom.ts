@@ -1,7 +1,8 @@
 /**
  * Purpose: the atom algebra this surface speaks: one interned, immutable
  *   value per MeTTa atom, narrowing by `instanceof`, printing as MeTTa text,
- *   and ordering by the engine's own standard order of terms.
+ *   and ordering by a deterministic host refinement of the engine's standard
+ *   order of terms.
  * Assumes:
  *   - fork 2 of `ai-typescript-design.md` is ruled YES: atoms are hash-consed,
  *     so `===`, `Set`, `Map` and `Array.prototype.includes` are STRUCTURAL for
@@ -22,10 +23,29 @@
  *     is cleanup only, and a live atom keeps its own entry alive, so identity
  *     never depends on when a collection happened
  *     [source: ai-typescript-design.md round 13, the Temporal precedent]
+ *   - a registered symbol interns by its registry identity while an unregistered
+ *     symbol interns by reference [tested: "interns registered symbols without
+ *     treating them as weak keys"; commit=d3b3d62e19cd5dc941a6af8df24bc48992327236]
+ *   - `byStandardOrder` is a total host refinement of the engine's portable
+ *     ground-image order: it keeps exact mixed numeric values, NaN, signed zero,
+ *     Unicode text and proper-list lexicography ordered, then gives variables
+ *     and live values stable host identities instead of pretending to recover
+ *     SWI's per-term and per-session allocation order [tested: "matches the
+ *     engine's numeric, atomic and list order at every edge", "is a total order
+ *     across every host atom distinction", "sorts the portable ground image
+ *     exactly as the engine's msort", "keeps host-only order stable across
+ *     reverse engine allocation"; commit=74e1edc753da5aae13d8dcf128ea6a51545e06db]
+ *   - `exprOf` interns through weak structural-hash buckets, verifies every
+ *     collision by child identity and never materialises all child ids as text
+ *     [tested: "interns a wide expression without joining every child id into
+ *     text", "keeps structurally different expressions separate inside one
+ *     hash bucket"; commit=1e76fd97936f0672eda20a7905d2590cdf7a0022]
  * Owns: the process-wide intern table. It holds every atom weakly.
- * Decides: the standard order is Prolog's, which is the order the engine's own
- *   sort uses: variable, number, symbol, string, compound. A live host value
- *   sorts last, after every term the engine can compare itself.
+ * Decides: the standard order refines SWI's wire categories: variable, number,
+ *   string, empty list, atom, nonempty list. SWI orders variables by allocation
+ *   inside one term and live handles by an engine session's first crossing;
+ *   neither fact belongs to two standalone `Atom` arguments, so variable names
+ *   and process identity break those ties and zero means `===`.
  * Open Obligations:
  *   To Do: None
  *   Hacks: None
@@ -38,7 +58,7 @@ import { showsAs } from "./present.ts";
 /** Which of the five shapes an atom is. Narrows a union in `switch`. */
 export type Kind = "symbol" | "variable" | "grounded" | "expression" | "space";
 
-/** The intern table's key space, one string per structurally distinct atom. */
+/** The primitive intern table's key space, one string per non-expression atom. */
 type InternKey = string;
 
 /**
@@ -54,6 +74,8 @@ const table = new Map<InternKey, WeakRef<Atom>>();
 const reaper = new FinalizationRegistry<{ key: InternKey; ref: WeakRef<Atom> }>(({ key, ref }) => {
   if (table.get(key) === ref) table.delete(key);
 });
+
+let expressionCount = 0;
 
 let nextId = 1;
 
@@ -91,7 +113,7 @@ function interned<A extends Atom>(key: InternKey, make: () => A): A {
 
 /** How many atoms the intern table currently holds. Diagnostics, never semantics. */
 export function internedCount(): number {
-  return table.size;
+  return table.size + expressionCount;
 }
 
 const REFUSE_COERCION =
@@ -282,6 +304,21 @@ export class Expression extends Atom {
   }
 }
 
+/** Expressions with one 32-bit structural hash, collision-checked by child identity. */
+const expressionBuckets = new Map<number, WeakRef<Expression>[]>();
+const expressionReaper = new FinalizationRegistry<{
+  hash: number;
+  ref: WeakRef<Expression>;
+}>(({ hash, ref }) => {
+  const bucket = expressionBuckets.get(hash);
+  if (bucket === undefined) return;
+  const at = bucket.indexOf(ref);
+  if (at < 0) return;
+  bucket.splice(at, 1);
+  expressionCount -= 1;
+  if (bucket.length === 0) expressionBuckets.delete(hash);
+});
+
 /**
  * A named engine space, by reference.
  *
@@ -357,6 +394,10 @@ function primitiveKey(value: unknown): string | undefined {
       return `g t ${value}`;
     case "boolean":
       return `g b ${String(value)}`;
+    case "symbol": {
+      const registered = Symbol.keyFor(value);
+      return registered === undefined ? undefined : `g y ${registered}`;
+    }
     default:
       return undefined;
   }
@@ -392,6 +433,45 @@ export function G<T>(value: T): Grounded<T> {
   return made;
 }
 
+// FNV-1a's xor-then-imul loop follows lib0's compact JavaScript implementation:
+// https://github.com/dmonad/lib0/blob/3a69a335c86c458bec73f1805551868b08ea001d/src/hash/fnv1a.js
+function expressionHash(items: readonly Atom[]): number {
+  let hash = Math.imul(0x811c9dc5 ^ items.length, 0x01000193);
+  for (const item of items) {
+    hash = Math.imul(hash ^ (item.id >>> 0), 0x01000193);
+    hash = Math.imul(hash ^ (Math.floor(item.id / 0x1_0000_0000) >>> 0), 0x01000193);
+  }
+  return hash >>> 0;
+}
+
+/** Exact structural equality inside one hash bucket. */
+function sameItems(left: readonly Atom[], right: readonly Atom[]): boolean {
+  if (left.length !== right.length) return false;
+  for (let at = 0; at < left.length; at += 1) {
+    if (left[at] !== right[at]) return false;
+  }
+  return true;
+}
+
+/** Intern one expression without materialising its child ids as decimal text. */
+function internExpression(items: readonly Atom[]): Expression {
+  const hash = expressionHash(items);
+  const bucket = expressionBuckets.get(hash);
+  if (bucket !== undefined) {
+    for (const ref of bucket) {
+      const held = ref.deref();
+      if (held !== undefined && sameItems(held.items, items)) return held;
+    }
+  }
+  const made = new Expression(items);
+  const ref = new WeakRef(made);
+  if (bucket === undefined) expressionBuckets.set(hash, [ref]);
+  else bucket.push(ref);
+  expressionCount += 1;
+  expressionReaper.register(made, { hash, ref });
+  return made;
+}
+
 /**
  * The expression of an ARRAY of atoms.
  *
@@ -403,9 +483,7 @@ export function G<T>(value: T): Grounded<T> {
  * long generator produces exactly that.
  */
 export function exprOf(items: readonly Atom[]): Expression {
-  const key: string[] = ["e"];
-  for (const item of items) key.push(String(item.id));
-  return interned(key.join(","), () => new Expression(items));
+  return internExpression(items);
 }
 
 /** The expression of these atoms. `expr()` is `()`. */
@@ -588,85 +666,156 @@ export function floatText(value: number): string {
 
 const VARIABLE_RANK = 0;
 const NUMBER_RANK = 1;
-const SYMBOL_RANK = 2;
-const TEXT_RANK = 3;
-const REFERENCE_RANK = 4;
-const SPACE_RANK = 5;
-const EXPRESSION_RANK = 6;
+const TEXT_RANK = 2;
+const EMPTY_RANK = 3;
+const ATOM_RANK = 4;
+const EXPRESSION_RANK = 5;
 
 function rank(atom: Atom): number {
   if (atom instanceof Grounded) {
     const kind = typeof atom.value;
     if (kind === "number" || kind === "bigint") return NUMBER_RANK;
     if (kind === "string") return TEXT_RANK;
-    if (kind === "boolean") return TEXT_RANK;
-    return REFERENCE_RANK;
+    return ATOM_RANK;
   }
-  switch (atom.kind) {
-    case "variable":
-      return VARIABLE_RANK;
-    case "symbol":
-      return SYMBOL_RANK;
-    case "space":
-      return SPACE_RANK;
-    default:
-      return EXPRESSION_RANK;
-  }
+  if (atom instanceof Var) return VARIABLE_RANK;
+  if (atom instanceof Expression) return atom.items.length === 0 ? EMPTY_RANK : EXPRESSION_RANK;
+  return ATOM_RANK;
 }
 
-function compareValues(left: unknown, right: unknown): number {
-  if (
-    (typeof left === "number" || typeof left === "bigint") &&
-    (typeof right === "number" || typeof right === "bigint")
-  ) {
-    const a = Number(left);
-    const b = Number(right);
-    return a < b ? -1 : a > b ? 1 : 0;
+/** Compare Unicode scalar values, as SWI does, rather than UTF-16 code units. */
+function compareText(left: string, right: string): number {
+  let leftAt = 0;
+  let rightAt = 0;
+  while (leftAt < left.length && rightAt < right.length) {
+    const leftPoint = left.codePointAt(leftAt) as number;
+    const rightPoint = right.codePointAt(rightAt) as number;
+    if (leftPoint !== rightPoint) return leftPoint < rightPoint ? -1 : 1;
+    leftAt += leftPoint > 0xffff ? 2 : 1;
+    rightAt += rightPoint > 0xffff ? 2 : 1;
   }
-  const a = String(left);
-  const b = String(right);
-  return a < b ? -1 : a > b ? 1 : 0;
+  return leftAt < left.length ? 1 : rightAt < right.length ? -1 : 0;
 }
 
-function nameOf(atom: Atom): string {
-  if (atom instanceof Sym || atom instanceof Var || atom instanceof SpaceHandle) return atom.name;
-  return atom.text;
+/** A distinct process atom never compares equal to another. */
+function compareIdentity(left: Atom, right: Atom): number {
+  return left === right ? 0 : left.id - right.id;
+}
+
+/** Whether a numeric atom crosses as an SWI float rather than an integer. */
+function isFloatNumber(atom: Grounded<number | bigint>): boolean {
+  const value = atom.value;
+  return (
+    typeof value === "number" &&
+    (atom instanceof FloatAtom || !Number.isSafeInteger(value) || Object.is(value, -0))
+  );
+}
+
+/** Exact SWI numeric order, with host representation breaking engine ties. */
+function compareNumbers(
+  left: Grounded<number | bigint>,
+  right: Grounded<number | bigint>,
+): number {
+  const a = left.value;
+  const b = right.value;
+  const aNaN = typeof a === "number" && Number.isNaN(a);
+  const bNaN = typeof b === "number" && Number.isNaN(b);
+  if (aNaN || bNaN) {
+    if (aNaN !== bNaN) return aNaN ? -1 : 1;
+    return compareIdentity(left, right);
+  }
+  // ECMAScript's mixed Number/BigInt relational comparison compares their
+  // mathematical values; converting either side would lose wide integers.
+  if (a < b) return -1;
+  if (a > b) return 1;
+  if (typeof a === "number" && typeof b === "number" && Object.is(a, -0) !== Object.is(b, -0)) {
+    return Object.is(a, -0) ? -1 : 1;
+  }
+  const byFloat = Number(isFloatNumber(right)) - Number(isFloatNumber(left));
+  if (byFloat !== 0) return byFloat;
+  // A safe Number integer and a BigInt have one SWI image. Keep the host's two
+  // representations distinct so comparator equality still means atom identity.
+  if (typeof a !== typeof b) return typeof a === "number" ? -1 : 1;
+  return compareIdentity(left, right);
+}
+
+/** A stable host spelling for a non-number, non-string atom. */
+function atomicName(atom: Atom): string {
+  if (atom instanceof Sym || atom instanceof SpaceHandle) return atom.name;
+  if (atom instanceof Grounded && typeof atom.value === "boolean") return String(atom.value);
+  // The bridge suffix is allocated when one ENGINE first sees the value. Atom
+  // identity is the context-free ordering key available before and across
+  // sessions; using a session suffix here would make one comparator stateful.
+  return `$metta_node_object#${String(atom.id)}`;
 }
 
 /**
- * The engine's own order over atoms, as a comparator.
+ * A deterministic host refinement of the engine's standard order.
  *
  * `atoms.sort(byStandardOrder)` where Python writes `sorted(atoms)`: one
  * argument where Python had none, because `Array.prototype.sort` wants a
  * comparator and inventing a default that is not the engine's would be worse.
- * The order is Prolog's standard order of terms, which is the order the engine
- * sorts by: variable, number, symbol, string, compound.
+ * Portable ground-term images follow SWI exactly. SWI variables are ordered by
+ * their allocation within one encoded term, and opaque handles by the order one
+ * engine session first saw them; neither ordering exists in two standalone
+ * atoms. Variable names and process identity make those cases total and stable.
+ * The numeric `<`/`>` below is exact across Number and BigInt by ECMAScript's
+ * mixed relational comparison.
  */
 export function byStandardOrder(left: Atom, right: Atom): number {
   // A worklist of PAIRS still to compare, deepest-first, so a term that is
   // deeper than the JavaScript stack still sorts. Children are pushed in
   // reverse, which is what keeps the comparison lexicographic.
-  const work: Atom[] = [left, right];
+  const work: (Atom | number)[] = [left, right];
   while (work.length > 0) {
-    const b = work.pop() as Atom;
-    const a = work.pop() as Atom;
-    const byRank = rank(a) - rank(b);
+    const b = work.pop() as Atom | number;
+    const a = work.pop() as Atom | number;
+    if (typeof a === "number" && typeof b === "number") {
+      if (a !== b) return a - b;
+      continue;
+    }
+    const leftAtom = a as Atom;
+    const rightAtom = b as Atom;
+    const leftRank = rank(leftAtom);
+    const rightRank = rank(rightAtom);
+    const byRank = leftRank - rightRank;
     if (byRank !== 0) return byRank;
-    if (a instanceof Expression && b instanceof Expression) {
-      if (a.items.length !== b.items.length) return a.items.length - b.items.length;
-      for (let at = a.items.length - 1; at >= 0; at -= 1) {
-        work.push(a.items[at] as Atom, b.items[at] as Atom);
+    if (
+      leftRank === EXPRESSION_RANK &&
+      leftAtom instanceof Expression &&
+      rightAtom instanceof Expression
+    ) {
+      const common = Math.min(leftAtom.items.length, rightAtom.items.length);
+      work.push(leftAtom.items.length, rightAtom.items.length);
+      for (let at = common - 1; at >= 0; at -= 1) {
+        work.push(leftAtom.items[at] as Atom, rightAtom.items[at] as Atom);
       }
       continue;
     }
-    const order =
-      a instanceof Grounded && b instanceof Grounded
-        ? compareValues(a.value, b.value)
-        : nameOf(a) < nameOf(b)
-          ? -1
-          : nameOf(a) > nameOf(b)
-            ? 1
-            : 0;
+    let order: number;
+    if (
+      leftRank === NUMBER_RANK &&
+      leftAtom instanceof Grounded &&
+      rightAtom instanceof Grounded
+    ) {
+      order = compareNumbers(
+        leftAtom as Grounded<number | bigint>,
+        rightAtom as Grounded<number | bigint>,
+      );
+    } else if (leftRank === TEXT_RANK) {
+      order = compareText(
+        (leftAtom as Grounded<string>).value,
+        (rightAtom as Grounded<string>).value,
+      );
+    } else if (leftRank === ATOM_RANK) {
+      order = compareText(atomicName(leftAtom), atomicName(rightAtom));
+      if (order === 0) order = compareIdentity(leftAtom, rightAtom);
+    } else if (leftAtom instanceof Var && rightAtom instanceof Var) {
+      order = compareText(leftAtom.name, rightAtom.name);
+      if (order === 0) order = compareIdentity(leftAtom, rightAtom);
+    } else {
+      order = compareIdentity(leftAtom, rightAtom);
+    }
     if (order !== 0) return order;
   }
   return 0;

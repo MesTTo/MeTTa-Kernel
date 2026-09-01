@@ -5,6 +5,19 @@
  * Guarantees:
  *   - every helper on an ask stays LAZY, so a `take` never computes the rest
  *   - importing the module tier boots nothing
+ *   - successive cancellation constraints compose, so adding a signal cannot
+ *     discard an ask's existing deadline
+ *     [tested: "composes successive cancellation signals instead of replacing the first";
+ *     commit=0fc1435242a699749fdd6ba3995239648c02242e]
+ *   - negative answer positions use a circular tail and every position follows
+ *     `Array.prototype.at` coercion [tested: "keeps a circular tail with Array.at index coercion";
+ *     commit=db25ab2390c2b20fea7201f085fbf2d4e5e9f235]
+ *   - an `undefined` answer still exists, unsupported chunk sizes narrow by
+ *     `UnsupportedError`, and the documented helper family executes
+ *     [tested: "finds an undefined answer by iterator completion";
+ *     "classifies invalid chunk sizes as unsupported";
+ *     "drops, flat-maps, and reduces answers";
+ *     commit=db25ab2390c2b20fea7201f085fbf2d4e5e9f235]
  * Open Obligations:
  *   To Do: None
  *   Hacks: None
@@ -15,7 +28,7 @@ import { strict as assert } from "node:assert";
 import { inspect } from "node:util";
 import { after, before, describe, it } from "node:test";
 
-import { type MeTTa, S, V, answersOf, metta } from "../src/index.ts";
+import { type MeTTa, S, UnsupportedError, V, answersOf, metta } from "../src/index.ts";
 import { Path, attr, installPaths, key, path, pathOf, reach } from "../src/paths.ts";
 import { All, Choice, Id, Seq, TopDown, Try } from "../src/strategies.ts";
 
@@ -45,6 +58,30 @@ describe("the lazy answer helpers", () => {
     assert.equal(await counted.last(), 5);
   });
 
+  it("keeps a circular tail with Array.at index coercion", async () => {
+    const answers = answersOf("positions", [1, 2, 3, 4, 5]);
+    assert.equal(await answers.at(Number.NaN), 1);
+    assert.equal(await answers.at(1.9), 2);
+    assert.equal(await answers.at(-1.9), 5);
+    assert.equal(await answers.at(Number.POSITIVE_INFINITY), undefined);
+    assert.equal(await answers.at(Number.NEGATIVE_INFINITY), undefined);
+
+    const originalShift = Array.prototype.shift;
+    Array.prototype.shift = function noShiftAllowed(): never {
+      throw new Error("Answers.at shifted its tail window");
+    };
+    try {
+      assert.equal(await answersOf("tail", Array.from({ length: 5_000 }, (_, at) => at)).at(-1_000), 4_000);
+    } finally {
+      Array.prototype.shift = originalShift;
+    }
+  });
+
+  it("finds an undefined answer by iterator completion", async () => {
+    assert.equal(await answersOf("undefined", [undefined]).exists(), true);
+    assert.equal(await answersOf<undefined>("empty", []).exists(), false);
+  });
+
   it("keeps only the first of each distinct answer, lazily", async () => {
     const rows = answersOf("rows", [
       { who: "ada", n: 1 },
@@ -62,7 +99,19 @@ describe("the lazy answer helpers", () => {
   it("batches answers into runs, the last one short", async () => {
     const runs = await answersOf("runs", [1, 2, 3, 4, 5]).chunk(2).toArray();
     assert.deepEqual(runs, [[1, 2], [3, 4], [5]]);
-    assert.throws(() => answersOf("bad", [1]).chunk(0));
+  });
+
+  it("classifies invalid chunk sizes as unsupported", () => {
+    for (const size of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY]) {
+      assert.throws(() => answersOf("bad", [1]).chunk(size), UnsupportedError);
+    }
+  });
+
+  it("drops, flat-maps, and reduces answers", async () => {
+    const numbers = answersOf("numbers", [1, 2, 3, 4]);
+    assert.deepEqual(await numbers.drop(2).toArray(), [3, 4]);
+    assert.deepEqual(await numbers.flatMap((value) => [value, -value]).toArray(), [1, -1, 2, -2, 3, -3, 4, -4]);
+    assert.equal(await numbers.reduce((total, value) => total + value, 0), 10);
   });
 
   it("collects into a map and into groups", async () => {
@@ -95,6 +144,18 @@ describe("the lazy answer helpers", () => {
   it("bounds an ask with a deadline in milliseconds", async () => {
     const bounded = m.match(S.n(V.x)).timeout(5_000);
     assert.equal((await bounded).length, 5);
+  });
+
+  it("composes successive cancellation signals instead of replacing the first", async () => {
+    const first = new AbortController();
+    const second = new AbortController();
+    const reason = new Error("the first deadline elapsed");
+    first.abort(reason);
+
+    await assert.rejects(
+      () => answersOf("bounded", [1]).until(first.signal).until(second.signal).toArray(),
+      (error: unknown) => error === reason,
+    );
   });
 });
 

@@ -4,6 +4,12 @@
  * Guarantees:
  *   - cancelling one cancels the work under it
  *   - a bounded channel makes its sender wait rather than dropping
+ *   - race cancellation composes with each branch's own deadline
+ *     [tested: "preserves a branch's own deadline while adding race cancellation";
+ *     commit=0fc1435242a699749fdd6ba3995239648c02242e]
+ *   - `Channel.size` is the sole queued-value count instead of carrying a
+ *     synonymous second property [tested: "keeps one name for the queued count";
+ *     commit=d6342cff24b7c087b464d9cdb13b71a3d9a115a2]
  * Open Obligations:
  *   To Do: None
  *   Hacks: None
@@ -59,6 +65,18 @@ describe("coordination", () => {
 
   it("refuses a race with nothing in it", async () => {
     await assert.rejects(() => race([]), MettaError);
+  });
+
+  it("preserves a branch's own deadline while adding race cancellation", async () => {
+    const deadline = new AbortController();
+    const reason = new MettaError("this branch's deadline elapsed");
+    deadline.abort(reason);
+    const expired = answersOf("expired", ["too late"]).until(deadline.signal);
+
+    await assert.rejects(
+      () => race([expired, answersOf<string>("empty", [])]),
+      (error: unknown) => error instanceof AggregateError && error.errors.includes(reason),
+    );
   });
 
   it("merges several asks, ending when every branch has", async () => {
@@ -164,10 +182,10 @@ describe("taking from a channel without waiting", () => {
   it("answers what is queued, and nothing when nothing is", async () => {
     const channel = new Channel<number>();
     assert.equal(channel.tryReceive(), undefined, "nothing queued yet");
-    assert.equal(channel.queued, 0);
+    assert.equal(channel.size, 0);
     await channel.send(1);
     await channel.send(2);
-    assert.equal(channel.queued, 2);
+    assert.equal(channel.size, 2);
     assert.equal(channel.tryReceive(), 1);
     assert.equal(channel.tryReceive(), 2);
     assert.equal(channel.tryReceive(), undefined, "drained");
@@ -176,6 +194,12 @@ describe("taking from a channel without waiting", () => {
     channel.close();
     assert.equal(channel.tryReceive(), undefined);
     assert.ok(channel.closed);
+  });
+
+  it("keeps one name for the queued count", () => {
+    const channel = new Channel<number>();
+    assert.equal(channel.size, 0);
+    assert.ok(!("queued" in channel));
   });
 
   it("releases a sender that a full channel had blocked", async () => {

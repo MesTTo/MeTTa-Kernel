@@ -371,11 +371,11 @@ m.theory(Arithmetic);          // installs `twice-over` and `thrice-over`
 ```
 
 A class with no marks installs every own prototype method. `@equation`,
-`@grounded` and `@tabled` narrow that to the marked ones, for a class that also
-carries helpers, and they compose. They need a BUILD, though: TypeScript
-compiles Stage-3 method decorators and V8 has not shipped them, so a decorated
-class does not run under Node's own type stripping. The unmarked form runs
-everywhere.
+`@grounded` and `@named("exact-head")` narrow that to the marked ones, for a
+class that also carries helpers, and the marks compose on one method. They need
+a BUILD, though: TypeScript compiles Stage-3 method decorators and V8 has not
+shipped them, so a decorated class does not run under Node's own type stripping.
+The unmarked form runs everywhere.
 
 ## Coordination
 
@@ -386,9 +386,10 @@ const row = await jobs.take(S.job(V.n), { signal: AbortSignal.timeout(50) });
 `peek` waits until a matching atom is there and leaves it; `take` removes one.
 There is no engine-side blocking wait (`take-atom` needs `library(thread)`,
 which a WebAssembly SWI does not have), so these poll, bounded by the signal.
-The take is still a take rather than a race: the read and the removal are two
-synchronous engine calls with nothing between them, and this host is
-single-threaded.
+The take is still a take rather than a race. Each waiter reads a candidate and
+then asks the engine to delete that exact atom. JavaScript may interleave other
+waiters between those calls; the delete result is the arbiter, so a waiter that
+lost the candidate retries instead of returning it.
 
 `m.race([a, b])` answers the first branch and cancels the rest through their
 signals; `Promise.any` is the platform's word for it, with the cancellation
@@ -1152,19 +1153,18 @@ the code and the two agree:
 catch (error) {
   if (error instanceof ResultError) ...            // not exactly one answer
   else if (error instanceof CapabilityError) ...   // this build, or this space, lacks it
-  else if (MettaError.is(error, "ERR_METTA_STRICT")) ...
+  else if (MettaError.is(error, "ERR_METTA_UNSUPPORTED")) ...
   else throw error;
 }
 ```
 
 `EngineError`, `MettaSyntaxError`, `WireError`, `ResultError`, `NameError`,
 `CapabilityError`, `CompileError`, `ClosedError`, `UnsupportedError`,
-`StrictError`, `NotReducibleError`, `CastError`, `AssertionError`,
-`SourceNotFoundError`, `InferenceLimitError`, `TimeLimitError`,
-`StackLimitError`, `ProviderError`, `SubscriberError`, `TransportError`. All
-sit under `MettaError` with `cause` and `toJSON`, and every one of them is
-raised by something: a class nobody produces is a `catch` branch a caller
-cannot take, so there is no such class here.
+`CastError`, `AssertionError`, `SourceNotFoundError`, `InferenceLimitError`,
+`TimeLimitError`, `StackLimitError`, `ProviderError`, `SubscriberError`,
+`TransportError`. All sit under `MettaError` with `cause` and `toJSON`, and
+every one of them is raised by something: a class nobody produces is a `catch`
+branch a caller cannot take, so there is no such class here.
 
 A deadline is NOT one of them: `AbortSignal.timeout` aborts with the platform's
 own `TimeoutError`, which is what every other async API raises, and inventing a
@@ -1183,12 +1183,16 @@ That took work rather than being free: swipl-wasm writes every Prolog
 exception to the console before handing it back, and offers no switch, so
 `bridge.pl` catches inside the engine and the outcome crosses as data.
 
-Every refusal carries a stable `code`, so a test or a tool matches the code
-and the prose stays free to improve: `ERR_METTA_ENGINE`, `ERR_METTA_WIRE`,
+Every refusal carries one of the stable codes below, so a test or a tool
+matches the code and the prose stays free to improve:
+
+`ERR_METTA_ENGINE`, `ERR_METTA_SYNTAX`, `ERR_METTA_WIRE`,
 `ERR_METTA_ABSENT`, `ERR_METTA_AMBIGUOUS`, `ERR_METTA_NAME`,
 `ERR_METTA_CAPABILITY`, `ERR_METTA_TRACE`, `ERR_METTA_LOWER`,
-`ERR_METTA_CLOSED`, `ERR_METTA_UNSUPPORTED`, `ERR_METTA_NOT_REDUCIBLE`,
-`ERR_METTA_ASSERTION`, `ERR_METTA_SOURCE`, `ERR_METTA_STACK`.
+`ERR_METTA_CLOSED`, `ERR_METTA_UNSUPPORTED`, `ERR_METTA_CAST`,
+`ERR_METTA_INFERENCES`, `ERR_METTA_TIME`, `ERR_METTA_STACK`,
+`ERR_METTA_PROVIDER`, `ERR_METTA_SUBSCRIBER`, `ERR_METTA_TRANSPORT`,
+`ERR_METTA_ASSERTION`, `ERR_METTA_SOURCE`.
 
 ## How a host operation reaches JavaScript
 
@@ -1227,19 +1231,24 @@ quietly:
 Everything else loads. Tabling is present, `library(sha)` is present, and the
 engine parses, translates and evaluates end to end.
 
-Beside the platform's absences, these parts of the Python package have no
-counterpart here yet, each for a stated reason rather than by oversight:
+### Python package counterparts
 
-| absent | why |
-|---|---|
-| `algebra`: the counting, tropical, probability, provenance and ranking carriers, and `under` | annotated matching is an engine capability this transport has not been wired to; the `semiring` vocabulary is here, so the words a program would use already are |
-| `arrays`: numeric-array interop | the Python side images numpy; TypeScript's counterpart is a typed array over a provider, which `m.attach` already supports without a module of its own |
-| `remote`: a space over a network | a `SpaceProvider` whose methods `fetch` IS this, and it needs no engine support; what is absent is a packaged client |
-| `lint`: static analysis of definitions | a linter is a program over `m.forms`, which is here; the analysis is not |
-| `manifest` / `boot`: assembling an app from a `(boot ...)` manifest | no counterpart |
-| `tables`, `convert`, `integrate` | no counterpart |
-| `TabledMap` | it reads the engine's table statistics, which this bridge does not expose |
-| a pattern-position lazy path | Python lifts the marker out of the pattern before matching; this surface evaluates `(match ...)` as an ordinary term, so `metta-node/paths` does the same job as an OPERATION the engine calls, which is a door TypeScript has and Python does not |
+The platform refusals above are separate from the Python package comparison.
+The Python capabilities once described here as missing are present under these
+public Node subpaths:
+
+| Python capability | Node package surface | public counterpart |
+|---|---|---|
+| annotated and weighted evaluation | `metta-node/algebra` | `counting`, `tropical`, `prob`, `prov`, `ranked`, and `TaggedAnswer.under` |
+| numeric-array interop | `metta-node/arrays` | typed arrays, `Tensor`, `EmbeddingStore`, and `installArrays` |
+| a space over a network | `metta-node/remote` | `connect`, `serve`, `RemoteSpace`, and `Gateway` |
+| static analysis of definitions | `metta-node/lint` | `RULES`, `Finding`, `lint`, and `lintFile` |
+| assembling an app from a manifest | `metta-node/manifest` | `boot`, `Boot`, and `VOCABULARY` |
+| spaces over rows | `metta-node/tables` | `tableSpace`, `arrayTables`, and `bridge` |
+| host-value conversion | `metta-node/convert` | `registerType`, `project`, `build`, and `autoImage` |
+| library discovery and installation | `metta-node/integrate` | `integrate`, `discover`, `entryPoints`, and reflection helpers |
+| a tabled computed map | `metta-node/structures` | `TabledMap`, including the engine's table counters through `stats` |
+| a lazy path into a host value | `metta-node/paths` | `Path`, `path`, `reach`, and `installPaths`; the engine calls a registered operation instead of lifting a marker from a pattern |
 
 ## What the binding calls
 

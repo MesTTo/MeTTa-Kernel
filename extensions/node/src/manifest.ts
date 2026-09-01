@@ -14,6 +14,10 @@
  *   - forms perform in source order, and each performed form lands as its own
  *     `(boot ...)` atom in the booted space
  *     [tested: "records every form it performed"]
+ *   - bridge forms sharing one name compose every declared shape while keeping
+ *     uniquely routed writes [tested: "performs attachments and repeated
+ *     bridge declarations in source order";
+ *     commit=cb81a53d7e040cea283df784b097f95f2868a866]
  *   - a manifest DECLARES; a `!` directive in one is a refusal naming the
  *     remedy, because a deployment that runs arbitrary code is not a
  *     deployment description
@@ -248,8 +252,8 @@ export async function boot(
         // in it.
         if (materialised.has(name)) break;
         materialised.add(name);
-        const declared = bridges.get(name) as Atom[];
-        surface.attach(name, mapped(surface.self, declared[0] as Atom));
+        const [first, ...further] = bridges.get(name) as [Atom, ...Atom[]];
+        surface.attach(name, mapped(surface.self, first, ...further));
         break;
       }
       case "serve": {

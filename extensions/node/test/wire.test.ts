@@ -4,6 +4,15 @@
  * Guarantees:
  *   - the grammar's refusals are refusals here, by name, and the `o` tag stays
  *     out of the strict profile
+ *   - repeated primitive host values reuse one live handle and clearing the
+ *     table cannot resurrect that handle [tested: "reuses one host id for each
+ *     primitive value"; "clears primitive ids without recycling a released
+ *     handle"; commit=e4367498bed06c34f25aff75335e7b25f28b3b73]
+ *   - round-trip space provenance follows structural positions and is disabled
+ *     after equal-length shapes diverge while scalar leaf changes preserve
+ *     later sibling paths [tested: "does not align provenance across a shape change",
+ *     "keeps later provenance aligned when only a leaf type changes";
+ *     commit=2da346c3fa02a9baedb6168e6b3f6e0756bd6c91]
  * Open Obligations:
  *   To Do: None
  *   Hacks: None
@@ -21,6 +30,7 @@ import {
   Grounded,
   HostValues,
   SpaceHandle,
+  WireError,
   type Wire,
   atomFromWire,
   decodeEngine,
@@ -83,6 +93,15 @@ describe("numbers", () => {
 });
 
 describe("the strict wire", () => {
+  it("refuses a numeric root before it can impersonate an expression-close marker", () => {
+    for (const read of [fromTransport, toTransport]) {
+      assert.throws(
+        () => read(3),
+        (error: unknown) => error instanceof WireError && error.code === "ERR_METTA_WIRE",
+      );
+    }
+  });
+
   it("decodes every leaf tag", () => {
     assert.deepEqual(fromTransport(["s", "foo"]), ["s", "foo"]);
     assert.deepEqual(fromTransport(["v", "x"]), ["v", "x"]);
@@ -142,6 +161,28 @@ describe("the engine transport's own tag", () => {
     const held = {};
     assert.equal(values.idFor(held), values.idFor(held));
     assert.equal(values.size, 1);
+  });
+
+  it("reuses one host id for each primitive value", () => {
+    const values = new HostValues();
+    const local = Symbol("local");
+    const registered = Symbol.for("metta-node-wire-test");
+    const primitives = [null, undefined, local, registered, 42, "forty-two", true] as const;
+    const first = primitives.map((value) => values.idFor(value));
+    const second = primitives.map((value) => values.idFor(value));
+
+    assert.deepEqual(second, first);
+    assert.equal(values.size, primitives.length);
+  });
+
+  it("clears primitive ids without recycling a released handle", () => {
+    const values = new HostValues();
+    const released = values.idFor(null);
+    values.clear();
+    assert.throws(() => values.valueOf(released), /was released/);
+    const fresh = values.idFor(null);
+    assert.notEqual(fresh, released);
+    assert.equal(values.valueOf(fresh), null);
   });
 
   it("refuses a released id rather than answering a fresh value", () => {
@@ -255,6 +296,18 @@ describe("the engine transport, which is flat", () => {
     // Without the provenance the same answer is a symbol, which is what the
     // strict grammar says it is.
     assert.equal(decodeEngine(echoed, {}), expr(sym("f"), sym("&kb")));
+  });
+
+  it("does not align provenance across a shape change", () => {
+    const sent = ["e", 3, "s", "f", "s", "a", "p", "&kb"];
+    const reshaped = ["e", 2, "s", "f", "e", 1, "s", "&kb"];
+    assert.equal(fromRoundTrip(sent, reshaped), expr(sym("f"), expr(sym("&kb"))));
+  });
+
+  it("keeps later provenance aligned when only a leaf type changes", () => {
+    const sent = ["e", 3, "s", "f", "s", "a", "p", "&kb"];
+    const changed = ["e", 3, "s", "f", "n", "1", "s", "&kb"];
+    assert.equal(fromRoundTrip(sent, changed), expr(sym("f"), G(1), space("&kb")));
   });
 });
 

@@ -21,6 +21,24 @@
  *     map leaves the second map's value visible
  *   - `mapped` derives both directions from one declaration, so a rename, a
  *     projection or a legacy-shape adapter is one line rather than a provider
+ *   - several `mapped` declarations read as their union while a write routes
+ *     through its one admitting shape; an ambiguous write refuses rather than
+ *     inventing an occurrence [tested: "performs attachments and repeated
+ *     bridge declarations in source order", "refuses a bridge write admitted
+ *     by more than one declaration";
+ *     commit=cb81a53d7e040cea283df784b097f95f2868a866]
+ *   - `diff` compares alpha-canonical atoms themselves, so equal structure
+ *     cancels by multiplicity while distinct live host values never collapse
+ *     through a shared rendering [tested: "distinguishes live host values by
+ *     identity when diffing"; commit=ed4a5431b5725fd19fea8d09f1228e857aa40865]
+ *   - a Set view retains MeTTa symbols as atoms while ordinary host strings
+ *     stay grounded strings, so both values can coexist and round trip
+ *     [tested: "round-trips symbols written through a Set view";
+ *     commit=ed4a5431b5725fd19fea8d09f1228e857aa40865]
+ *   - a ground Set member or keyed collection position is pushed into the
+ *     collection's native lookup instead of scanning its entries [tested:
+ *     "uses native keyed lookups for bound collection probes";
+ *     commit=77e1f3501647d5d70cbe10aa868135d2069bc178]
  * Decides: a combinator takes a live `Space` handle or a provider, never a
  *   NAME. A name alone carries no engine, and a combinator that accepted one
  *   would have to guess which engine it meant.
@@ -42,7 +60,7 @@ import {
   toAtom,
 } from "./atom.ts";
 import { MettaError } from "./errors.ts";
-import { alphaKey, isGround, matchTerms } from "./matching.ts";
+import { alphaCanonical, isGround, matchTerms } from "./matching.ts";
 import type { SpaceProvider } from "./provider.ts";
 import { Space } from "./space.ts";
 
@@ -210,13 +228,104 @@ export function overlay(front: Source, back: Source): SpaceProvider {
  * ```
  *
  * presents the inner space's `(triple ...)` atoms as `(edge ...)` atoms, both
- * directions derived from the pattern pair by matching. A rename, a
- * projection or a legacy-shape adapter stops being a custom provider and
- * becomes this one line. Adds map right to left, a removal maps its pattern
- * through, and atoms the declaration does not map are invisible here and
- * untouched there.
+ * directions derived from the pattern pair by matching. Further declarations
+ * may follow as rest arguments. Reads union their shapes; an add routes through
+ * exactly one admitting shape; a removal tries each admitting shape until one
+ * occurrence is gone. A rename, projection or legacy-shape adapter stops being
+ * a custom provider and becomes this one line.
  */
-export function mapped(inner: Source, declaration: Term): SpaceProvider {
+export function mapped(
+  inner: Source,
+  declaration: Term,
+  ...further: readonly Term[]
+): SpaceProvider {
+  const mappings = [declaration, ...further].map(mappingOf);
+  const member = new Member(inner);
+  const atomsFor = async function* (mapping: Mapping): AsyncGenerator<Atom> {
+    for await (const atom of walk(member.atoms())) {
+      const shown = mapping.outward(atom);
+      if (shown !== undefined) yield shown;
+    }
+  };
+  return {
+    async *atoms(): AsyncGenerator<Atom> {
+      for (const mapping of mappings) yield* atomsFor(mapping);
+    },
+    async *match(pattern: Atom): AsyncGenerator<Atom> {
+      for (const mapping of mappings) {
+        const inside = mapping.inward(pattern);
+        if (inside === undefined) {
+          // Matching is ONE-WAY, so its failure proves absence only for a
+          // GROUND pattern, where one-way and two-way agree. A pattern with
+          // variables can still touch instances a one-way walk refuses, such
+          // as `(edge $x $x)` against a shape carrying literals, so the sound
+          // side is enumeration and the engine's own re-unification keeps the
+          // answers right.
+          if (!isGround(pattern)) yield* atomsFor(mapping);
+          continue;
+        }
+        for await (const candidate of walk(member.match(inside))) {
+          const shown = mapping.outward(candidate);
+          if (shown !== undefined) yield shown;
+        }
+      }
+    },
+    add(atom: Atom): void | Promise<void> {
+      const admitting = mappings.flatMap((mapping) => {
+        const inside = mapping.inward(atom);
+        return inside === undefined ? [] : [{ mapping, inside }];
+      });
+      if (admitting.length === 0) {
+        if (mappings.length === 1) {
+          throw new MettaError(
+            `${atom.text} does not fit this view's shape ${mappings[0]!.outer.text}; the view ` +
+              "admits only atoms the declaration maps",
+          );
+        }
+        throw new MettaError(
+          `${atom.text} does not fit this view's bridge shapes ` +
+            mappings.map(({ outer }) => outer.text).join(", "),
+        );
+      }
+      // Use tableSpace's established multiset law: two destinations may not
+      // each store one write, because the caller admitted one occurrence.
+      // [source: extensions/node/src/tables.ts:tableSpace;
+      // commit=26355d621266e8614620daad2c85a811391fdb02]
+      if (admitting.length > 1) {
+        throw new MettaError(
+          `${atom.text} is admitted by ${String(admitting.length)} bridge shapes ` +
+            `(${admitting.map(({ mapping }) => mapping.outer.text).join(", ")}); ` +
+            "storing it once per shape would invent an occurrence, so this refuses",
+        );
+      }
+      return member.add(admitting[0]!.inside);
+    },
+    remove(atom: Atom): boolean | Promise<boolean> {
+      const candidates = mappings.flatMap((mapping) => {
+        const inside = mapping.inward(atom);
+        return inside === undefined ? [] : [inside];
+      });
+      const attempt = (at: number): boolean | Promise<boolean> => {
+        const inside = candidates[at];
+        if (inside === undefined) return false;
+        const removed = member.remove(inside);
+        return typeof removed === "boolean"
+          ? removed || attempt(at + 1)
+          : removed.then((found) => found || attempt(at + 1));
+      };
+      return attempt(0);
+    },
+  };
+}
+
+/** One parsed bridge declaration and the two directions it derives. */
+interface Mapping {
+  readonly outer: Expression;
+  readonly inward: (atom: Atom) => Atom | undefined;
+  readonly outward: (atom: Atom) => Atom | undefined;
+}
+
+function mappingOf(declaration: Term): Mapping {
   const parsed = toAtom(declaration);
   if (
     !(parsed instanceof Expression) ||
@@ -236,7 +345,6 @@ export function mapped(inner: Source, declaration: Term): SpaceProvider {
   }
   const outer = parsed.items[1];
   const shape = parsed.items[2];
-  const member = new Member(inner);
   const inward = (atom: Atom): Atom | undefined => {
     const bindings = matchTerms(outer, atom);
     return bindings === undefined ? undefined : substitute(shape, bindings);
@@ -245,46 +353,7 @@ export function mapped(inner: Source, declaration: Term): SpaceProvider {
     const bindings = matchTerms(shape, atom);
     return bindings === undefined ? undefined : substitute(outer, bindings);
   };
-  return {
-    async *atoms(): AsyncGenerator<Atom> {
-      for await (const atom of walk(member.atoms())) {
-        const shown = outward(atom);
-        if (shown !== undefined) yield shown;
-      }
-    },
-    async *match(pattern: Atom): AsyncGenerator<Atom> {
-      const inside = inward(pattern);
-      if (inside === undefined) {
-        // Matching is ONE-WAY, so its failure proves absence only for a
-        // GROUND pattern, where one-way and two-way agree. A pattern with
-        // variables can still touch instances a one-way walk refuses, such as
-        // `(edge $x $x)` against a shape carrying literals, so the sound side
-        // is enumeration and the engine's own re-unification keeps the
-        // answers right.
-        if (!isGround(pattern)) yield* this.atoms?.() as AsyncGenerator<Atom>;
-        return;
-      }
-      for await (const candidate of walk(member.match(inside))) {
-        const shown = outward(candidate);
-        if (shown !== undefined) yield shown;
-      }
-    },
-    add(atom: Atom): void | Promise<void> {
-      const inside = inward(atom);
-      if (inside === undefined) {
-        throw new MettaError(
-          `${atom.text} does not fit this view's shape ${outer.text}; the view ` +
-            `admits only atoms the declaration maps`,
-        );
-      }
-      return member.add(inside);
-    },
-    remove(atom: Atom): boolean | Promise<boolean> {
-      const inside = inward(atom);
-      if (inside === undefined) return false;
-      return member.remove(inside);
-    },
-  };
+  return { outer, inward, outward };
 }
 
 /**
@@ -312,14 +381,14 @@ async function collect(source: Atoms): Promise<Atom[]> {
 }
 
 function surplus(these: readonly Atom[], those: readonly Atom[]): Atom[] {
-  const remaining = new Map<string, number>();
+  const remaining = new Map<Atom, number>();
   for (const atom of those) {
-    const key = alphaKey(atom);
+    const key = alphaCanonical(atom);
     remaining.set(key, (remaining.get(key) ?? 0) + 1);
   }
   const extras: Atom[] = [];
   for (const atom of these) {
-    const key = alphaKey(atom);
+    const key = alphaCanonical(atom);
     const left = remaining.get(key) ?? 0;
     if (left > 0) remaining.set(key, left - 1);
     else extras.push(atom);
@@ -347,13 +416,11 @@ const KV = sym("kv");
  * ```
  */
 export function view(data: object): SpaceProvider {
-  const entries = (): Iterable<readonly [Term, unknown]> => {
-    if (data instanceof Map) return [...data.entries()] as [Term, unknown][];
-    if (Array.isArray(data)) return data.map((value, index) => [index, value] as const);
-    return Object.entries(data).map(([key, value]) => [sym(key), value] as const);
-  };
   const keyAtom = (key: Term): Atom => (typeof key === "string" ? sym(key) : toAtom(key));
+  const candidate = (key: Term, value: unknown): Atom =>
+    expr(KV, keyAtom(key), toAtom(value as Term));
   if (data instanceof Set) {
+    const memberOf = (atom: Atom): unknown => atom instanceof Sym ? atom : hostOf(atom);
     return {
       *atoms(): Generator<Atom> {
         for (const member of data) yield toAtom(member as Term);
@@ -362,27 +429,67 @@ export function view(data: object): SpaceProvider {
         // A ground probe is one `Set.has`, which is the whole point of
         // pushing the pattern down: the collection's own index answers.
         if (isGround(pattern)) {
-          for (const member of data) {
-            if (toAtom(member as Term) === pattern) yield pattern;
-          }
+          const member = memberOf(pattern);
+          if (data.has(member)) yield pattern;
+          // A Set may have been populated directly with the atom rather than
+          // through this view. Both representations image to the same atom and
+          // remain two occurrences when both are present.
+          if (member !== pattern && data.has(pattern)) yield pattern;
           return;
         }
         for (const member of data) yield toAtom(member as Term);
       },
       add(atom: Atom): void {
-        data.add(hostOf(atom));
+        data.add(memberOf(atom));
       },
       remove(atom: Atom): boolean {
-        return data.delete(hostOf(atom));
+        return data.delete(memberOf(atom));
       },
       clear(): void {
         data.clear();
       },
     };
   }
+
+  let entries: () => Iterable<readonly [Term, unknown]>;
+  let atKey: (key: Atom) => Iterable<readonly [Term, unknown]>;
+  if (data instanceof Map) {
+    entries = () => data.entries() as MapIterator<[Term, unknown]>;
+    atKey = function* (key: Atom): Generator<readonly [Term, unknown]> {
+      const host = hostOf(key);
+      if (data.has(host)) yield [host as Term, data.get(host)];
+      // A Map can have been populated directly with an atom key. Preserve the
+      // two candidates when both the host key and atom key are present.
+      if (host !== key && data.has(key)) yield [key, data.get(key)];
+    };
+  } else if (Array.isArray(data)) {
+    entries = function* (): Generator<readonly [Term, unknown]> {
+      for (let index = 0; index < data.length; index += 1) {
+        if (Object.hasOwn(data, index)) yield [index, data[index]];
+      }
+    };
+    atKey = function* (key: Atom): Generator<readonly [Term, unknown]> {
+      const host = hostOf(key);
+      if (typeof host !== "number" && typeof host !== "bigint") return;
+      const index = Number(host);
+      if (!Number.isSafeInteger(index) || index < 0 || !Object.hasOwn(data, index)) return;
+      yield [index, data[index]];
+    };
+  } else {
+    const record = data as Record<string, unknown>;
+    entries = function* (): Generator<readonly [Term, unknown]> {
+      for (const key in record) {
+        if (Object.hasOwn(record, key)) yield [key, record[key]];
+      }
+    };
+    atKey = function* (key: Atom): Generator<readonly [Term, unknown]> {
+      if (!(key instanceof Sym) || !Object.hasOwn(record, key.name)) return;
+      yield [key.name, record[key.name]];
+    };
+  }
   return {
     *atoms(): Generator<Atom> {
-      for (const [key, value] of entries()) yield expr(KV, keyAtom(key), toAtom(value as Term));
+      for (const [key, value] of entries()) yield candidate(key, value);
     },
     *match(pattern: Atom): Generator<Atom> {
       if (
@@ -392,9 +499,10 @@ export function view(data: object): SpaceProvider {
       ) {
         return;
       }
-      for (const [key, value] of entries()) {
-        const candidate = expr(KV, keyAtom(key), toAtom(value as Term));
-        if (matchTerms(pattern, candidate) !== undefined) yield candidate;
+      const key = pattern.items[1] as Atom;
+      for (const [held, value] of isGround(key) ? atKey(key) : entries()) {
+        const found = candidate(held, value);
+        if (matchTerms(pattern, found) !== undefined) yield found;
       }
     },
     add(atom: Atom): void {

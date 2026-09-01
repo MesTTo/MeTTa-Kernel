@@ -2,6 +2,10 @@
  * Purpose: the surface's remaining doors against a live engine: theories,
  *   racing, the coordination verbs, the typed source query, and validator
  *   interop.
+ * Guarantees: theory discovery never constructs the class or evaluates a
+ *   prototype accessor [tested: npm run build --silent && node --test
+ *   --test-name-pattern='discovers decorated theory methods without constructing|skips accessors while discovering theory methods'
+ *   build/test/extras.test.js; commit=fa5fec84a65958ff71483442cc76590b88cf1572].
  * Open Obligations:
  *   To Do: None
  *   Hacks: None
@@ -20,6 +24,7 @@ import {
   V,
   answersOf,
   decodeWith,
+  equation,
   hostValue,
   metta,
   nearest,
@@ -58,6 +63,49 @@ describe("a theory", () => {
       () => m.theory(Empty),
       (error: MettaError) => error.code === "ERR_METTA_NAME",
     );
+  });
+
+  it("discovers decorated theory methods without constructing the class", async () => {
+    let constructions = 0;
+    class DecoratedTheory {
+      constructor(_dependency: string) {
+        constructions += 1;
+        throw new Error("theory discovery constructed the class");
+      }
+
+      @equation
+      safeDouble(n: number): number {
+        return n * 2;
+      }
+
+      helper(): number {
+        return 0;
+      }
+    }
+
+    const installed = m.theory(DecoratedTheory);
+    assert.equal(constructions, 0);
+    assert.deepEqual(installed.map((one) => one.head), ["safe-double"]);
+    assert.equal(String(await m.eval(S["safe-double"](21)).one()), "42");
+  });
+
+  it("skips accessors while discovering theory methods", async () => {
+    let accesses = 0;
+    class DescriptorTheory {
+      get unsafe(): number {
+        accesses += 1;
+        throw new Error("theory discovery evaluated an accessor");
+      }
+
+      descriptorDouble(n: number): number {
+        return n * 2;
+      }
+    }
+
+    const installed = m.theory(DescriptorTheory);
+    assert.equal(accesses, 0);
+    assert.deepEqual(installed.map((one) => one.head), ["descriptor-double"]);
+    assert.equal(String(await m.eval(S["descriptor-double"](21)).one()), "42");
   });
 });
 

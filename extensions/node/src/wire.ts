@@ -34,7 +34,18 @@
  *     atoms straight into tokens
  *     [tested: spells an expression as its tag, its child count and its children;
  *     commit=c530ccb8fb7d0a5b2aa53df6e9f981ada9f81be8]
- * Owns: the live-host-value table. An object that crossed into the engine is
+ *   - a numeric root cannot impersonate the worklist's expression-close marker
+ *     [tested: "refuses a numeric root before it can impersonate an
+ *     expression-close marker"; commit=d3b3d62e19cd5dc941a6af8df24bc48992327236]
+ *   - repeated crossings of one primitive host value reuse its live handle
+ *     [tested: "reuses one host id for each primitive value";
+ *     commit=e4367498bed06c34f25aff75335e7b25f28b3b73]
+ *   - round-trip space provenance is restored only while the sent and received
+ *     token streams have the same structural path; a scalar leaf change keeps
+ *     later siblings aligned [tested: "does not align provenance across a shape change",
+ *     "keeps later provenance aligned when only a leaf type changes";
+ *     commit=2da346c3fa02a9baedb6168e6b3f6e0756bd6c91]
+ * Owns: the live-host-value table. A value that crossed into the engine is
  *   retained until the engine is disposed, because nothing on this side can
  *   observe that the engine has dropped the id.
  * Decides: cursors and host values are addressed by integer, because the
@@ -185,22 +196,25 @@ export function numberToText(value: number | bigint): string {
 export class HostValues {
   #byId = new Map<number, unknown>();
   #byValue = new WeakMap<WeakKey, number>();
+  #byPrimitive = new Map<unknown, number>();
   #next = 1;
 
   /** The id for this value, minting one the first time. */
   idFor(value: unknown): number {
-    if (value !== null && (typeof value === "object" || typeof value === "function")) {
-      const held = this.#byValue.get(value as WeakKey);
-      if (held !== undefined) return held;
-      const id = this.#next;
-      this.#next += 1;
-      this.#byId.set(id, value);
-      this.#byValue.set(value as WeakKey, id);
-      return id;
-    }
+    const weak =
+      value !== null &&
+      (typeof value === "object" ||
+        typeof value === "function" ||
+        (typeof value === "symbol" && Symbol.keyFor(value) === undefined));
+    const held = weak
+      ? this.#byValue.get(value as WeakKey)
+      : this.#byPrimitive.get(value);
+    if (held !== undefined) return held;
     const id = this.#next;
     this.#next += 1;
     this.#byId.set(id, value);
+    if (weak) this.#byValue.set(value as WeakKey, id);
+    else this.#byPrimitive.set(value, id);
     return id;
   }
 
@@ -223,6 +237,7 @@ export class HostValues {
   clear(): void {
     this.#byId.clear();
     this.#byValue = new WeakMap<WeakKey, number>();
+    this.#byPrimitive.clear();
   }
 }
 
@@ -475,7 +490,7 @@ function encodeLeaf(tag: unknown, payload: unknown, context: EncodeContext): Tra
  */
 export function fromTransport(term: unknown): Wire {
   const built: Wire[] = [];
-  const work: unknown[] = [term];
+  const work: unknown[] = [childOf(term)];
   while (work.length > 0) {
     const step = work.pop();
     if (typeof step === "number") {
@@ -497,7 +512,7 @@ export function fromTransport(term: unknown): Wire {
 /** A wire atom as the portable transport term, nested one pair per atom. */
 export function toTransport(wire: unknown, context: EncodeContext = {}): Transport {
   const built: Transport[] = [];
-  const work: unknown[] = [wire];
+  const work: unknown[] = [childOf(wire)];
   while (work.length > 0) {
     const step = work.pop();
     if (typeof step === "number") {
@@ -547,9 +562,14 @@ export function decodeEngine(tokens: unknown, context: DecodeContext, provenance
   // below would be three allocations for a term with no children.
   if (stream.length === 2 && stream[0] !== "e") {
     const only = atomOfToken(stream[0], stream[1], context);
-    return provenance?.[0] === "p" && only instanceof Sym ? space(only.name) : only;
+    return provenance?.length === 2 &&
+      provenance[0] === "p" &&
+      stream[0] === "s" &&
+      only instanceof Sym
+      ? space(only.name)
+      : only;
   }
-  const aligned = provenance !== undefined && provenance.length === stream.length;
+  let aligned = provenance !== undefined && provenance.length === stream.length;
   const root: Atom[] = [];
   // Two parallel stacks rather than one stack of frame objects: the children
   // gathered so far, and how many each level is still waiting for. The bottom
@@ -567,6 +587,15 @@ export function decodeEngine(tokens: unknown, context: DecodeContext, provenance
     let value: Atom;
     if (tag === "e") {
       const arity = countAt(stream, at);
+      if (aligned) {
+        try {
+          aligned = provenance?.[tagAt] === "e" && countAt(provenance, tagAt + 1) === arity;
+        } catch {
+          // Provenance is advisory. A malformed or differently shaped input
+          // disables restoration; it cannot make an otherwise valid answer fail.
+          aligned = false;
+        }
+      }
       at += 1;
       if (arity > 0) {
         gathered.push([]);
@@ -575,6 +604,12 @@ export function decodeEngine(tokens: unknown, context: DecodeContext, provenance
       }
       value = exprOf([]);
     } else {
+      // Every leaf occupies two tokens whatever its scalar tag. A changed leaf
+      // type therefore keeps later sibling paths aligned; only expression vs
+      // leaf changes the tree shape and invalidates the remaining positions.
+      if (aligned && provenance?.[tagAt] === "e") {
+        aligned = false;
+      }
       value = atomOfToken(tag, stream[at], context);
       at += 1;
       if (aligned && value instanceof Sym && provenance?.[tagAt] === "p") value = space(value.name);

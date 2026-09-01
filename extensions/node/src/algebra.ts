@@ -21,6 +21,9 @@
  *     asking again"]
  *   - `Amplitude` is EXACT: rational components over bigint, so interference
  *     is not floating-point noise
+ *   - preset and law names resolve only through their tables' own entries
+ *     [tested: "ships the carriers a program reaches for", "refuses inherited
+ *     object names as algebra law aliases"; commit=f79cfa2133ee8691c8c21b8a6a59928ddbad7352]
  * Decides: the reads are asynchronous where the Python original is
  *   synchronous, because reading a space's atoms is asynchronous on this
  *   transport and pretending otherwise would mean draining a cursor behind the
@@ -253,7 +256,9 @@ const SEMIRING: readonly Law[] = [
 function canonicalLaws(laws: Iterable<string>): Set<Law> {
   const out = new Set<Law>();
   for (const law of laws) {
-    const expanded = LAW_ALIASES[law] ?? [law as Law];
+    const expanded = Object.hasOwn(LAW_ALIASES, law)
+      ? (LAW_ALIASES[law] as readonly Law[])
+      : [law as Law];
     for (const each of expanded) {
       if (!KNOWN.has(each)) {
         throw new AlgebraDeclarationError(`algebra_law_unknown(${JSON.stringify(each)})`);
@@ -497,7 +502,7 @@ function carrierName(carrier: Carrier): string {
 
 /** The algebra one name resolves to here, or nothing. */
 export async function algebraOf(catalog: Space, name: string): Promise<Algebra | undefined> {
-  const shipped = PRESETS[name];
+  const shipped = Object.hasOwn(PRESETS, name) ? PRESETS[name] : undefined;
   if (shipped !== undefined) return shipped;
   return catalogDeclaration(catalog, name);
 }
@@ -1199,7 +1204,7 @@ async function contextCapabilities(
   for await (const atom of catalog.atoms()) {
     if (!headed(atom, "annotations")) continue;
     if (atom.items.length !== 3 && atom.items.length !== 4) continue;
-    if (String(atom.items[1]) !== space.name || String(atom.items[2]) !== algebra) continue;
+    if (atom.items[1] !== space.handle || String(atom.items[2]) !== algebra) continue;
     return new Set(namesIn(atom.items[3], "capabilities"));
   }
   return new Set();
@@ -1219,10 +1224,10 @@ export function annotate(
 ): Atom {
   const row =
     capabilities.length === 0
-      ? expr(sym("annotations"), sym(space.name), sym(carrierName(algebra)))
+      ? expr(sym("annotations"), space.handle, sym(carrierName(algebra)))
       : expr(
           sym("annotations"),
-          sym(space.name),
+          space.handle,
           sym(carrierName(algebra)),
           expr(sym("capabilities"), ...capabilities.map((each) => sym(each))),
         );

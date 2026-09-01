@@ -5,6 +5,16 @@
  *     refuses what a provider does not implement
  *   - a live host collection is read afresh for every query, with no
  *     publication step
+ *   - a multiset difference compares live host values by identity rather than
+ *     by their shared rendering [tested: "distinguishes live host values by
+ *     identity when diffing"; commit=ed4a5431b5725fd19fea8d09f1228e857aa40865]
+ *   - a Set view preserves the distinction between a MeTTa symbol and a
+ *     grounded host string [tested: "round-trips symbols written through a Set
+ *     view"; commit=ed4a5431b5725fd19fea8d09f1228e857aa40865]
+ *   - a collection view answers a bound key through the collection's native
+ *     lookup without walking its entries [tested: "uses native keyed lookups
+ *     for bound collection probes";
+ *     commit=77e1f3501647d5d70cbe10aa868135d2069bc178]
  * Open Obligations:
  *   To Do: None
  *   Hacks: None
@@ -16,15 +26,18 @@ import { after, before, describe, it } from "node:test";
 
 import {
   type Atom,
+  G,
   Match,
   MettaError,
   type MeTTa,
   S,
   type SpaceProvider,
+  type Term,
   V,
   capabilitiesOf,
   hostValue,
   metta,
+  toAtom,
 } from "../src/index.ts";
 import { diff, mapped, objectView, overlay, readOnly, union, view } from "../src/spaces.ts";
 import { checkSpaceProvider } from "../src/testing.ts";
@@ -189,6 +202,84 @@ describe("the space combinators", () => {
     m.detach(setName);
   });
 
+  it("round-trips symbols written through a Set view", async () => {
+    const members = new Set<unknown>();
+    const name = freshName();
+    const bySet = m.attach(name, members);
+    try {
+      bySet.add(S.ada, G("ada"));
+      assert.equal(members.size, 2);
+      assert.ok(members.has(S.ada.atom));
+      assert.ok(members.has("ada"));
+      assert.ok(bySet.has(S.ada));
+      assert.ok(bySet.has(G("ada")));
+      assert.deepEqual(
+        (await bySet.atoms()).map((atom) => [atom.kind, atom.text]).sort(),
+        [["grounded", '"ada"'], ["symbol", "ada"]],
+      );
+
+      assert.ok(bySet.delete(S.ada));
+      assert.deepEqual((await bySet.atoms()).map(String), ['"ada"']);
+    } finally {
+      m.detach(name);
+    }
+  });
+
+  it("uses native keyed lookups for bound collection probes", () => {
+    const matches = (data: object, pattern: Term): Atom[] => {
+      const matcher = view(data).match;
+      assert.ok(matcher !== undefined);
+      return [...(matcher(toAtom(pattern)) as Iterable<Atom>)];
+    };
+
+    const keyed = new Map<unknown, number>([
+      ["ada", 3],
+      [S.ada.atom, 5],
+    ]);
+    let mapWalks = 0;
+    const mapEntries = keyed.entries.bind(keyed);
+    keyed.entries = () => {
+      mapWalks += 1;
+      return mapEntries();
+    };
+    assert.deepEqual(
+      matches(keyed, S.kv(S.ada, V.score)).map(String),
+      ["(kv ada 3)", "(kv ada 5)"],
+    );
+    assert.equal(mapWalks, 0, "a bound Map key walked the Map");
+
+    const grounded = G(3);
+    const members = new Set<unknown>([3, grounded]);
+    let setWalks = 0;
+    const setIterator = members[Symbol.iterator].bind(members);
+    members[Symbol.iterator] = () => {
+      setWalks += 1;
+      return setIterator();
+    };
+    assert.equal(matches(members, grounded).length, 2, "both stored images must remain answers");
+    assert.equal(setWalks, 0, "a ground Set member walked the Set");
+
+    let arrayReads = 0;
+    const list = new Proxy(["zero", "one"], {
+      get(target, key, receiver) {
+        if (key === "0" || key === "1") arrayReads += 1;
+        return Reflect.get(target, key, receiver) as unknown;
+      },
+    });
+    assert.deepEqual(matches(list, S.kv(1, "one")).map(String), ['(kv 1 "one")']);
+    assert.equal(arrayReads, 1, "a bound array index read every element");
+
+    let objectWalks = 0;
+    const record = new Proxy({ ada: 3 }, {
+      ownKeys(target) {
+        objectWalks += 1;
+        return Reflect.ownKeys(target);
+      },
+    });
+    assert.deepEqual(matches(record, S.kv(S.ada, 3)).map(String), ["(kv ada 3)"]);
+    assert.equal(objectWalks, 0, "a bound object key enumerated the object");
+  });
+
   it("refuses a write through the engine's own capability rule", async () => {
     const source = view(new Map([["ada", 3]]));
     const name = freshName();
@@ -242,6 +333,19 @@ describe("the space combinators", () => {
     const report = await diff(a, b);
     assert.deepEqual(report.onlyInFirst.map(String), ["(kv ada 1)"]);
     assert.deepEqual(report.onlyInSecond.map(String), ["(kv cy 3)"]);
+  });
+
+  it("distinguishes live host values by identity when diffing", async () => {
+    const first = {};
+    const second = {};
+    assert.equal(G(first).text, G(second).text, "the fixture needs one shared rendering");
+
+    const apart = await diff(view(new Set([first])), view(new Set([second])));
+    assert.deepEqual(apart.onlyInFirst, [G(first)]);
+    assert.deepEqual(apart.onlyInSecond, [G(second)]);
+
+    const same = await diff(view(new Set([first])), view(new Set([first])));
+    assert.deepEqual(same, { onlyInFirst: [], onlyInSecond: [] });
   });
 
   it("presents a live object's own fields, and writes them back", async () => {

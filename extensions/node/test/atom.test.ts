@@ -25,6 +25,7 @@ import {
   Var,
   byStandardOrder,
   expr,
+  exprOf,
   float,
   fresh,
   mapTerm,
@@ -55,11 +56,75 @@ describe("interning", () => {
     assert.ok([sym("a"), sym("b")].includes(sym("b")));
   });
 
+  it("interns a wide expression without joining every child id into text", () => {
+    const items = Array.from({ length: 20_000 }, (_, at) => G(at));
+    const original = Array.prototype.join;
+    let joinedIds = false;
+    Array.prototype.join = function guarded<T>(this: T[], separator?: string): string {
+      if (this.length === items.length + 1 && this[0] === "e") {
+        joinedIds = true;
+        throw new Error("exprOf materialised one string field per child");
+      }
+      return original.call(this, separator);
+    } as typeof Array.prototype.join;
+    try {
+      const first = exprOf(items);
+      assert.equal(exprOf(items), first, "the structural expression stopped interning");
+    } finally {
+      Array.prototype.join = original;
+    }
+    assert.equal(joinedIds, false);
+  });
+
+  it("keeps structurally different expressions separate inside one hash bucket", () => {
+    class FixedIdAtom extends Atom {
+      override readonly kind = "symbol" as const;
+      readonly label: string;
+      constructor(id: number, label: string) {
+        super();
+        Object.defineProperty(this, "id", { value: id });
+        this.label = label;
+        Object.freeze(this);
+      }
+      override get text(): string {
+        return this.label;
+      }
+    }
+
+    // These two id sequences collide under the FNV-1a bucket hash. Exact child
+    // identity, not the hash, remains the equality decision.
+    const leftItems = [
+      new FixedIdAtom(1_048_577, "left-a"),
+      new FixedIdAtom(3_145_735, "left-b"),
+    ];
+    const rightItems = [
+      new FixedIdAtom(2_097_155, "right-a"),
+      new FixedIdAtom(1_922_775_893, "right-b"),
+    ];
+    const left = exprOf(leftItems);
+    const right = exprOf(rightItems);
+    assert.notEqual(left, right, "a hash collision became structural equality");
+    assert.equal(exprOf(leftItems), left);
+    assert.equal(exprOf(rightItems), right);
+  });
+
   it("gives a host value one atom per object", () => {
     const held = { hello: "world" };
     assert.equal(G(held), G(held));
     assert.equal(G(held).value, held);
     assert.notEqual(G({ hello: "world" }), G({ hello: "world" }));
+  });
+
+  it("interns registered symbols without treating them as weak keys", () => {
+    const key = "metta-node.atom.test.registered";
+    const shared = Symbol.for(key);
+    assert.equal(G(shared), G(Symbol.for(key)));
+    assert.equal(G(shared).value, shared);
+
+    const first = Symbol("private");
+    const second = Symbol("private");
+    assert.equal(G(first), G(first));
+    assert.notEqual(G(first), G(second));
   });
 
   it("keeps a fresh variable out of every source name's way", () => {
@@ -204,13 +269,83 @@ describe("walking", () => {
 });
 
 describe("the standard order", () => {
-  it("sorts variable, number, symbol, text, expression", () => {
+  it("sorts variable, number, text, symbol, expression", () => {
     const sorted = [expr(sym("z")), sym("b"), variable("v"), G(3), G("s")].sort(byStandardOrder);
-    assert.deepEqual(sorted.map(String), ["$v", "3", "b", '"s"', "(z)"]);
+    assert.deepEqual(sorted.map(String), ["$v", "3", '"s"', "b", "(z)"]);
   });
 
-  it("sorts expressions by arity before contents", () => {
-    const sorted = [expr(sym("a"), sym("b")), expr(sym("z"))].sort(byStandardOrder);
-    assert.deepEqual(sorted.map(String), ["(z)", "(a b)"]);
+  it("matches the engine's numeric, atomic and list order at every edge", () => {
+    assert.ok(byStandardOrder(G(Number.NaN), G(Number.NEGATIVE_INFINITY)) < 0);
+    assert.ok(byStandardOrder(G(-0), float(0)) < 0);
+    assert.ok(byStandardOrder(float(0), G(0)) < 0);
+    assert.ok(byStandardOrder(G(2n ** 60n), G(2n ** 60n + 1n)) < 0);
+    assert.ok(byStandardOrder(G(2 ** 60), G(2n ** 60n + 1n)) < 0);
+    assert.ok(byStandardOrder(G("true"), G(true)) < 0);
+    assert.ok(byStandardOrder(expr(), sym("Apple")) < 0);
+    assert.ok(byStandardOrder(expr(sym("a"), sym("b")), expr(sym("z"))) < 0);
+    assert.ok(byStandardOrder(expr(sym("a")), expr(sym("a"), sym("b"))) < 0);
+    assert.ok(byStandardOrder(sym("\u{e000}"), sym("\u{10000}")) < 0);
+  });
+
+  it("is a total order across every host atom distinction", () => {
+    const first = {};
+    const second = {};
+    const atoms: readonly Atom[] = [
+      variable("alpha"),
+      variable("beta"),
+      G(Number.NaN),
+      G(Number.NEGATIVE_INFINITY),
+      G(-0),
+      float(0),
+      G(0),
+      G(0n),
+      G(2 ** 60),
+      G(2n ** 60n),
+      G(2n ** 60n + 1n),
+      G(Number.POSITIVE_INFINITY),
+      G("\u{e000}"),
+      G("\u{10000}"),
+      expr(),
+      sym("[]"),
+      G(first),
+      G(second),
+      G(Symbol.for("metta-node.atom.order")),
+      G(Symbol("metta-node.atom.order")),
+      space("&same"),
+      sym("&same"),
+      G(false),
+      sym("false"),
+      G(true),
+      sym("true"),
+      expr(sym("a")),
+      expr(sym("a"), sym("b")),
+      expr(sym("z")),
+    ];
+    const sign = (value: number): number => Math.sign(value);
+    for (const left of atoms) {
+      assert.equal(byStandardOrder(left, left), 0, `atom ${String(left.id)} is not reflexive`);
+      for (const right of atoms) {
+        const leftRight = byStandardOrder(left, right);
+        const rightLeft = byStandardOrder(right, left);
+        assert.equal(
+          sign(leftRight) + sign(rightLeft),
+          0,
+          `atoms ${String(left.id)} and ${String(right.id)} are not antisymmetric`,
+        );
+        assert.equal(
+          leftRight === 0,
+          left === right,
+          `distinct atoms ${String(left.id)} and ${String(right.id)} compare equal`,
+        );
+        for (const last of atoms) {
+          if (leftRight <= 0 && byStandardOrder(right, last) <= 0) {
+            assert.ok(
+              byStandardOrder(left, last) <= 0,
+              `atoms ${String(left.id)}, ${String(right.id)}, ${String(last.id)} are not transitive`,
+            );
+          }
+        }
+      }
+    }
   });
 });
