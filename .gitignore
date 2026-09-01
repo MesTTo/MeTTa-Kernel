@@ -56,3 +56,6 @@ pypi.txt
 *.key
 .env
 .env.*
+
+# Local editor settings, not a project decision.
+.vscode/
