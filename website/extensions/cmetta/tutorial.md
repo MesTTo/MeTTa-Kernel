@@ -192,9 +192,19 @@ the rest, `mt_one_int(r)` and its `_float`, `_truth` and `_name` siblings give
 you the value with no atom to look after, and `mt_all(r)` gives every answer as
 an `mt_list`. Each consumes the cursor.
 
-## Two doors for a C function
+## C values and functions
 
-`mt_def` publishes a C function the engine CALLS:
+`mt_object(pointer, type_name, release)` carries a C value through MeTTa by
+identity. SWI normally releases its blob during atom garbage collection, and
+the callback runs when that engine reference and every C reference are gone.
+Use `mt_object_free(handle)` when the resource must close immediately. It
+consumes the handle and invalidates any aliases still stored in the engine; an
+attempt to return one reports `MT_UNSUPPORTED` rather than dereferencing the
+released value. A reference retained with `mt_keep` remains valid until it is
+dropped.
+
+There are two doors for a C function. `mt_def` publishes a C function the
+engine CALLS:
 
 ```c
 static mt_status op_hypot(mt_call *call, void *user)
