@@ -5,9 +5,10 @@ add a feature, and you should not have to guess which mechanism to reach for.
 This page lists them in order of runtime cost, measured rather than asserted,
 and says what each one is for.
 
-The short version: **C, Prolog, macros and compiled Python all cost about what
-a MeTTa function costs, and a Python operation costs the janus crossing.** Pick
-by how hot the code is, and by which language the work is already in.
+The short version: **C, Prolog, macros and native-proved compiled Python cost
+about what a MeTTa function costs. Python protocol dispatch costs a Janus
+crossing.** Pick by how hot the code is, and by which language the work is
+already in.
 
 ## Where the Prolog seams live
 
@@ -42,14 +43,14 @@ marginal cost of **one call** rather than of the loop around it.
 
 | extension point | inferences/call | vs MeTTa | microseconds/call | vs MeTTa |
 |---|---|---|---|---|
-| C foreign predicate | 1.00 | 0.33x | 0.02 | 0.31x |
-| Prolog grounded predicate | 2.00 | 0.67x | 0.04 | 0.64x |
-| translator rule (a macro) | 2.00 | 0.67x | 0.06 | 0.97x |
-| @m.define, no annotations | 3.00 | 1.00x | 0.07 | 1.11x |
-| @m.define, annotated | 3.00 | 1.00x | 0.10 | 1.59x |
-| ordinary MeTTa function | 3.00 | 1.00x | 0.06 | 1.00x |
-| Python operation, transport="raw" | 12.00 | 4.00x | 1.12 | 17.72x |
-| Python operation, encoded | 20.00 | 6.67x | 3.87 | 61.08x |
+| C foreign predicate | 1.00 | 0.33x | 0.01 | 0.17x |
+| translator rule (a macro) | 2.00 | 0.67x | 0.03 | 0.39x |
+| Prolog grounded predicate | 2.00 | 0.67x | 0.02 | 0.27x |
+| ordinary MeTTa function | 3.00 | 1.00x | 0.08 | 1.00x |
+| @m.define, annotated | 3.00 | 1.00x | 0.10 | 1.15x |
+| Python operation, transport="raw" | 12.00 | 4.00x | 1.16 | 13.85x |
+| Python operation, encoded | 20.00 | 6.67x | 4.05 | 48.22x |
+| @m.define, no annotations | 28.00 | 9.33x | 5.13 | 61.12x |
 
 Six of each operation row's inferences are the scheduler admission probe: every
 operation call asks the effect and lane question that lets an `oracleIO` call
@@ -59,10 +60,12 @@ the same probe.
 This is one run's output, not a best-of, because the columns divide by each
 other and mixing runs would give ratios no run measured. The inference column
 is exact; the microsecond column is not, because the four native tiers land
-near the timer's resolution. The annotated `@m.define` row came out at 1.59x
-here and at 1.06x, 1.09x, 1.45x and 1.66x on runs minutes apart at the same
-load, while its inference figure was identical every time. Any native-tier
-ratio inside about 2x is timer noise.
+near the timer's resolution. The annotated `@m.define` row has varied between
+about 1.1x and 1.7x on runs minutes apart at the same load, while its inference
+figure was identical every time. Any native-tier ratio inside about 2x is timer
+noise. [measured: table output above; command=python -m
+benchmarks.extension_cost --update; fixture=3000 calls, min-of-3, C reader and
+C extension enabled; commit=WORKTREE]
 
 ### Three choices, and none of them is the other two
 
@@ -190,10 +193,10 @@ pre-add hook with the `space-admission-verdict` judge.
 
 | write door | inferences/add | vs plain add | microseconds/add | vs plain add |
 |---|---|---|---|---|
-| add-atom, no claims on the space | 30.00 | 1.00x | 1.43 | 1.00x |
-| add-atom through an accept-all pre-add hook | 47.00 | 1.57x | 2.26 | 1.58x |
-| add-atom into a pool with a declared admits type | 57.00 | 1.90x | 2.34 | 1.63x |
-| add-atom into a pool with a declared capacity | 67.00 | 2.23x | 4.70 | 3.28x |
+| add-atom, no claims on the space | 30.00 | 1.00x | 1.70 | 1.00x |
+| add-atom through an accept-all pre-add hook | 47.00 | 1.57x | 2.57 | 1.51x |
+| add-atom into a pool with a declared admits type | 57.00 | 1.90x | 2.73 | 1.60x |
+| add-atom into a pool with a declared capacity | 67.00 | 2.23x | 4.78 | 2.81x |
 
 A space nothing claimed keeps the direct write path, which is what holds the
 plain row where it is. The capacity row used to read 4569.69 at a thousand held
@@ -217,33 +220,30 @@ much work it does inside, so the 1.00 above measures the call, not the
 computation. C wins on this table because the operation is trivial; what it
 buys you is that the work inside is invisible to the Prolog engine.
 
-**Inferences no longer see a type check at all.** `@m.define` compiles Python
-into MeTTa equations, and with no annotations it costs exactly what the
-hand-written equation costs. Annotate it and the generated
-`(: f (-> Number Number))` sends every call through typed dispatch, which emits
-a check per argument and one on the result.
+**An annotation can select the native operator path.** `@m.define` compiles a
+Python body into MeTTa equations, but it must preserve Python's live operator
+protocol when an operand's type is unknown. The unannotated `x + 1` row
+therefore calls Python and costs 28.00 inferences. Declaring `x: int` proves
+that the same source can use the pure engine `+` head, so the annotated row is
+back at the hand-written equation's 3.00.
 
-The compiler settles most of that at compile time. A literal argument's type is
-decided while the call site compiles, so no check is emitted for it, and a call
-whose arguments are all literals of the declared types compiles to exactly what
-the untyped one does. A check it cannot drop it specialises: `Number`, `String`
-and `Bool` are each decided by one Prolog builtin, and the declared type is
-known while compiling, so `number/1` goes in front of the general lookup.
+The declaration also asks the engine to check the contract. A literal argument
+of the declared type is discharged while the call site compiles. A parameter
+whose enclosing declaration proves the required type is discharged under the
+same module policy, and recompilation restores the check if a user typing rule
+changes that policy. A check the compiler cannot prove remains. `Number`,
+`String` and `Bool` checks are specialised to one Prolog builtin before the
+general lookup.
 
 SWI compiles `number/1` to a VM instruction and does not count it as an
-inference. So the annotated row reads the same 5.00 as the unannotated one, and
-**that is a fact about the counter rather than about the work**. The check
-still runs. Measured in retired instructions on a workload that is nothing but
-declared calls with unknown arguments, the tree that landed the specialisation
-read 6,390,131,589 with it and 9,219,256,868 without, so about 30% of that
-workload was still the checking. `check.sh` gates that number as the
-`typed-call` case (7,737,766,959 at the current pin, each move recorded beside
-it in `benchmarks/baseline.json`), because the inference gate every other row
-relies on is blind here.
+inference. The annotated row's inference parity is therefore not a claim that
+every contract is free. The separate `declared_contracts.py` benchmark covers
+proved and unproved parameters directly; `check.sh` also gates the
+`typed-call` retired-instruction ceiling in `benchmarks/baseline.json`.
 
-So declare types where you want the checking. It is much cheaper than it was
-and it is not free, a literal argument costs nothing, and a parameter you do
-not mean to constrain can be declared `%Undefined%`, which emits no check.
+Annotate a numeric twin when its Python operator is meant to become the native
+MeTTa head. Leave it unannotated when Python overload or reflected-method
+semantics are part of the function's contract.
 
 **The Python operation has two paths and they are not close.**
 `transport="raw"` skips the wire encoding both ways. The encoded path WALKS the
