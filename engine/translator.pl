@@ -33,6 +33,12 @@
 %     and a copy_term/2 plus numbervars/4 variant key; changing or removing a
 %     mentioned function evicts every dependent template
 %     [tested: translation_cache; commit=d90a3c9620e56e42d3a2f5982b4353da8423e873].
+%   - translate_tracked_clause/[2,3] enables contract shortcuts only for a
+%     clause recorded in the support graph; translate_clause/[2,3] keeps every
+%     dynamic check for untracked prelude and lambda clauses
+%     [tested:
+%     translator_literal_type_checks:an_untracked_clause_retains_static_and_intrinsic_contracts;
+%     commit=WORKTREE].
 %   - A runtime-type-guarded built-in, or format-args, whose written operands
 %     already contradict its declared parameter types is refused before those
 %     operands run, while accepted and undecided operands retain ordinary
@@ -240,6 +246,8 @@
 :- module(translator,
           [ translate_clause/2,
             translate_clause/3,
+            translate_tracked_clause/2,
+            translate_tracked_clause/3,
             without_runnable_name_context/1,
             translate_expr/3,
             translate_cached_expr/3,

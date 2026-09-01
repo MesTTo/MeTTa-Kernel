@@ -152,6 +152,11 @@
 %     once for repair [tested:
 %     support_graph:test_a_derived_fact_is_invalidated_forward_from_what_it_supports;
 %     commit=7ade2b90e2631451fd6ffc23d22dd8c2d4a7a7aa].
+%   - A module-scoped typing-policy change invalidates its compiled functions
+%     through the same support graph, so the next call sees clauses translated
+%     under the new policy and a removal restores the discharged checks
+%     [tested: test_a_static_parameter_proof_yields_to_a_later_typing_rule;
+%     commit=WORKTREE].
 %   - silent/1 has exactly one writer outside the load-time argv directive,
 %     metta_host_set_silent/1, which every host with no command line to read
 %     goes through and which refuses a non-boolean before it retracts
@@ -205,6 +210,7 @@
             support_invalidate_function/1,
             support_invalidate_function_change/2,
             support_invalidate_definition/1,
+            typing_policy_changed/1,
             repair_support_invalidations/0,
             %engine/main.pl's command line runs a file through this one,
             %and engine/translator.pl asks whether a source load is active
@@ -1105,15 +1111,16 @@ schedule_definition_repair(F) :-
     repair_stale_definitions(F).
 
 repair_stale_definitions(F) :-
-    transaction(
-        ( support_invalidate_function(F),
-          repair_support_invalidations )).
+    with_typing_policy_stable(
+        transaction(
+            ( support_invalidate_function(F),
+              repair_support_invalidations ))).
 
 %Rebuild every clause of G from its stored source terms. Erasing and re-appending each
 %tracked clause in assertion order keeps their relative order; clauses asserted through
 %Prolog interop are not tracked and would end up before the rebuilt ones:
 recompile_function(G) :-
-    transaction(recompile_function_impl(G)).
+    with_typing_policy_stable(transaction(recompile_function_impl(G))).
 
 %One MODULE at a time, because the erase and the re-translation are two
 %phases and the second one reads the database the first one emptied. The same
@@ -1166,6 +1173,9 @@ recompile_function_impl(G) :-
     repair_support_invalidations.
 
 recompile_function_in_module(Module, G) :-
+    with_typing_policy_stable(recompile_function_in_module_stable(Module, G)).
+
+recompile_function_in_module_stable(Module, G) :-
     findall(compiled(Ref, SourceRef, Term, Owners),
             ( translated_equation_of(G, Ref, Term),
               clause_property(Ref, module(Module)),
@@ -1209,7 +1219,8 @@ recompile_function_in_module(Module, G) :-
                Owners,
                ( copy_term(Term, Fresh),
                  once(with_metta_module(Module,
-                                        translate_clause(Fresh, RawClause))),
+                                        translate_tracked_clause(
+                                            Fresh, RawClause))),
                  %A rebuilt clause is the same equation, so it carries the same
                  %recursion fuel the compile door gave it. Re-translating without
                  %this left a recursive definition unbounded the moment anything
@@ -1335,6 +1346,33 @@ support_invalidate_definition(F) :-
     sort(Modules0, Modules),
     forall(member(Module, Modules),
            support_invalidate(compiled_function(Module, F))).
+
+% A typing rule is module-wide and may change any argument check compiled in
+% that module. Mutations are rare, so the change pays one indexed pass over
+% that module's compiled functions and keeps the call path free of a policy
+% probe. The support graph then owns ordering, source-load deferral, transitive
+% invalidation, and transactional rollback exactly as it does for declarations
+% and dispatch-policy changes.
+typing_policy_changed(Module) :-
+    findall(compiled_function(Module, Function),
+            support_function_module(Function, Module),
+            Roots0),
+    sort(Roots0, Roots),
+    support_invalidate_many(Roots),
+    repair_typing_policy_invalidations,
+    clear_translation_cache.
+
+% A rule installed by a runnable takes effect before the next runnable in the
+% same source. Ordinary source repairs may wait for the prefix or load drain;
+% a policy mutation cannot, because an old discharged check would answer under
+% the new rule. The pending set remains owned by the support graph either way.
+repair_typing_policy_invalidations :-
+    active_source_load(LoadId),
+    LoadId \= '$metta_owner_pin'(_),
+    !,
+    repair_support_invalidations(LoadId).
+repair_typing_policy_invalidations :-
+    forall(support_repair_invalidations, true).
 
 :- dynamic support_recompile_pending/3.
 :- multifile support_graph:support_invalidation_action/1.

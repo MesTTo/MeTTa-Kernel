@@ -10,6 +10,12 @@
 %   test_an_inherited_arrow_does_not_veto_a_local_definition,
 %   lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
 %   commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
+%   A generated contract whose static shortcut is invalidated uses the
+%   policy-strict witness relation, so an ordinary user refusal remains
+%   decisive over numeric and exact witnesses while unrelated type queries
+%   retain their established fast path [tested:
+%   test_a_static_parameter_proof_yields_to_a_later_typing_rule;
+%   commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -396,7 +402,9 @@ has_type_derive(Module, X, T) :-
              ->  true
              ;   Outcome = exhausted(Candidates),
                  type_answers_from(Module, X, Candidates, Types),
-                 (   once(( member(Widened, Types), Widened == T ))
+                 (   once(( member(Widened, Types),
+                            type_witness_candidate_matches(
+                                Module, Widened, T) ))
                  ->  true
                  ;   member(Actual, Types),
                      metta_types_match_in(Module, Actual, T)
@@ -438,7 +446,8 @@ type_witness_in(Module, X, T) :-
     ->  true
     ;   Outcome = exhausted(Candidates),
         type_answers_from(Module, X, Candidates, Types),
-        once(( member(Widened, Types), Widened == T ))
+        once(( member(Widened, Types),
+               type_witness_candidate_matches(Module, Widened, T) ))
     ).
 
 %The two attempts that reach a decision WITHOUT materialising the full answer
@@ -460,9 +469,7 @@ type_witness_direct(Module, X, T, Outcome) :-
 type_witness_direct(Module, X, T, Outcome) :-
     State = collected([]),
     (   (   type_candidate_in(Module, X, Actual),
-            (   typing_rule_accepts(Module, widening, Actual, T)
-            ->  true
-            ;   Actual = T
+            (   type_witness_candidate_matches(Module, Actual, T)
             ->  true
             %Only a REJECTED candidate is worth remembering. An accepted one ends
             %the walk and the list is never read, so the ordinary case pays for no
@@ -480,6 +487,55 @@ type_witness_direct(Module, X, T, Outcome) :-
             Outcome = exhausted(Candidates)
         )
     ).
+
+%A witness is narrower than gradual consistency: Atom and %Undefined% do not
+%prove a concrete type. Exact identity and an accepted widening prove the
+%structural relation on the default hot path. A generated contract whose
+%static proof was invalidated calls has_type_under_policy/3 instead, so
+%unrelated type reporting does not pay a registry probe.
+type_witness_candidate_matches(Module, Actual, Expected) :-
+    (   typing_rule_accepts(Module, widening, Actual, Expected)
+    ;   Actual = Expected
+    ).
+
+%The policy-strict ground check mirrors has_type_derive/3's candidate order
+%but deliberately omits its tuple and exact shortcuts. This path is reached
+%only while a user ordinary or widening policy is installed, where every
+%candidate must be accepted by that policy before it can discharge a
+%generated contract.
+has_type_under_policy(Module, X, T) :-
+    ground(T),
+    State = collected([]),
+    (   (   type_candidate_in(Module, X, Actual),
+            (   type_witness_candidate_matches_under_policy(
+                    Module, Actual, T)
+            ->  true
+            ;   duplicate_term(Actual, Kept),
+                arg(1, State, Acc),
+                nb_setarg(1, State, [Kept|Acc]),
+                fail
+            )
+        ->  true
+        ;   satisfies_metatype_in(Module, X, T)
+        ->  true
+        ;   arg(1, State, Reversed),
+            reverse(Reversed, Candidates),
+            type_answers_from(Module, X, Candidates, Types),
+            (   once(( member(Widened, Types),
+                       type_witness_candidate_matches_under_policy(
+                           Module, Widened, T) ))
+            ->  true
+            ;   member(Other, Types),
+                metta_types_match_in(Module, Other, T)
+            )
+        )
+    ).
+
+type_witness_candidate_matches_under_policy(Module, Actual, Expected) :-
+    (   typing_rule_accepts(Module, widening, Actual, Expected)
+    ;   Actual = Expected
+    ),
+    typing_rule_accepts(Module, ordinary, Actual, Expected).
 
 %CHECKING a tuple against a KNOWN tuple type, decided per position instead of
 %by finding it in the product.
@@ -1272,15 +1328,13 @@ scoped_has_type(Space, Module, X, T) :-
 %decisive user rule is consulted before the reflexive case as it was.
 scoped_type_witness(Space, Module, X, T) :-
     (   once(( scoped_type_candidate(Space, Module, X, Actual),
-               (   typing_rule_accepts(Module, widening, Actual, T)
-               ->  true
-               ;   Actual = T
-               ) ))
+               type_witness_candidate_matches(Module, Actual, T) ))
     ->  true
     ;   satisfies_metatype_in(Module, X, T)
     ->  true
     ;   scoped_type_answers(Space, X, Types),
-        once(( member(Widened, Types), Widened == T ))
+        once(( member(Widened, Types),
+               type_witness_candidate_matches(Module, Widened, T) ))
     ).
 
 %THE CHEAP TEST LEADS, for the reason widen_to_super_types/4 above records:

@@ -6,6 +6,13 @@
 %   [tested: test_an_inherited_arrow_does_not_veto_a_local_definition,
 %   lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
 %   commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
+%   A runnable translation guards an intrinsic shortcut with the live typing
+%   policy because no retained support record spans translation and execution.
+%   Static discharge is reserved for clauses published under the policy mutex
+%   [tested:
+%   translator_literal_type_checks:an_intrinsic_type_check_is_specialised,
+%   translator_literal_type_checks:a_stale_transaction_keeps_the_dynamic_contract;
+%   commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/translator/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -28,6 +35,11 @@ translate_cached_expr(C, Goals, Out) :-
 
 %% translate_runnable_expr(+Expression, -Goals, -Value) is det.
 translate_runnable_expr(C, Goals, Out) :-
+    with_static_contract_shortcuts(
+        guarded,
+        translate_runnable_expr_impl(C, Goals, Out)).
+
+translate_runnable_expr_impl(C, Goals, Out) :-
     b_getval('$metta_translating_runnable', Outer),
     setup_call_cleanup(b_setval('$metta_translating_runnable', true),
                        once(translate_expr(C, Goals, Out)),

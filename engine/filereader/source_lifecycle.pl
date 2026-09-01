@@ -10,7 +10,11 @@
 % Assumes: engine/filereader.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/filereader.pl's implementation module and original load order;
 %   each source load is atomic with every dependent recompile it triggers;
-%   source_load_receipt_current/4 accepts a receipt only while its source row, digest, and every tagged stored output remain current.
+%   source_load_receipt_current/4 accepts a receipt only while its source row, digest, and every tagged stored output remain current;
+%   a failed load erases its typing rules and recompiles affected retained
+%   clauses under the restored policy [tested:
+%   filereader_source_rollback:a_failed_source_rule_restores_discharged_contracts;
+%   commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/reader/filereader.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -719,6 +723,10 @@ repair_stale_definitions_batch(Functions) :-
 %and a failing erase/1 made forall/2 fail and took the whole withdrawal down
 %with it [measured 2026-08-19: it reported one atom and then failed].
 rollback_source_load(LoadId) :-
+    with_typing_policy_stable(rollback_source_load_stable(LoadId)).
+
+rollback_source_load_stable(LoadId) :-
+    source_typing_policy_modules(LoadId, PolicyModules),
     findall(F,
             ( source_load_assertion(LoadId, stored, Ref),
               stored_atom_of_ref(Ref, _, [=, [F|_], _]),
@@ -734,8 +742,16 @@ rollback_source_load(LoadId) :-
     reverse(Asserted, Refs),
     forall(member(Ref, Refs),
            ( catch(erase(Ref), _, true) -> true ; true )),
+    forall(member(Module, PolicyModules), typing_policy_changed(Module)),
     support_prune_orphans,
     repair_after_source_rollback(Functions).
+
+source_typing_policy_modules(LoadId, Modules) :-
+    findall(Module,
+            ( source_load_assertion(LoadId, _, Ref),
+              type_rules:typing_rule_reference_module(Ref, Module) ),
+            Modules0),
+    sort(Modules0, Modules).
 
 %A failed first load has no enclosing database transaction, yet one of its
 %definitions may already have made an older caller recompile.  Once the failed
