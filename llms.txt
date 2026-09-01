@@ -168,6 +168,20 @@ column. Both keep `cls` for type checkers.
 `m.batch()` collects `add()` calls and crosses once at exit.
 `m.limits(timeout=, inferences=)` sets scoped defaults for every call inside.
 
+## The three axes of integration
+
+It is a KERNEL because the point is what plugs into it. **Lower it**: host
+code becomes equations (`@m.define`, translator rules). **Extend it**: the
+engine calls your code (Python operations, Prolog predicates, C foreign
+predicates, reader tokens). **Back it**: the atoms live elsewhere, because a
+space is an interface, so SQLite, DuckDB, NetworkX, a live object, another
+process or MORK can BE a space and still join with a native one. A
+table-backed space is one declaration,
+`(bridge (edge $a $b) (row edges (a $a) (b $b)))`, from which every provider
+operation derives in both directions: a match becomes a WHERE, a repeated
+variable `WHERE a = b`, `take` a LIMIT, an add an INSERT. EXTENDING.md is the
+long form and names all nine seams; forking should never be the answer.
+
 ## Spaces
 
 `ctx.space(name)` selects on the `MeTTa` context and `ctx.space()` or

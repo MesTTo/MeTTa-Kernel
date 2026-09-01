@@ -6,11 +6,78 @@ Guarantees: every Python block executes, each in a namespace of its own
 
 # MeTTa Kernel
 
-MeTTa, implemented in Prolog and C. One engine, three surfaces: Python,
-TypeScript, C.
+MeTTa, implemented in Prolog and C. One engine, and as many surfaces as
+anyone writes: Python, TypeScript and C are the three built so far, and a
+language reaches the engine through the wire codec rather than through a
+port, so the list is not a limit.
 
 For now it supports PeTTa's semantics, and work is under way so that it can
 support multiple dialects.
+
+**If you are an LLM, read [llms.txt](llms.txt)** for the language and every
+surface, or [extensions/python/llms.txt](extensions/python/llms.txt) for the
+Python library alone. Both are written to be read once and used, with exact
+return shapes and no prose you have to guess at, and a gate checks their
+names against the live engine.
+
+## Why "kernel"
+
+Because the point is what plugs into it. Integration runs along three axes,
+and a thing you want to use lands on one of them rather than needing a fork:
+
+**Lower it.** Host code BECOMES equations. `@m.define` compiles a Python body
+into MeTTa the engine can read, specialise and match on, and a translator
+rule adds syntax that costs nothing at run time.
+
+**Extend it.** The engine CALLS your code. A Python function, a Prolog
+predicate, a C foreign predicate or a reader token class each become an
+ordinary MeTTa function or literal, priced from 0.02 to 3.87 microseconds a
+call depending on how far the value travels.
+
+**Back it.** The atoms LIVE somewhere else. A space is an interface, so
+SQLite, DuckDB, NetworkX, a live Python object, another process or a whole
+`&mork` store can BE a space, and a query against one joins with a native
+one.
+
+The third is the one people underestimate, so here is a database as a space:
+
+```python
+import sqlite3
+
+import metta
+from metta import tables
+from metta.tables import TableBridge
+
+m = metta.MeTTa().space()
+connection = sqlite3.connect(":memory:")
+connection.execute("CREATE TABLE edges (a TEXT, b TEXT)")
+
+# One declaration relates the ATOM SHAPE to the table. It is the converter,
+# both directions, the way a MeTTa equation is.
+tables.declare(m, "&crm", "(bridge (edge $a $b) (row edges (a $a) (b $b)))")
+provider = TableBridge.from_context(m, "&crm", connection)
+m._register_space(provider, "&crm")
+
+m.run("!(add-atom &crm (edge a b))")                      # -> INSERT INTO edges
+m.run("!(add-atom &crm (edge b b))")
+m.run("!(add-atom &crm (edge b c))")
+
+(rows,) = m.run("!(collapse (match &crm (edge $x $y) ($x $y)))")
+assert sorted(str(a) for a in rows[0]) == ["(a b)", "(b b)", "(b c)"]
+
+(diagonal,) = m.run("!(collapse (match &crm (edge $x $x) $x))")
+assert [str(a) for a in diagonal[0]] == ["b"]              # -> WHERE a = b
+
+m.run("!(collapse (take 1 (match &crm (edge $x $y) (edge $x $y))))")
+assert any("LIMIT 1" in sql for sql in provider.executed)  # the bound pushed down
+```
+
+Nothing above is a wrapper around SQL. One MeTTa declaration relates the atom
+shape to the table, `(bridge (edge $a $b) (row edges (a $a) (b $b)))`, and
+every provider operation is derived from it in both directions: a query
+becomes a WHERE, a repeated variable becomes `WHERE a = b`, a bounded search
+pushes down a LIMIT, and an add becomes an INSERT. The declaration is
+knowledge, so a program can query the bridge itself.
 
 ## Install
 
@@ -611,9 +678,14 @@ atom-vector spaces come from a MeTTa library the engine fetches on request:
 
 ## What the examples show
 
-`extensions/python/examples/language-feature-examples/` is 219 runnable
-programs, each the idiomatic Python for one MeTTa example, and the gate runs
-every one. They are the depth this page only samples:
+**[`extensions/python/examples/language-feature-examples/`](extensions/python/examples/language-feature-examples/)
+is the reference for how to write this library idiomatically.** It is 219
+runnable programs, each the idiomatic Python for one MeTTa example, and the
+gate runs every one against the MeTTa it mirrors: they agree on the stored
+equations and on the answers, so neither side can drift into a spelling that
+merely looks right. Find the MeTTa construct you want in `examples/`, open
+the file of the same name here, and the Python beside it is the way to say
+it. They are also the depth this page only samples:
 
 | chapter | what it demonstrates |
 |---|---|
