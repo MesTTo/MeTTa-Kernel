@@ -44,3 +44,15 @@ ai-tmp-*
 # notebook is extensions/python/notebooks/tour.ipynb and the gate re-executes it,
 # so a reader who opens it produces these on the first edit.
 .ipynb_checkpoints/
+
+# Credentials never live in the tree. A PyPI token belongs in ~/.pypirc with
+# mode 600, or nowhere at all under Trusted Publishing, which is what
+# .github/workflows/publish.yml uses. These patterns are the net under a
+# habit, not a place to put one: this repository is public, so a file matching
+# them is one `git add -A` away from being permanent.
+pypi.txt
+.pypirc
+*.pem
+*.key
+.env
+.env.*
