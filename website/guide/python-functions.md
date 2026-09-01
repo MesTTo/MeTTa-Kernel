@@ -82,8 +82,8 @@ See [`metta.ops`](../reference/metta-ops) for annotation mapping and registratio
 A compiled `@m.define` body is an atom program, and anything in it the
 vocabulary does not lower natively crosses as a HOST ISLAND: an applicable
 grounded atom holding the author's own expression, run once per engine
-application. Nothing is hidden — the island sits in the equation as data,
-and `m.lint()` sees it — and nothing host-side runs at decoration time.
+application. Nothing is hidden: the island sits in the equation as data,
+`m.lint()` sees it, and nothing host-side runs at decoration time.
 Use an operation when the host behavior has a reusable name. Use `py(expr)`
 when you want the boundary SPELLED at that one call site:
 
@@ -104,7 +104,7 @@ identity function, so `status.py(url)` remains the ordinary Python twin.
 An unmarked call such as `requests.get(url)` islands exactly as the marked
 form does: the same expression, the same application-time run, the same
 `oracleIO` classification. What still refuses at decoration time is a name
-that resolves NOWHERE — a typo is Python's own NameError ground, and a
+that resolves NOWHERE. A typo is Python's own NameError ground, and a
 compile-time refusal beats a runtime one. The two named boundaries remain
 the better spellings where they fit: an `@metta.op(effect=...)` gives the
 behavior a reusable name, and `py(...)` marks a one-off crossing as chosen

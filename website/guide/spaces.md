@@ -45,7 +45,15 @@ Subscription is query. `m[pattern]` answers `match(pattern)`, and because Python
     assert [(row.x, row.z) for row in rows] == [(S.a, S.c)]
 ```
 
-A str key parses first, so `m["(edge $x $y)"]` works, and a slice is refused: `match(limit=n)` bounds an answer set. Deletion pairs with subscription the way `d[k]` and `del d[k]` pair. The three removal doors differ in how much they take and in what they say about absence, and each follows its own Python spelling: `remove()` is `list.remove`'s grain, one unifying occurrence per call, reporting absence as `False`; `m -= atom` is that same grain without the report, because Python's in-place difference over a multiset is `collections.Counter`'s, which subtracts the multiplicity given rather than clearing the key; `del m[pattern]` is the drain, since `m[pattern]` is a query answering many rows, taking every unifying occurrence in one crossing and raising `KeyError` when nothing unified. MeTTa spells the pair `subtract-atom` and `remove-atom`.
+A str key parses first, so `m["(edge $x $y)"]` works, and a slice is refused: `match(limit=n)` bounds an answer set. Deletion pairs with subscription the way `d[k]` and `del d[k]` pair.
+
+The three removal doors differ in how much they take and in what they say about absence, and each follows its own Python spelling:
+
+- `remove()` is `list.remove`'s grain: one unifying occurrence per call, reporting absence as `False`.
+- `m -= atom` is that same grain without the report, because Python's in-place difference over a multiset is `collections.Counter`'s, which subtracts the multiplicity given rather than clearing the key.
+- `del m[pattern]` is the drain, since `m[pattern]` is a query answering many rows. It takes every unifying occurrence in one crossing and raises `KeyError` when nothing unified.
+
+MeTTa spells the pair `subtract-atom` and `remove-atom`.
 
 The in-place operators split by what their operand means, and `+=` and `-=` read that operand the SAME way, so the fact stream one door stores the other subtracts. One built atom is one atom, and a tuple of scalars lifts into one expression (`m += (S.Edge, 1, 2)` stores `(Edge 1 2)`), while a tuple of complete rows, a list, or a generator is a stream, each element its own atom (`m -= [(S.Edge, 1, 2), (S.Edge, 2, 3)]` subtracts one of each in one transactional crossing). What `-=` does to each element is exactly `remove`'s one-occurrence grain, which is what makes `s += a; s -= a` leave the space it found; the drain is `del`.
 

@@ -8,8 +8,7 @@ Guarantees: Python examples use canonical public atom classes.
 
 A backend joins MeTTa by declaring what it can do, as atoms in the
 `&metta` space, and the engine routes queries by those declarations. No
-backend gets its own code path inside the engine. This page explains the
-model, the declarations, and where each idea comes from.
+backend gets its own code path inside the engine.
 
 ## One model
 

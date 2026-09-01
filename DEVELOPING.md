@@ -5,7 +5,7 @@ with `cd extensions/python`.
 
 ## Python environment
 
-MeTTa requires Python 3.11 or newer, SWI-Prolog 9.3 or newer, and a
+MeTTa requires Python 3.12 or newer, SWI-Prolog 9.3 or newer, and a
 `janus_swi` build linked against the installed SWI-Prolog library. Install the
 locked development environment with:
 
@@ -117,7 +117,7 @@ Pick the counter from where the work happens, not from what is convenient.
 | across a host boundary | instructions AND CPU seconds, paired | foreign code retires NO inferences, so the inference counter is blind |
 | anything | not wall clock | it moves with scheduler load and CPU frequency |
 
-The third row is the one that has been got wrong. A C wire encoder in this tree
+The third row is the one people get wrong. A C wire encoder in this tree
 measured **526x faster on inferences while CPU time said it was 1.8x slower**,
 because the work had moved to where the counter cannot see it. `measure_counters`
 runs a command under `perf stat` for several events at once and hands back each
@@ -184,8 +184,8 @@ The axes harness drives ONE case per process and refuses a second, because
 every `MeTTa()` context shares one engine and registrations are process-wide:
 a second case installs its driver's head again, the recursion then leaves a
 choice point per level, and a deep drive runs out of stack instead of
-measuring anything. That failure looks
-from outside like a run that never finishes, so the refusal is loud.
+measuring anything. That failure looks from outside like a run that never
+finishes, so the refusal is loud.
 
 Its published instruction figures are a recorded run and its inference figures
 are held by `tests/ch18_performance/test_axes.py`, which asserts an axis's
@@ -216,9 +216,9 @@ with metta.stats() as stats:
 print(stats.inferences)
 ```
 
-`m.profile_extension(...)` is the narrower question, of the functions one
-extension registered, which is costing and whether anything went in wrong; its
-calls and redos are counted exactly while its ticks are sampled.
+`m.profile_extension(...)` asks the narrower question: of the functions one
+extension registered, which is costing, and whether anything went in wrong.
+Its calls and redos are counted exactly, its ticks sampled.
 `EXTENDING.md` documents its columns.
 
 ### What a performance change must carry

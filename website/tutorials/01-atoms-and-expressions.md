@@ -6,7 +6,7 @@ The whole form is an expression. Its three children are symbols, in order: `like
 
 ![The expression likes Ada Music as nested atom blocks](/visuals/01-atoms-and-expressions.svg)
 
-MeTTa exposes the same structure as Python values. `S.Ada` makes the symbol `Ada`, `V.x` makes the variable `$x`, and applying `S.Parent` builds an expression. This source-backed test shows that parsed MeTTa and a Python-built atom are equal:
+MeTTa exposes the same structure as Python values. `S.Ada` makes the symbol `Ada`, `V.x` makes the variable `$x`, and applying `S.Parent` builds an expression. Parsed MeTTa and a Python-built atom are equal:
 
 ```python
 def test_parse_keeps_variable_names():
@@ -14,7 +14,7 @@ def test_parse_keeps_variable_names():
     assert p == S.Parent(V.x, S.Bob)
 ```
 
-MeTTa has four atom forms:
+Atoms come in four kinds:
 
 - A symbol is a name such as `Ada` or `likes`.
 - A variable is a named position such as `$who` that matching can bind.

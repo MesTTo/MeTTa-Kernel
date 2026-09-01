@@ -2,7 +2,7 @@
 
 This page is the contract: what a contribution has to be, the one command that
 decides whether it is ready, and how a release happens. The mechanics around
-it live elsewhere and are not repeated here. Setting up an interpreter and
+it live elsewhere. Setting up an interpreter and
 measuring a Python change are in [DEVELOPING.md](DEVELOPING.md), and the
 engine's own build, suites and measurement rules are in
 [tests/prolog/README.md](tests/prolog/README.md).
@@ -63,8 +63,8 @@ There are two tiers and they mean different things. A GATE lane must pass:
 its failure is recorded and the script exits nonzero. A REPORT lane prints
 its findings and never fails the run.
 
-A REPORT tier is not a softened gate. Nothing is silenced there and
-everything it finds is printed. Each REPORT lane is a burn-down surface with
+A REPORT tier is not a softened gate. Nothing is silenced there. Each REPORT
+lane is a burn-down surface with
 a backlog behind it, and it becomes a GATE the moment that backlog clears.
 Adding a finding to a REPORT lane pushes that day further away, so treat its
 output as failing for the file you touched even though the script forgives

@@ -10,7 +10,7 @@ The `metta` module is the Python surface for the engine. MeTTa runs on SWI-Prolo
 
 `pymetta` without the `engine` extra installs and imports on a machine that has no SWI-Prolog, and the first engine call names the two commands above. That is what the extra is for: the bridge compiles against whichever SWI-Prolog is present, so requiring it would make a plain install fail inside another package's build.
 
-The shortest spelling needs no instance at all: the module functions run over one lazily created default engine, `random`'s and `logging`'s own shape, and `metta.engine()` hands the context over the moment you want control.
+The shortest spelling needs no instance at all. Module functions run over one lazily created default engine, which is `random`'s and `logging`'s own shape, and `metta.engine()` hands the context over the moment you want control.
 
 ```python
 import metta
@@ -60,7 +60,7 @@ update spelling. Python 3.14 adds t-string syntax, which creates a structured
 [record replacement](./python-functions.md#declaring-a-data-class) for the
 runnable forms.
 
-The repository has thirteen self-verifying Python examples organised by topic. Run the first from the repository root:
+The repository has 24 self-verifying Python examples organised by topic. Run the first from the repository root:
 
 ```bash
 PYTHONPATH=extensions/python/examples python extensions/python/examples/basics/first_steps.py
@@ -79,4 +79,10 @@ python -m metta doc car-atom             # a name's (@doc ...) documentation
 
 Each subcommand exits nonzero on failure, so all of them script. The bare `metta` console command keeps the direct-file launcher contract, running a file through `swipl` directly.
 
-Examples that need DuckDB, NumPy, or PyTorch skip when that optional dependency is absent. When something misbehaves, `metta.engine().info()` answers the MeTTa, janus, SWI-Prolog, and Python versions plus the consulted runtime tree in one dict, which is exactly what a bug report needs. The library logs under the `metta` namespace and installs a `NullHandler`, so it stays silent until your app configures it; `logging.getLogger("metta").setLevel(logging.DEBUG)` with a handler is the whole debug incantation. Continue with [atoms, operators, and term building](./atoms-terms).
+Examples that need DuckDB, NumPy, or PyTorch skip when that optional dependency is absent.
+
+When something misbehaves, `metta.engine().info()` answers the MeTTa, janus, SWI-Prolog, and Python versions plus the consulted runtime tree in one dict, which is exactly what a bug report needs.
+
+The library logs under the `metta` namespace and installs a `NullHandler`, so it stays silent until your app configures it. `logging.getLogger("metta").setLevel(logging.DEBUG)` with a handler is the whole debug incantation.
+
+Continue with [atoms, operators, and term building](./atoms-terms).

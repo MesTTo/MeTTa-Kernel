@@ -29,6 +29,6 @@ Calling `fact(6)` runs the compiled equation and returns all engine answers. `S.
 
 Use direct MeTTa source when matching, free variables, or several clauses state the problem most clearly. Use `@m.define` when Python control flow is the clearest source but the behavior should run as equations, including `try`/`except`/`finally`, `raise`, dicts and sets, type aliases and `global`. Use `@m.op` when a Python library call or effect must stay in Python.
 
-What the vocabulary lowers natively becomes equations; what it does not becomes a visible host island inside the equation, run per application, never at decoration time. The refusals that remain cite their ground in one of the two languages — an unresolvable name is Python's own NameError, a `nonlocal` targets a frame no stored equation outlives.
+What the vocabulary lowers natively becomes equations; what it does not becomes a visible host island inside the equation, run per application, never at decoration time. The refusals that remain cite their ground in one of the two languages. An unresolvable name is Python's own NameError; a `nonlocal` targets a frame no stored equation outlives.
 
 The [Write MeTTa in Python guide](../guide/define) covers repeated clauses, generators, comprehensions, matching, exceptions, and dicts as spaces. Next, add checked boundaries in [06. Types and casting](./06-types-and-casting).

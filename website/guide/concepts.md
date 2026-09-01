@@ -110,11 +110,9 @@ that already formed its arguments. An argument declared `Atom` arrives
 unevaluated; if that atom is evaluated under `collapse`, its choices are below
 the boundary and are collected there. Duplicate answers remain duplicates.
 
-The same axis settles the error story in one sentence: an
-`(Error ...)` answer stays data at every multiset door and raises
-`MettaResultError` at every single-value door, and
-`Rows.raise_for_errors()` is the explicit bridge from the data
-reading to the exception reading.
+The same axis settles the error story. An `(Error ...)` answer stays data at
+every multiset door and raises `MettaResultError` at every single-value door;
+`Rows.raise_for_errors()` is the explicit bridge between the two readings.
 
 ## Special symbols
 

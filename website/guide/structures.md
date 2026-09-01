@@ -37,7 +37,7 @@ None of the three parses source text, because parsing needs the engine and their
 
 ## The engine-backed tier
 
-`TabledMap` is the memoization that is safe next to a mutating knowledge base. It views a TABLED function: `tm[args]` evaluates once, repeats answer from the engine's table, and a write to a space the function reads by its literal name invalidates exactly the affected tables, SWI's incremental tabling underneath, which `functools.cache` cannot do at all:
+`TabledMap` is the memoization that is safe next to a mutating knowledge base. It views a TABLED function. `tm[args]` evaluates once and repeats the answer from the engine's table, and a write to a space the function reads by its literal name invalidates exactly the affected tables. That is SWI's incremental tabling underneath, and `functools.cache` cannot do it at all:
 
 ```python
 kb.run(f"(= (cheapest) (min-atom (collapse (match {kb.name} (price $i $p) $p))))")

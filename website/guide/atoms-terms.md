@@ -94,7 +94,7 @@ joined. The count must be a non-negative integer: SWI evaluates `1 << -1` to
 The rest of the family arrived with the compiled surface: `bit-and`,
 `bit-or`, `bit-xor` and `bit-not` are the exact integer operations SWI's
 own `/\`, `\/`, `xor` and `\` carry, and `floor-div` is SWI's `div`,
-Python's floored quotient exactly — two integers answer an integer, a float
+Python's floored quotient exactly: two integers answer an integer, a float
 operand answers the floored quotient as a float, and a zero divisor answers
 the same `DivisionByZero` error data integer division answers. A compiled
 body's `&`, `|`, `^`, `~`, `<<`, `>>` and `//` lower to these heads, so an

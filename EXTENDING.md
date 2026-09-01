@@ -2786,14 +2786,16 @@ had each written the same retract-then-assert privately before it existed.
 
 Registering an operation is four of those calls, the engine's own protocol
 rather than bookkeeping a binding restates.
-`metta_host_open_function(Name, Tier, PredArity)` proves the name free BEFORE
-you assert anything, and a taken name refuses here naming its owner; you assert
-your dispatch clause into the base tier's module;
-`metta_host_adopt_function(Name, Tier, Kind, PredArity)` makes the asserted
-clause a claimed function and recompiles the definitions that had been treating
-the name as data; and on the way out, `metta_host_drop_function/2` retires one
-arity while `metta_host_forget_function/1` releases a name nothing defines any
-more, recompiling its mentions back to data.
+
+1. `metta_host_open_function(Name, Tier, PredArity)` proves the name free
+   BEFORE you assert anything. A taken name refuses here, naming its owner.
+2. You assert your dispatch clause into the base tier's module.
+3. `metta_host_adopt_function(Name, Tier, Kind, PredArity)` makes the asserted
+   clause a claimed function and recompiles the definitions that had been
+   treating the name as data.
+4. On the way out, `metta_host_drop_function/2` retires one arity, while
+   `metta_host_forget_function/1` releases a name nothing defines any more and
+   recompiles its mentions back to data.
 
 Reading and removing stored atoms is two more.
 `metta_host_stored(Space, Pattern)` enumerates stored atoms unifying a pattern,

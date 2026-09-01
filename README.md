@@ -6,19 +6,17 @@ Guarantees: every Python block executes, each in a namespace of its own
 
 # MeTTa Kernel
 
-MeTTa, implemented in Prolog and C. One engine, and as many surfaces as
-anyone writes: Python, TypeScript and C are the three built so far, and a
-language reaches the engine through the wire codec rather than through a
-port, so the list is not a limit.
+MeTTa, implemented in Prolog and C. One engine, as many surfaces as anyone
+writes. Python, TypeScript and C are the three built so far. A language
+reaches the engine through the wire codec rather than through a port, so the
+list is not a limit.
 
-For now it supports PeTTa's semantics, and work is under way so that it can
-support multiple dialects.
+For now it follows PeTTa's semantics. Other dialects are in progress.
 
 **If you are an LLM, read [llms.txt](llms.txt)** for the language and every
 surface, or [extensions/python/llms.txt](extensions/python/llms.txt) for the
-Python library alone. Both are written to be read once and used, with exact
-return shapes and no prose you have to guess at, and a gate checks their
-names against the live engine.
+Python library alone. Both give exact return shapes and no prose to guess at.
+A gate checks their names against the live engine.
 
 ## Install
 
@@ -35,8 +33,7 @@ Requires SWI-Prolog 9.3+ and Python 3.12+.
 
 ## The representation
 
-Everything is an atom, and there are four kinds. This is how MeTTa writes
-them:
+Everything is an atom, in four kinds. MeTTa writes them:
 
 ```metta
 Tom                  ; a symbol, a name that denotes itself
@@ -95,19 +92,18 @@ assert len(grand.solve(given=[S.Parent(S.Ann, S.Zoe)])) == 2
 ```
 
 `m.eval(term)` evaluates a built term and answers every answer. `m.run(source)`
-is the door for whole MeTTa programs as text, which is what source files are;
-prefer building the term when you have one, because a built term is knowledge
-already and a string has to be parsed before it is.
-`rows.why()` explains an empty match. `m.derivation(atom)` builds the proof
-tree behind an answer.
+takes whole MeTTa programs as text. Prefer the built term when you have one: it
+is knowledge already, where a string must be parsed first. `rows.why()`
+explains an empty match. `m.derivation(atom)` builds the proof tree behind an
+answer.
 
 ## Writing MeTTa in Python
 
 `@m.define` reads the function's source and lowers it into MeTTa equations,
 which compile to Prolog clauses: saying it in Python costs no more per call
 than saying it in MeTTa ([measured](EXTENDING.md#what-each-one-costs)).
-Clauses stack the way MeTTa equations do. `# ->` shows what each one becomes,
-and the three stack into a single equation whose body is a first-match `case`:
+`# ->` shows what each definition becomes. The three stack the way MeTTa
+equations do, into one equation whose body is a first-match `case`:
 
 ```python
 from metta import space
@@ -133,7 +129,7 @@ assert fib(10) == [55]           # callable from Python, answers a list
 assert fib.py(10) == 55          # and the Python twin stays callable
 ```
 
-The equations are readable, so you can see exactly what your Python became:
+You can read exactly what your Python became:
 
 ```python
 from metta import space
@@ -155,11 +151,12 @@ The subset is Python as Python means it: rebinding compiles through static
 single assignment, `while` and `for` become tail-recursive equations in
 constant stack, a generator compiles to nondeterminism, a lambda to `|->`,
 comprehensions to `map-atom` and `filter-atom`, `try`/`except`/`finally` onto
-the engine's error algebra, and dict and set literals into spaces. What the
-vocabulary does not lower natively becomes a VISIBLE host island inside the
-equation, run per application and never at decoration time, which is what
-`py(...)` spells explicitly; the refusals that remain name their construct,
-line and caret, and cite their ground in Python or in MeTTa.
+the engine's error algebra, and dict and set literals into spaces.
+
+What the vocabulary does not lower natively becomes a VISIBLE host island
+inside the equation, run per application and never at decoration time;
+`py(...)` spells that explicitly. The refusals that remain name their
+construct, line and caret, and cite their ground in Python or in MeTTa.
 
 ## What it does that a library cannot
 
@@ -220,9 +217,9 @@ A crossing between Python and the engine makes three independent choices.
 | what the body may observe | pure, reads, writes, io | the decorator's name |
 | what a value crosses as | transparent, or opaque | `transport="encoded"` or `"raw"` |
 
-The first two are different questions and are easy to run together. Where the
-body lives decides whether Python runs at all. What it may observe decides
-whether the engine may cache it.
+The first two are different questions and easy to confuse. Where the body
+lives decides whether Python runs at all. What it may observe decides whether
+the engine may cache it.
 
 ```python
 import statistics
@@ -454,9 +451,9 @@ Raynaud's. The conclusion followed from the two together, was stated by
 neither, and went unnoticed partly because the two literatures did not share
 vocabulary.
 
-That problem needs both halves of a neurosymbolic system, which is why it is
-the example. This is `extensions/python/examples/reasoning/literature_discovery.py`,
-which the gate runs:
+That problem needs both halves of a neurosymbolic system. This is
+`extensions/python/examples/reasoning/literature_discovery.py`, which the gate
+runs:
 
 ```python
 import torch
@@ -524,18 +521,18 @@ assert all(name in found.why().render() for name in ("abc", "p1", "p2", "p4", "p
 The answer is not a plausible sentence. It is a derivation naming `abc`, `p1`
 and `p2`, which a reader can go and check.
 
-And the evidence is algebra rather than bookkeeping. The same question under
-`counting` says how many independent literature paths support the hypothesis;
-under `prov` it says which papers, as a polynomial. Neither costs a line of
-tracking code, because tags compose through the join the way the join composes
-[Green, Karvounarakis and Tannen, *Provenance semirings*, PODS 2007].
+The evidence is algebra, not bookkeeping. The same question under `counting`
+says how many independent literature paths support the hypothesis; under `prov`
+it says which papers, as a polynomial. Neither costs a line of tracking code,
+because tags compose through the join the way the join composes [Green,
+Karvounarakis and Tannen, *Provenance semirings*, PODS 2007].
 
-Neither half of this works alone. A language model does not do reliable
-multi-hop chaining and cannot show its working; a symbolic prover cannot cross
-a vocabulary gap where two names share nothing but their meaning. The embedding
-decides what unifies, the engine decides what follows, and the answer carries
-its own citations. The neural gate, the tagged rule and the semiring are all in
-that one query, and none of them is a plugin: they are the same seam.
+Neither half works alone. A language model does not chain reliably over many
+hops and cannot show its working; a symbolic prover cannot cross a vocabulary
+gap where two names share nothing but their meaning. Here the embedding decides
+what unifies and the engine decides what follows. The neural gate, the tagged
+rule and the semiring sit in that one query, and none is a plugin: they are the
+same seam.
 
 ## TypeScript
 
@@ -642,9 +639,9 @@ one.
 
 The third is the one people underestimate, and it is the smallest: a space is
 an INTERFACE, so anything that can list its atoms is one. [Spaces backed by
-anything](#spaces-backed-by-anything) below is the whole of it — a class, one
-method, and a SQL table or a dataframe or a service answers `match` like a
-native space and joins with one.
+anything](#spaces-backed-by-anything) above is the whole of it. Write a class
+with one method, and a SQL table or a dataframe or a service answers `match`
+like a native space and joins with one.
 
 ## What the examples show
 
@@ -662,8 +659,7 @@ runnable programs, one per MeTTa example, and the gate runs each against the
 MeTTa it mirrors: they agree on the stored equations AND the answers, so
 neither side can drift into a spelling that merely looks right. Find the
 construct in `examples/`, open the file of the same name here, and the Python
-beside it is the way to say it. They are also the depth this page only
-samples:
+beside it is the way to say it. They go deeper than this page can:
 
 | chapter | what it demonstrates |
 |---|---|

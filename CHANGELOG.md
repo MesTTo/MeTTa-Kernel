@@ -6,6 +6,18 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- **Four documentation facts that were wrong.** `DEVELOPING.md` said the
+  floor was Python 3.11 where `requires-python` is `>=3.12`; the
+  getting-started guide counted thirteen Python examples where the tree
+  holds 24; the README pointed at "Spaces backed by anything" as being
+  below the section that links it when it is above; and the Python
+  examples README tabulated 22 of its 24 programs, omitting
+  `integration/cmetta_space.py` and `reasoning/literature_discovery.py`.
+  The README's own count of 233 gate-run programs was checked against
+  `len(example_parity.corpus())` and is correct.
+
 ### Added
 
 - **`transfer` moves atoms between spaces, and the write family is
@@ -13,7 +25,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   each atom in one transactional engine crossing, counting the found, so
   a mid-move failure rolls both sides back and nothing is lost between
   spaces. `remove` gained the same variadic face and the same count;
-  `eval` batches the way evaluation batches — several terms, one
+  `eval` batches the way evaluation batches: several terms, one
   crossing, one answer group per term in run()'s own grouping, one bind
   scope over the lot; and `unify` is SIMULTANEOUS when variadic, every
   operand agreeing under one substitution. What `add` accepts, `remove`
@@ -62,10 +74,10 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 - **Python's try, raise, dicts, sets, type aliases and the global pragma
   compile.** A compiled body now carries `try`/`except`/`else`/`finally` on
-  the engine's own error algebra — `raise` produces through the prelude's
+  the engine's own error algebra: `raise` produces through the prelude's
   `throw`, `catch` reifies the host lane, `if-error` splits, the new
   `except` runtime test walks MRO names so custom hierarchies match as
-  `isinstance` would, and `error-payload` hands `as e` a live instance — a
+  `isinstance` would, and `error-payload` hands `as e` a live instance. A
   dict literal lowers to lib_dict's dict-space (a SPACE of `(key value)`
   atoms, with `d[k]`, `in`, `d[k] = v`, `del`, `len`, `.keys()` and the
   comprehensions riding the library's own doors, and every space operation
@@ -84,9 +96,9 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   pay no host crossing.
 
 - **Unknown host expressions island instead of refusing.** What the
-  compile vocabulary does not lower natively — an unregistered call, a
+  compile vocabulary does not lower natively (an unregistered call, a
   host attribute read, a method on a local, keywords against a host
-  callable — crosses as the same visible application-time island `py(...)`
+  callable) crosses as the same visible application-time island `py(...)`
   spells, with nothing executed at decoration time and the loud refusal
   kept for names that resolve nowhere. The lint layer records implicit
   islands under the author's own spelling.
@@ -97,8 +109,8 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   `alpha_eq` still answers the immediate Python-side check.
 
 - **The MeTTa context is the third generated mirror.** The context tier's
-  doors — `run`, `load`, `eval`, `match`, `add`, `remove`, `define`, `op`,
-  `stats`, `limits`, `trace`, `speculate` and the rest — are generated
+  doors (`run`, `load`, `eval`, `match`, `add`, `remove`, `define`, `op`,
+  `stats`, `limits`, `trace`, `speculate` and the rest) are generated
   from Space with signatures, overloads and docstrings carried verbatim,
   replacing a hand-written subset typed `(*args: Any) -> Any` that erased
   every overload and missed doors (a context that could define but not
@@ -200,8 +212,8 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   bakes the INSTALLED engine's directory rather than this checkout's. That is
   the same bargain `setup.py` makes copying the runtime into the wheel, and
   `$METTA_PATH` still overrides it. `.qlf` files are left out for the reason
-  `MANIFEST.in` already gives — a shipped one shadows the source it came from
-  and pins the install to the builder's SWI version — while the compiled `.so`
+  `MANIFEST.in` already gives (a shipped one shadows the source it came from
+  and pins the install to the builder's SWI version) while the compiled `.so`
   artifacts go in, unlike the platform-independent wheel's, because this
   install is for one platform by construction.
 
@@ -433,8 +445,8 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   The seat was a faithful core; this makes it a library.
 
   A space's atoms can now live wherever a program keeps them. `m.attach(name,
-  backing)` reads a `Map`, an array, a `Set` or a plain object as a live view —
-  read afresh per query, with no publication step — and anything with a shape
+  backing)` reads a `Map`, an array, a `Set` or a plain object as a live view
+  (read afresh per query, with no publication step), and anything with a shape
   of its own implements `SpaceProvider` and only the methods its backend has.
   Capabilities are DERIVED from those methods, so what a provider cannot do is
   refused by name and its own refusal sentence reaches the caller;
@@ -447,7 +459,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   `diff`, `objectView`.
 
   `m.why(target)` answers the first proof of an answer and `m.derivation` every
-  proof, as a tree whose nodes are a discriminated union on `kind` — which is
+  proof, as a tree whose nodes are a discriminated union on `kind`, which is
   what TypeScript has instead of the four dataclasses the Python side needs, so
   a `switch` over one is exhaustive and the compiler proves it. The
   meta-interpreter is ported from the Python seat's own, cut, soft cut and
@@ -499,7 +511,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   own: `registry-image` is one of the vocabularies generated from a booted
   engine, so `IMAGES` cannot drift from what the engine knows. `expression` is
   the shaped default; `symbol` crosses as a bare name, which is how an enum
-  wants to read, and it runs BACKWARDS too — a bare symbol carries no
+  wants to read, and it runs BACKWARDS too: a bare symbol carries no
   constructor to look up, so every symbol registration is offered the name in
   turn and the first whose `fromAtom` answers claims it; `handle` and
   `operations` cross by reference [tested: "crosses a symbol-image type as a
@@ -520,7 +532,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   and refuses a cycle"]. Beside them `wrapCallable` and `wrapObject` take one
   function or exactly the methods named, and `installReflectionOps` adds
   `(js-attr $o $n)` and the two-mode relation `(js-field $o $n)`, which answers
-  a `(name value)` pair whether the name arrives bound or unbound — the second
+  a `(name value)` pair whether the name arrives bound or unbound, the second
   mode being what a function cannot offer and a relation can.
 
   A host value can own its matching, Hyperon's `CustomMatch`: a class with a
@@ -722,7 +734,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   PROGRAM: `--predictable-gc-schedule` is deterministic given the same
   allocation sequence, and the startup heap is part of that sequence, so
   growing any module the benchmark loads shifted where a collection landed
-  inside the window. Measured by a probe that cannot possibly do work — four
+  inside the window. Measured by a probe that cannot possibly do work: four
   kilobytes of INERT COMMENTS added to `src/theory.ts` moved `host-op` from
   900018262 to 933434511, a 3.7 percent phantom regression from text nothing
   executes. Against the settled heap the same probe moves the whole suite at
@@ -748,10 +760,10 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   fetches or builds: an absent `node_modules`, an unmade TypeScript build or a
   Python that cannot import `metta.testing` each print the command that
   supplies it and exit 0, because a gate that reaches the network fails for a
-  reason that is not the tree. `bench.sh` measures six workloads —
-  interned atom construction, the wire codec out and back, a query returning
+  reason that is not the tree. `bench.sh` measures six workloads
+  (interned atom construction, the wire codec out and back, a query returning
   two thousand rows, that same ask abandoned after twenty of them, a lowered
-  `define`d call, and a generator `op` the engine pulls two thousand times —
+  `define`d call, and a generator `op` the engine pulls two thousand times),
   and holds each to a committed pin in `extensions/node/benchmarks/
   baseline.json` through the shared `BenchmarkBaseline`, so one baseline format
   and one regression protocol cover every component
@@ -765,7 +777,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   cases that straddle the wire pin both because each counter sees one half.
   `answers-lazy` is the sharp one: bridge.pl reports what a job spent as that
   job's LAST event, so an abandoned job reports nothing, and its inference pin
-  of ZERO is a statement that the ask really was abandoned — a lazy path that
+  of ZERO is a statement that the ask really was abandoned: a lazy path that
   began draining would report `query-rows`' 282,622.
 
   A Node process is not deterministic enough to gate on retired instructions
@@ -886,8 +898,8 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 - **One area per extension on the site, each publishing that seat's own
   documentation from its own folder.** `/extensions/` introduces the seat model
-  — a folder carrying an `extension.pl`, with the two `entry/2` roles saying
-  which direction it faces — and each of the four seats has an area:
+  (a folder carrying an `extension.pl`, with the two `entry/2` roles saying
+  which direction it faces), and each of the four seats has an area:
   `/extensions/node` and `/extensions/cmetta` include the READMEs those folders
   already ship, `/extensions/mork` includes a README that seat did not have,
   and `/extensions/python` routes to the tutorials, guide, integrations,
@@ -904,7 +916,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   to work on the repository were reachable only from a checkout. The four pages
   INCLUDE their root documents through VitePress's `@include` rather than
   copying them, so there is still one copy of each and the published text is
-  the committed one — which matters most for `EXTENDING.md`, whose cost table
+  the committed one, which matters most for `EXTENDING.md`, whose cost table
   the `extcost` gate pins, and `KERNEL.md`, whose head tables the `plunit`
   lane's `translator_derived_forms` suite keeps true. Each page carries its
   source document's own file name, so the relative links those documents write
@@ -917,8 +929,8 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   reference index had lost as well.
 - **The documentation site is a gate lane, `docs`.** Three config headers and
   every page header claimed `[tested: npm run docs:build]` and no lane had ever
-  run it, so a dead internal link could ship. It does not fetch — the rule the
-  Node lanes already follow — and says which step is missing instead when npm
+  run it, so a dead internal link could ship. It does not fetch (the rule the
+  Node lanes already follow), and says which step is missing instead when npm
   or `website/node_modules` is absent. Two checks in the `pytest` lane hold the
   structure on every machine, node or no node: every `@include` resolves, which
   VitePress itself does not check (its include is fail-open, so a renamed
@@ -933,8 +945,8 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   name rather than a list, so nobody could see a collision: the engine could
   not enumerate claimed names, and a provider could not see its peers without
   naming them, which is the one thing the seam exists to prevent. The three
-  shipped providers each kept a private registry — `mork_owns_space/1`,
-  `metta_py_foreign/1`, `redis_space_conn/7` — and two of them matching one
+  shipped providers each kept a private registry (`mork_owns_space/1`,
+  `metta_py_foreign/1`, `redis_space_conn/7`), and two of them matching one
   name resolved by clause order, which is `msort` over folder names, so an
   atom landed in whichever store loaded first with nothing said.
   `metta_claim_space/2` and `metta_disclaim_space/2` are the missing half, and
@@ -953,14 +965,14 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   claim-time refusal and enumeration, and three space workloads of 2,000
   operations each cost identical inferences before and after.
 
-- **`!(require-extension! mork)` — a library says which seat it rests on, and
+- **`!(require-extension! mork)`: a library says which seat it rests on, and
   the refusal is transitive.** A `lib/` module that is the on-demand half of a
   boot-loaded seat had no way to say so, and `lib/lib_mm2/lib_mm2.metta` is the
   case: five operators over `&mork` calling MORK's own builtins with zero
   presence checks, so on a tree where the FFI was never built each of the five
   failed at call time with nothing naming the cause. That is exactly
-  PostgreSQL's `pg_stat_statements` shape — a preloaded C module plus a
-  per-database `CREATE EXTENSION` — and Postgres answers the broken half by
+  PostgreSQL's `pg_stat_statements` shape (a preloaded C module plus a
+  per-database `CREATE EXTENSION`), and Postgres answers the broken half by
   name (`pg_stat_statements must be loaded via shared_preload_libraries`).
   `require-extension!` is that answer here. It answers the unit when the seat
   is loaded and otherwise refuses with the cause read out of the loader's own
@@ -3132,7 +3144,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   and it was the only directory in the Python tree excluded from `ruff`,
   `interrogate`, `bandit`, `deptry`, `jscpd` and `codespell` at once. The
   rename to the `metta` module had also cost it the distinctness it was built
-  for — upstream still carries it as `pettamorph.py` registering a `petta`
+  for: upstream still carries it as `pettamorph.py` registering a `petta`
   token, while ours had become `mettamorph.py` registering `metta`, colliding
   by name with MeTTa-Morph's own extension module and with minimal MeTTa's own
   `metta` instruction. All six tool exclusions and the `check_spec_status.py`
@@ -3398,7 +3410,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   evaluate correctly, but none carried a type: `(get-type #<)` answered
   `(-> Number Number Bool)` while `(get-type #=)`, `(get-type #>=)` and
   `(get-type #//)` each answered `%Undefined%`. Anything derived from the type
-  surface — checking, `get-type`, the generated library reference — could not
+  surface (checking, `get-type`, the generated library reference) could not
   see them. They are declared now, and each answers its arrow.
 
   Declaring them was enough to find a second gap, because a declared type
@@ -3859,7 +3871,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   the engine's own test-verdict mark.** `engine/qlf_boot.pl` forces UTF-8 for a
   boot that goes through `engine/main.pl`, and two files already declared their
   own encoding, but a direct `swipl engine/metta.pl` never reaches that
-  forcing — and that is the boot every perf-measured child performs, because
+  forcing, and that is the boot every perf-measured child performs, because
   `measure_instructions` builds its environment from a small allowlist carrying
   no locale. The cost is not the warning. Measured on a minimal pair, the same
   file with and without the declaration: `atom_length('✅', L)` answers **1**
@@ -3902,7 +3914,7 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   around: the Node seat's TypeScript is compiled by `npm ci` through the
   package's `prepare` script and by `extensions/node/build.sh`, and NO lane runs
   either, so after the petta-to-metta rename the `pytest` lane near the top of
-  the file ran the OLD compiled bridge against the NEW `bridge.pl` and failed —
+  the file ran the OLD compiled bridge against the NEW `bridge.pl` and failed,
   while the `build` lane 160 lines below rebuilt it, which is why the next run
   passed with nothing changed. The pre-lane block is the same discovery
   `build.sh` uses now, in the same order, so every component is current before
@@ -4220,8 +4232,8 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   builds a real SWI minus chosen libraries by mirroring directories with
   symlinks, and it named exactly two: the main library and `clib`. The child
   then re-added every OTHER real directory to both search-path aliases. SWI
-  keeps its libraries in several — `pcre` in `library/ext/pcre`, `zlib` in
-  `library/ext/zlib`, `clpfd` in `library/clp` — so a withhold aimed at any of
+  keeps its libraries in several (`pcre` in `library/ext/pcre`, `zlib` in
+  `library/ext/zlib`, `clpfd` in `library/clp`), so a withhold aimed at any of
   those did nothing at all and the child resolved the library from the real
   installation. Measured: withholding `pcre.pl` produced a clean boot that
   would have read as evidence the engine survives without it.
