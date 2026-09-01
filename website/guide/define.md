@@ -1,10 +1,10 @@
 <!--
 Purpose: teach Python-authored equations, rule sets, and lowering declarations.
 Guarantees: examples use the narrow Space.define and Rules.lower doors.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=e3787593132a7ece2d300397045f7415709847c9]
 Purpose: teach Python-authored equations, rule sets, effect propagation, and lowering declarations.
 Guarantees: examples use the narrow Space.define and Rules.lower doors, and describe definition effects as a strongest-member join.
-[tested: npm run docs:build and test_a_definition_joins_every_called_operations_effect; commit=WORKTREE]
+[tested: npm run docs:build and test_a_definition_joins_every_called_operations_effect; commit=e3787593132a7ece2d300397045f7415709847c9]
 -->
 
 # Write MeTTa in Python
