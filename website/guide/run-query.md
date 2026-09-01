@@ -4,7 +4,7 @@ Guarantees: examples use the narrow core and satellite-qualified specialist APIs
 all public lint kinds and the named-intent convention are catalogued here;
 variadic and sequence-valued guard composition names the same binary engine
 semantics [tested: test_variadic_boolean_builders_fold_to_binary_terms_and_filter_rows,
-test_guard_sequences_conjoin_without_changing_positional_patterns; commit=WORKTREE].
+test_guard_sequences_conjoin_without_changing_positional_patterns; commit=8a04841952ec6cf7f4eb4e418efcbf4519f16f34].
 [tested: npm run docs:build and test_every_lint_kind_is_named_on_the_page_its_findings_link_to;
 commit=acb40f1912f131ae088083d1af29b4b283019bea]
 -->
