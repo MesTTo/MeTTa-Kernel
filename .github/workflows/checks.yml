@@ -163,15 +163,15 @@ jobs:
       - name: Environment for ${{ matrix.python }}
         run: |
           uv venv --python ${{ matrix.python }} /tmp/v
-          uv pip install --python /tmp/v/bin/python --no-binary janus_swi janus_swi
-          # The package with its TEST extra, which is what the suite needs to
-          # run: a hand-picked four left numpy and networkx out and the suite
-          # failed on the tests that use them. Installing rather than putting
-          # it on the path also registers the pytest11 ENTRY POINT metta ships
-          # its fixtures through, which only exists for an installed
-          # distribution; without it every test taking one errored at setup
-          # with "fixture 'scratch_space' not found".
-          uv pip install --python /tmp/v/bin/python -e ".[test]"
+          uv pip install --python /tmp/v/bin/python --no-binary janus_swi \
+                         janus_swi docstring-parser pytest hypothesis
+          # The package itself, WITHOUT its dependencies: this job's subject is
+          # the library on a bare floor, and pulling an extra in would make the
+          # skip-clean property it exists to prove untestable. Installing
+          # rather than path-adding is still required, because metta ships its
+          # pytest fixtures through the pytest11 ENTRY POINT and an entry point
+          # exists only for an installed distribution.
+          uv pip install --python /tmp/v/bin/python --no-deps -e .
 
       - name: Suite on ${{ matrix.python }}
         env:
