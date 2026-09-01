@@ -11,14 +11,6 @@ anyone writes: Python, TypeScript and C are the three built so far, and a
 language reaches the engine through the wire codec rather than through a
 port, so the list is not a limit.
 
-Everything compiles to Prolog clauses, so the Python is a notation rather
-than an interpreter riding on top. A `@m.define` body costs 3.00 inferences
-and 0.07us per call against 3.00 and 0.06us for the same function written as
-MeTTa: writing it in Python is not a tax. A Prolog predicate is 2.00, a C
-foreign predicate 1.00, and only a call that stays in Python and crosses back
-per invocation costs more, 12.00 raw and 20.00 through the wire codec
-[measured, `python -m benchmarks.extension_cost`].
-
 For now it supports PeTTa's semantics, and work is under way so that it can
 support multiple dialects.
 
@@ -27,6 +19,147 @@ surface, or [extensions/python/llms.txt](extensions/python/llms.txt) for the
 Python library alone. Both are written to be read once and used, with exact
 return shapes and no prose you have to guess at, and a gate checks their
 names against the live engine.
+
+## Install
+
+```bash
+sudo apt install swi-prolog          # macOS: brew install swi-prolog
+                                     # Windows: winget install SWI-Prolog.SWI-Prolog
+pip install 'pymetta[engine]'
+```
+
+`pymetta` installs and imports without SWI-Prolog. The `engine` extra adds the
+bridge. Without it the first engine call names the command for your platform.
+
+Requires SWI-Prolog 9.3+ and Python 3.12+.
+
+## The representation
+
+Everything is an atom, and there are four kinds. This is how MeTTa writes
+them:
+
+```metta
+Tom                  ; a symbol, a name that denotes itself
+$x                   ; a variable
+42                   ; a grounded value: a number, a string, a host object
+(Parent Tom Bob)     ; an expression, atoms in order
+```
+
+Python builds the same four, without parsing anything. A symbol comes from
+`S`, a variable from `V`, and applying a symbol builds an expression:
+
+```python
+from metta import S, V
+
+term = S.Parent(S.Tom, S.Bob)
+assert str(term) == "(Parent Tom Bob)"
+assert str(S.f(V.x) & S.g(V.x)) == "(and (f $x) (g $x))"
+assert str(S[">="](V.age, 18)) == "(>= $age 18)"
+```
+
+Strings are for text. A name comes from its factory, a function from its own
+Python name, a space from its handle.
+
+## Spaces and queries
+
+A space holds atoms and equations. Queries join, guard, bound and explain.
+
+```python
+from metta import S, V, space
+
+m = space()
+m.add(S.Parent(S.Tom, S.Bob), S.Parent(S.Bob, S.Ann))
+
+assert m.match(S.Parent(S.Tom, V.child)).to_dicts() == [{"child": "Bob"}]
+
+# A conjunction is a join.
+assert m.match(S.Parent(V.x, V.y), S.Parent(V.y, V.z)).to_dicts() == [
+    {"x": "Tom", "y": "Bob", "z": "Ann"}
+]
+
+m.add(S.Age(S.Tom, 62), S.Age(S.Bob, 40))
+assert m.match(S.Age(V.p, V.n), where=S[">="](V.n, 60)).to_dicts() == [
+    {"p": "Tom", "n": 62}
+]
+assert len(m.match(S.Age(V.p, V.n), limit=1)) == 1
+
+# Facts for one block only.
+with m.assuming(S.Parent(S.Ann, S.Zoe)):
+    assert m.match(S.Parent(S.Ann, V.c)).to_dicts() == [{"c": "Zoe"}]
+
+# A prepared statement: the shape and its columns build once, then every
+# solve() reuses them. given= adds facts for one solve and leaves nothing.
+grand = m.prepare(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
+assert grand.solve().to_dicts() == [{"x": "Tom", "y": "Bob", "z": "Ann"}]
+assert len(grand.solve(given=[S.Parent(S.Ann, S.Zoe)])) == 2
+```
+
+`m.eval(term)` evaluates a built term and answers every answer. `m.run(source)`
+is the door for whole MeTTa programs as text, which is what source files are;
+prefer building the term when you have one, because a built term is knowledge
+already and a string has to be parsed before it is.
+`rows.why()` explains an empty match. `m.derivation(atom)` builds the proof
+tree behind an answer.
+
+## Writing MeTTa in Python
+
+`@m.define` reads the function's source and lowers it into MeTTa equations,
+which compile to Prolog clauses: saying it in Python costs no more per call
+than saying it in MeTTa ([measured](EXTENDING.md#what-each-one-costs)).
+Clauses stack the way MeTTa equations do. `# ->` shows what each one becomes,
+and the three stack into a single equation whose body is a first-match `case`:
+
+```python
+from metta import space
+
+m = space()
+
+@m.define
+def fib(n=0):                          # -> the arm (0 0)
+    return 0
+
+@m.define
+def fib(n=1):                          # -> the arm (1 1)
+    return 1
+
+@m.define
+def fib(n):                            # -> ($n (+ (fib (- $n 1)) (fib (- $n 2))))
+    return fib(n - 1) + fib(n - 2)
+
+# the three together:
+# (= (fib $n) (case $n ((0 0) (1 1) ($n (+ (fib (- $n 1)) (fib (- $n 2)))))))
+
+assert fib(10) == [55]           # callable from Python, answers a list
+assert fib.py(10) == 55          # and the Python twin stays callable
+```
+
+The equations are readable, so you can see exactly what your Python became:
+
+```python
+from metta import space
+
+m = space()
+
+@m.define
+def fact(n):
+    if n == 0:
+        return 1
+    return n * fact(n - 1)
+
+assert str(fact.head) == "(fact $n)"
+assert str(fact.body) == "(if (py-eq $n 0) 1 (* $n (fact (- $n 1))))"
+assert fact(5) == [120]
+```
+
+The subset is Python as Python means it: rebinding compiles through static
+single assignment, `while` and `for` become tail-recursive equations in
+constant stack, a generator compiles to nondeterminism, a lambda to `|->`,
+comprehensions to `map-atom` and `filter-atom`, `try`/`except`/`finally` onto
+the engine's error algebra, and dict and set literals into spaces. What the
+vocabulary does not lower natively becomes a VISIBLE host island inside the
+equation, run per application and never at decoration time, which is what
+`py(...)` spells explicitly; the refusals that remain name their construct,
+line and caret, and cite their ground in Python or in MeTTa.
 
 ## What it does that a library cannot
 
@@ -124,8 +257,6 @@ be cached, memoised or tabled.
 | `@m.writes` | engine or host state |
 | `@m.io` | an external oracle: clock, randomness, network, file |
 
-There is no `nondet`: a generator IS nondeterministic, so the registration
-works that out from the function and lifts the class itself.
 
 ```python
 import metta
