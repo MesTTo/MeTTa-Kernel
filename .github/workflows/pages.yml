@@ -1,0 +1,65 @@
+# Purpose: build the VitePress site and publish it to GitHub Pages.
+#
+# The site is a PROJECT page, served from https://mestto.github.io/MeTTa-Kernel/
+# rather than a domain root, which is why website/.vitepress/config.ts sets
+# `base: "/MeTTa-Kernel/"`. A base that disagrees with the repository name
+# builds a site whose every asset link 404s, and the build itself cannot
+# notice, so the base and this workflow's destination are one decision.
+#
+# Deployment uses the Pages action rather than pushing a gh-pages branch: the
+# artifact is uploaded and served directly, so the built site never enters the
+# repository's history and a stale branch cannot serve an old build.
+#
+# The gate is not re-run here. The site is documentation, checks.yml already
+# builds it on every push as its `docs` lane, and re-running the whole gate to
+# publish prose would spend a quarter of an hour to learn what the push that
+# triggered this already knows.
+name: pages
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+# One deployment at a time, and a newer commit supersedes an in-flight older
+# one rather than queueing behind it. `cancel-in-progress: false` would publish
+# them in whatever order they finished.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install the site's pinned dependencies
+        working-directory: website
+        run: npm ci
+      - name: Build the site
+        working-directory: website
+        run: npm run docs:build
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: website/.vitepress/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

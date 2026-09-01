@@ -39,6 +39,10 @@ jobs:
       - name: The tag and the packaged version must agree
         # A tag that disagrees with pyproject's version publishes something
         # nobody asked for, and PyPI will not let it be replaced afterwards.
+        # Only a TAG carries a version to check: under workflow_dispatch
+        # GITHUB_REF_NAME is a branch name, and comparing it to the built
+        # version failed every manual run before it could publish.
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           tagged="${GITHUB_REF_NAME#v}"
           built=$(ls dist/*.tar.gz | sed -E 's/.*pymetta-(.*)\.tar\.gz/\1/')

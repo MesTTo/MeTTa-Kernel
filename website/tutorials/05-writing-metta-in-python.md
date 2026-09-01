@@ -8,10 +8,10 @@ The runnable definitions example starts with factorial:
 
 ```python
 @m.define
-def fact(n):
-    if n == 0:
-        return 1
-    return n * fact(n - 1)
+def fact(n):                      # -> (= (fact $n)
+    if n == 0:                    # ->      (if (py-eq $n 0)
+        return 1                  # ->          1
+    return n * fact(n - 1)        # ->          (* $n (fact (- $n 1)))))
 
 
 check("equations run", m.run("!(fact 6)"), [[720]])
@@ -19,6 +19,11 @@ check("the Python twin agrees", fact.py(6), 720)
 check("calling the name evaluates", fact(6), [720])
 check("the S door builds the term", str(S.fact(6)), "(fact 6)")
 ```
+
+The comment is the equation this body becomes, and you can read it back out
+of the space with `m.self.atoms()` rather than take it on trust. Python's `==`
+lowers to `py-eq` because Python's equality is not MeTTa's: `1 == 1.0` is True
+in Python and False in MeTTa, where the numeric kinds stay apart.
 
 Calling `fact(6)` runs the compiled equation and returns all engine answers. `S.fact(6)` builds `(fact 6)` as data, and `fact.py(6)` runs the Python reference directly. Inside an `@rules` generator, calls to defined objects stage scope-locally so `equation(lhs).to(fact(x))` still produces an ordinary equation atom.
 

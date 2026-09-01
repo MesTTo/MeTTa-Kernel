@@ -9,8 +9,8 @@ Guarantees: every Python block executes, each in a namespace of its own
 MeTTa, implemented in Prolog and C. One engine, three surfaces: Python,
 TypeScript, C.
 
-Python is the complete one and everything below is Python unless it says
-otherwise.
+For now it supports PeTTa's semantics, and work is under way so that it can
+support multiple dialects.
 
 ## Install
 
@@ -96,7 +96,8 @@ tree behind an answer.
 ## Writing MeTTa in Python
 
 `@m.define` reads the function's source and lowers it into MeTTa equations.
-Clauses stack the way MeTTa equations do.
+Clauses stack the way MeTTa equations do. `# ->` shows what each one becomes,
+and the three stack into a single equation whose body is a first-match `case`:
 
 ```python
 from metta import space
@@ -104,16 +105,19 @@ from metta import space
 m = space()
 
 @m.define
-def fib(n=0):
+def fib(n=0):                          # -> the arm (0 0)
     return 0
 
 @m.define
-def fib(n=1):
+def fib(n=1):                          # -> the arm (1 1)
     return 1
 
 @m.define
-def fib(n):
+def fib(n):                            # -> ($n (+ (fib (- $n 1)) (fib (- $n 2))))
     return fib(n - 1) + fib(n - 2)
+
+# the three together:
+# (= (fib $n) (case $n ((0 0) (1 1) ($n (+ (fib (- $n 1)) (fib (- $n 2)))))))
 
 assert fib(10) == [55]           # callable from Python, answers a list
 assert fib.py(10) == 55          # and the Python twin stays callable
@@ -192,7 +196,7 @@ assert "(price apple)" in heads           # the program can read itself
 Everything below builds on those three: the space holds both the facts and the
 program, evaluation is matching, and nothing is closed to inspection.
 
-## Where that leads: a hypothesis nobody wrote down
+## A motivating example
 
 In 1986 Swanson found that fish oil might treat Raynaud's syndrome. No paper
 said so. One literature reported that fish oil lowers blood viscosity; another,
@@ -600,21 +604,6 @@ atom-vector spaces come from a MeTTa library the engine fetches on request:
 ```metta
 !(git-import! "https://github.com/patham9/faiss_ffi" "build.sh")
 ```
-
-## Conformance
-
-The semantics are PeTTa's. Where anything disagrees with it, this engine
-follows PeTTa, and `tests/conformance/petta/` is how that is checked rather
-than asserted: it holds upstream's example corpus beside the exact bytes
-upstream printed for each file, captured from a named commit and vendored
-here, so a neighbouring checkout cannot move the lane. `check.sh` replays
-every entry and gates per FILE.
-
-Two entries carry a recorded ruling rather than agreement, each with the
-difference it is allowed to have written down beside it, so neither can drift
-further without failing. Both are cases where this engine answers and upstream
-does not: `bind!` binding a value upstream has no clause for, and a parametric
-`apply` upstream's own specializer builds and then fails to apply.
 
 ## What the examples show
 
