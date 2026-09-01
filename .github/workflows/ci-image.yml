@@ -1,0 +1,49 @@
+# Purpose: publish the container image every other workflow runs inside.
+#
+# checks.yml runs its gate, report, wheel and packaging jobs in
+# ghcr.io/mestto/metta-kernel-ci:latest, and nothing published it. ci.yml
+# builds the image only on a PULL REQUEST that touches the Dockerfile, and
+# this repository's history was pushed straight to main, so `:latest` never
+# existed and every job died at "manifest unknown" before running a line of
+# the suite. Its own header says it publishes `:latest` on a push to main;
+# the condition below is that sentence, made true.
+#
+# Manual dispatch is here because the image has to be publishable ONCE
+# without a Dockerfile change: the first publication is the case the
+# change-driven trigger cannot reach.
+name: ci-image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/ci/Dockerfile"
+      - ".github/workflows/ci-image.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ci-image
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .github/ci
+          push: true
+          tags: ghcr.io/mestto/metta-kernel-ci:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
