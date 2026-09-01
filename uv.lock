@@ -1198,7 +1198,6 @@ name = "pymetta"
 source = { editable = "." }
 dependencies = [
     { name = "docstring-parser" },
-    { name = "janus-swi" },
 ]
 
 [package.optional-dependencies]
@@ -1239,6 +1238,9 @@ dataframes = [
     { name = "pandas" },
     { name = "polars" },
 ]
+engine = [
+    { name = "janus-swi" },
+]
 test = [
     { name = "hypothesis" },
     { name = "networkx" },
@@ -1259,7 +1261,7 @@ requires-dist = [
     { name = "hypothesis", marker = "extra == 'test'", specifier = ">=6.165" },
     { name = "import-linter", marker = "extra == 'checks'", specifier = ">=2.13" },
     { name = "interrogate", marker = "extra == 'checks'", specifier = ">=1.7" },
-    { name = "janus-swi", specifier = ">=1.5.2" },
+    { name = "janus-swi", marker = "extra == 'engine'", specifier = ">=1.5.2" },
     { name = "mypy", marker = "extra == 'checks'", specifier = ">=1.18" },
     { name = "networkx", marker = "extra == 'test'", specifier = ">=3.6,<4" },
     { name = "numpy", marker = "extra == 'arrays'" },
@@ -1283,7 +1285,7 @@ requires-dist = [
     { name = "websocket-client", marker = "extra == 'das'" },
     { name = "xenon", marker = "extra == 'checks'", specifier = ">=0.9" },
 ]
-provides-extras = ["arrays", "das", "dataframes", "test", "checks"]
+provides-extras = ["engine", "arrays", "das", "dataframes", "test", "checks"]
 
 [[package]]
 name = "pyparsing"

@@ -226,7 +226,14 @@ jobs:
             Windows) choco install swi-prolog --no-progress -y
                      # choco puts swipl under Program Files; the bridge's build
                      # reads the registry, and the CLI needs to be findable.
-                     echo "/c/Program Files/swipl/bin" >> "$GITHUB_PATH" ;;
+                     echo "/c/Program Files/swipl/bin" >> "$GITHUB_PATH"
+                     # PATH is enough for the CLI, which finds its resources
+                     # beside its own executable. It is NOT enough for janus,
+                     # which loads libswipl into the PYTHON process, where
+                     # that relative walk starts somewhere else entirely and
+                     # the boot dies with "Could not find system resources".
+                     # SWI_HOME_DIR is how an embedded runtime is told.
+                     echo "SWI_HOME_DIR=C:\\Program Files\\swipl" >> "$GITHUB_ENV" ;;
           esac
 
       - name: The engine extra boots and round-trips JSON
