@@ -579,7 +579,7 @@ The directive suppresses only `operation-crossing-in-loop` at that statement. A 
 ```metta
 (lint-intent &space operation-crossing-in-loop
              "module.py" 12 4 13 13
-             "L9Z1-06; ai-python-first-revamp-discussion.md:5613-5618")
+             "L9Z1-06; https://github.com/MesTTo/MeTTa-Kernel/blob/7de3d32d25a7166b12f7c68c179e9cbb931ac044/website/guide/run-query.md#lint-a-space")
 ```
 
 Source-observed events likewise appear as `(lint-evidence Space Kind Subject Path Line Column Authority)`. `clear()` retires both records with the owning space. The corresponding finding payload carries `file`, `line`, `column`, `authority`, and, for operation findings, the published `effect` rank.
