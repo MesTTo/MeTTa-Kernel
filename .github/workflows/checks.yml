@@ -240,7 +240,20 @@ jobs:
         run: |
           python -m venv full
           case "${{ runner.os }}" in Windows) BIN=full/Scripts ;; *) BIN=full/bin ;; esac
-          "$BIN/python" -m pip install --quiet --no-cache-dir "$(echo dist/*.whl)[engine]"
+          # janus_swi ships PREBUILT WHEELS for Windows, and a prebuilt one
+          # carries its own idea of which SWI it links. Against the swipl this
+          # job just installed that mismatch surfaces late and obscurely: the
+          # boot got as far as loading the engine and then failed the
+          # library(json) directive, because the resolver was reading a
+          # different installation's library tree. Building janus from source
+          # links it against THIS swipl, which is what the Linux matrix
+          # already does for the same reason.
+          case "${{ runner.os }}" in
+            Windows) "$BIN/python" -m pip install --quiet --no-cache-dir \
+                       --no-binary janus_swi "$(echo dist/*.whl)[engine]" ;;
+            *)       "$BIN/python" -m pip install --quiet --no-cache-dir \
+                       "$(echo dist/*.whl)[engine]" ;;
+          esac
           cd "$RUNNER_TEMP"
           "$GITHUB_WORKSPACE/$BIN/python" - <<'PY'
           from metta import MeTTa, _json
