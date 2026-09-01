@@ -192,6 +192,17 @@ the rest, `mt_one_int(r)` and its `_float`, `_truth` and `_name` siblings give
 you the value with no atom to look after, and `mt_all(r)` gives every answer as
 an `mt_list`. Each consumes the cursor.
 
+The resulting list can become one space write without rebuilding it:
+
+```c
+mt_list values = mt_all(mt_run(m, "!(superpose (red green blue))"));
+if ( !mt_add_all(kb, values) ) fprintf(stderr, "%s\n", mt_errmsg());
+```
+
+`mt_add_all` takes the array and every atom, checks every member before the
+write, and reaches the engine once for the whole batch. `{NULL, 0}` is a valid
+empty batch.
+
 ## C values and functions
 
 `mt_object(pointer, type_name, release)` carries a C value through MeTTa by
