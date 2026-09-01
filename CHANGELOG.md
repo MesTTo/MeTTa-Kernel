@@ -8,6 +8,21 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- **A trailing underscore now escapes a keyword instead of becoming a
+  hyphen.** `S.not_` answered the symbol `not-`. No head in this tree ends in
+  a hyphen, so that symbol could never match anything and nothing said so.
+  PEP 8's trailing underscore is the escape for a name Python's grammar
+  reserves, and the naming ladder ranks it above the mechanical
+  underscore-to-hyphen map, which the tree already honours elsewhere
+  (`RouteKey.global_.value` is `"global"`). `S.not_` is now `not` and
+  `S.lambda_` is `lambda`, while `S.car_atom` is still `car-atom`, `V._` is
+  still the anonymous variable, and `S["not_"]` still reaches a head that
+  really does end in an underscore. The cause was a second copy of the map
+  inside the atom namespace rather than a call to the one canonical function;
+  the copy is gone.
+
+### Fixed
+
 - **Four documentation facts that were wrong.** `DEVELOPING.md` said the
   floor was Python 3.11 where `requires-python` is `>=3.12`; the
   getting-started guide counted thirteen Python examples where the tree
