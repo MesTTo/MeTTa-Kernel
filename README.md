@@ -51,7 +51,8 @@ from metta import S, V
 term = S.Parent(S.Tom, S.Bob)
 assert str(term) == "(Parent Tom Bob)"
 assert str(S.f(V.x) & S.g(V.x)) == "(and (f $x) (g $x))"
-assert str(S[">="](V.age, 18)) == "(>= $age 18)"
+assert str(V.age.ge(18)) == "(>= $age 18)"     # an operator by its own name
+assert str(S["prime?"](V.n)) == "(prime? $n)"  # brackets for a head with no name
 ```
 
 Strings are for text. A name comes from its factory, a function from its own
@@ -75,7 +76,7 @@ assert m.match(S.Parent(V.x, V.y), S.Parent(V.y, V.z)).to_dicts() == [
 ]
 
 m.add(S.Age(S.Tom, 62), S.Age(S.Bob, 40))
-assert m.match(S.Age(V.p, V.n), where=S[">="](V.n, 60)).to_dicts() == [
+assert m.match(S.Age(V.p, V.n), where=V.n.ge(60)).to_dicts() == [
     {"p": "Tom", "n": 62}
 ]
 assert len(m.match(S.Age(V.p, V.n), limit=1)) == 1
@@ -313,7 +314,7 @@ m += [(S.Reading, S.north, 12), (S.Reading, S.south, 30)]
 
 @m.define
 def above(limit: int) -> int:
-    return len(m.match(S.Reading(V.site, V.value), where=S[">="](V.value, limit)))
+    return len(m.match(S.Reading(V.site, V.value), where=V.value.ge(limit)))
 
 # Branches run on real threads over the one shared space, and answer in
 # COMPLETION order, so `collapse` has nothing to do here.
