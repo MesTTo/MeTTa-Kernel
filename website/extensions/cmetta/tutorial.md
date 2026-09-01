@@ -133,7 +133,7 @@ back as the same atom, use the counted writer and reader:
 
 ```c
 mt_string source = mt_write_dup(atom);
-mt_atom *copy = mt_parsen(source.data, source.len);
+mt_atom *copy = source.data ? mt_parsen(source.data, source.len) : NULL;
 mt_free(source.data);
 ```
 
