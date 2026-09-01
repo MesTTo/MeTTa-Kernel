@@ -85,7 +85,12 @@ jobs:
         env:
           # Hypothesis derandomizes in CI so a red example is reproducible.
           HYPOTHESIS_PROFILE: ci
-          CHECK_PY: python
+          # The interpreter `uv sync` installed INTO, not the bare one on
+          # PATH. uv writes .venv and does not activate it, so `python` here
+          # was an interpreter with none of the dependencies the step above
+          # resolved: the numpy example failed on `py-atom numpy.absolute`
+          # because the engine's own janus was reading that interpreter.
+          CHECK_PY: ${{ github.workspace }}/.venv/bin/python
         run: GATE_ONLY=1 sh check.sh
 
   # The burn-down surface. Always runs, never blocks, and the log is the
@@ -111,7 +116,7 @@ jobs:
 
       - name: Report
         env:
-          CHECK_PY: python
+          CHECK_PY: ${{ github.workspace }}/.venv/bin/python
         run: |
           sh check.sh ruff mypy ty pylint perflint xenon refurb bandit \
                       deptry interrogate codespell imports || true
@@ -151,6 +156,12 @@ jobs:
           uv venv --python ${{ matrix.python }} /tmp/v
           uv pip install --python /tmp/v/bin/python --no-binary janus_swi \
                          janus_swi docstring-parser pytest hypothesis
+          # The package itself, without its dependencies, which the line above
+          # pins deliberately. Importable is not enough: metta ships its pytest
+          # fixtures through the pytest11 ENTRY POINT, and an entry point only
+          # exists for an installed distribution, so a path-only setup lost
+          # `scratch_space` and every test taking it errored at setup.
+          uv pip install --python /tmp/v/bin/python --no-deps -e .
 
       - name: Suite on ${{ matrix.python }}
         env:
