@@ -11,6 +11,14 @@ anyone writes: Python, TypeScript and C are the three built so far, and a
 language reaches the engine through the wire codec rather than through a
 port, so the list is not a limit.
 
+Everything compiles to Prolog clauses, so the Python is a notation rather
+than an interpreter riding on top. A `@m.define` body costs 3.00 inferences
+and 0.07us per call against 3.00 and 0.06us for the same function written as
+MeTTa: writing it in Python is not a tax. A Prolog predicate is 2.00, a C
+foreign predicate 1.00, and only a call that stays in Python and crosses back
+per invocation costs more, 12.00 raw and 20.00 through the wire codec
+[measured, `python -m benchmarks.extension_cost`].
+
 For now it supports PeTTa's semantics, and work is under way so that it can
 support multiple dialects.
 
@@ -39,184 +47,11 @@ SQLite, DuckDB, NetworkX, a live Python object, another process or a whole
 `&mork` store can BE a space, and a query against one joins with a native
 one.
 
-The third is the one people underestimate, so here is a database as a space:
-
-```python
-import sqlite3
-
-import metta
-from metta import tables
-from metta.tables import TableBridge
-
-m = metta.MeTTa().space()
-connection = sqlite3.connect(":memory:")
-connection.execute("CREATE TABLE edges (a TEXT, b TEXT)")
-
-# One declaration relates the ATOM SHAPE to the table. It is the converter,
-# both directions, the way a MeTTa equation is.
-tables.declare(m, "&crm", "(bridge (edge $a $b) (row edges (a $a) (b $b)))")
-provider = TableBridge.from_context(m, "&crm", connection)
-m._register_space(provider, "&crm")
-
-m.run("!(add-atom &crm (edge a b))")                      # -> INSERT INTO edges
-m.run("!(add-atom &crm (edge b b))")
-m.run("!(add-atom &crm (edge b c))")
-
-(rows,) = m.run("!(collapse (match &crm (edge $x $y) ($x $y)))")
-assert sorted(str(a) for a in rows[0]) == ["(a b)", "(b b)", "(b c)"]
-
-(diagonal,) = m.run("!(collapse (match &crm (edge $x $x) $x))")
-assert [str(a) for a in diagonal[0]] == ["b"]              # -> WHERE a = b
-
-m.run("!(collapse (take 1 (match &crm (edge $x $y) (edge $x $y))))")
-assert any("LIMIT 1" in sql for sql in provider.executed)  # the bound pushed down
-```
-
-Nothing above is a wrapper around SQL. One MeTTa declaration relates the atom
-shape to the table, `(bridge (edge $a $b) (row edges (a $a) (b $b)))`, and
-every provider operation is derived from it in both directions: a query
-becomes a WHERE, a repeated variable becomes `WHERE a = b`, a bounded search
-pushes down a LIMIT, and an add becomes an INSERT. The declaration is
-knowledge, so a program can query the bridge itself.
-
-## Install
-
-```bash
-sudo apt install swi-prolog          # macOS: brew install swi-prolog
-                                     # Windows: winget install SWI-Prolog.SWI-Prolog
-pip install 'pymetta[engine]'
-```
-
-`pymetta` installs and imports without SWI-Prolog. The `engine` extra adds the
-bridge. Without it the first engine call names the command for your platform.
-
-Requires SWI-Prolog 9.3+ and Python 3.12+.
-
-## The representation
-
-Everything is an atom, and there are four kinds. This is how MeTTa writes
-them:
-
-```metta
-Tom                  ; a symbol, a name that denotes itself
-$x                   ; a variable
-42                   ; a grounded value: a number, a string, a host object
-(Parent Tom Bob)     ; an expression, atoms in order
-```
-
-Python builds the same four, without parsing anything. A symbol comes from
-`S`, a variable from `V`, and applying a symbol builds an expression:
-
-```python
-from metta import S, V
-
-term = S.Parent(S.Tom, S.Bob)
-assert str(term) == "(Parent Tom Bob)"
-assert str(S.f(V.x) & S.g(V.x)) == "(and (f $x) (g $x))"
-assert str(S[">="](V.age, 18)) == "(>= $age 18)"
-```
-
-Strings are for text. A name comes from its factory, a function from its own
-Python name, a space from its handle.
-
-## Spaces and queries
-
-A space holds atoms and equations. Queries join, guard, bound and explain.
-
-```python
-from metta import S, V, space
-
-m = space()
-m.add(S.Parent(S.Tom, S.Bob), S.Parent(S.Bob, S.Ann))
-
-assert m.match(S.Parent(S.Tom, V.child)).to_dicts() == [{"child": "Bob"}]
-
-# A conjunction is a join.
-assert m.match(S.Parent(V.x, V.y), S.Parent(V.y, V.z)).to_dicts() == [
-    {"x": "Tom", "y": "Bob", "z": "Ann"}
-]
-
-m.add(S.Age(S.Tom, 62), S.Age(S.Bob, 40))
-assert m.match(S.Age(V.p, V.n), where=S[">="](V.n, 60)).to_dicts() == [
-    {"p": "Tom", "n": 62}
-]
-assert len(m.match(S.Age(V.p, V.n), limit=1)) == 1
-
-# Facts for one block only.
-with m.assuming(S.Parent(S.Ann, S.Zoe)):
-    assert m.match(S.Parent(S.Ann, V.c)).to_dicts() == [{"c": "Zoe"}]
-
-# A prepared statement: the shape and its columns build once, then every
-# solve() reuses them. given= adds facts for one solve and leaves nothing.
-grand = m.prepare(S.Parent(V.x, V.y), S.Parent(V.y, V.z))
-assert grand.solve().to_dicts() == [{"x": "Tom", "y": "Bob", "z": "Ann"}]
-assert len(grand.solve(given=[S.Parent(S.Ann, S.Zoe)])) == 2
-```
-
-`m.eval(term)` evaluates a built term and answers every answer. `m.run(source)`
-is the door for whole MeTTa programs as text, which is what source files are;
-prefer building the term when you have one, because a built term is knowledge
-already and a string has to be parsed before it is.
-`rows.why()` explains an empty match. `m.derivation(atom)` builds the proof
-tree behind an answer.
-
-## Writing MeTTa in Python
-
-`@m.define` reads the function's source and lowers it into MeTTa equations.
-Clauses stack the way MeTTa equations do. `# ->` shows what each one becomes,
-and the three stack into a single equation whose body is a first-match `case`:
-
-```python
-from metta import space
-
-m = space()
-
-@m.define
-def fib(n=0):                          # -> the arm (0 0)
-    return 0
-
-@m.define
-def fib(n=1):                          # -> the arm (1 1)
-    return 1
-
-@m.define
-def fib(n):                            # -> ($n (+ (fib (- $n 1)) (fib (- $n 2))))
-    return fib(n - 1) + fib(n - 2)
-
-# the three together:
-# (= (fib $n) (case $n ((0 0) (1 1) ($n (+ (fib (- $n 1)) (fib (- $n 2)))))))
-
-assert fib(10) == [55]           # callable from Python, answers a list
-assert fib.py(10) == 55          # and the Python twin stays callable
-```
-
-The equations are readable, so you can see exactly what your Python became:
-
-```python
-from metta import space
-
-m = space()
-
-@m.define
-def fact(n):
-    if n == 0:
-        return 1
-    return n * fact(n - 1)
-
-assert str(fact.head) == "(fact $n)"
-assert str(fact.body) == "(if (py-eq $n 0) 1 (* $n (fact (- $n 1))))"
-assert fact(5) == [120]
-```
-
-The subset is Python as Python means it: rebinding compiles through static
-single assignment, `while` and `for` become tail-recursive equations in
-constant stack, a generator compiles to nondeterminism, a lambda to `|->`,
-comprehensions to `map-atom` and `filter-atom`, `try`/`except`/`finally` onto
-the engine's error algebra, and dict and set literals into spaces. What the
-vocabulary does not lower natively becomes a VISIBLE host island inside the
-equation, run per application and never at decoration time, which is what
-`py(...)` spells explicitly; the refusals that remain name their construct,
-line and caret, and cite their ground in Python or in MeTTa.
+The third is the one people underestimate, and it is the smallest: a space is
+an INTERFACE, so anything that can list its atoms is one. [Spaces backed by
+anything](#spaces-backed-by-anything) below is the whole of it — a class, one
+method, and a SQL table or a dataframe or a service answers `match` like a
+native space and joins with one.
 
 ## What it does that a library cannot
 
@@ -581,7 +416,7 @@ assert list(m.fn.sqrt(16.0)) == [4.0]
 ```
 
 A package advertises itself through the `metta.integrations` entry-point group,
-and `m.discover()` finds it.
+and `metta.integrate.discover(m)` finds it.
 
 ## Command line
 
@@ -678,14 +513,22 @@ atom-vector spaces come from a MeTTa library the engine fetches on request:
 
 ## What the examples show
 
+**[`examples/`](examples/) is the book for learning MeTTa itself.** Its 233
+programs are ordered as a reading list, chapter by chapter from the first
+answer to a reasoner you can serve, and the directory names ARE the order.
+Every file runs and checks itself under the gate, and a law is enforced
+rather than promised: a file may use only constructs an earlier number
+introduced, so reading top to bottom never meets something unexplained.
+[`examples/README.md`](examples/README.md) is its table of contents.
+
 **[`extensions/python/examples/language-feature-examples/`](extensions/python/examples/language-feature-examples/)
 is the reference for how to write this library idiomatically.** It is 219
-runnable programs, each the idiomatic Python for one MeTTa example, and the
-gate runs every one against the MeTTa it mirrors: they agree on the stored
-equations and on the answers, so neither side can drift into a spelling that
-merely looks right. Find the MeTTa construct you want in `examples/`, open
-the file of the same name here, and the Python beside it is the way to say
-it. They are also the depth this page only samples:
+runnable programs, one per MeTTa example, and the gate runs each against the
+MeTTa it mirrors: they agree on the stored equations AND the answers, so
+neither side can drift into a spelling that merely looks right. Find the
+construct in `examples/`, open the file of the same name here, and the Python
+beside it is the way to say it. They are also the depth this page only
+samples:
 
 | chapter | what it demonstrates |
 |---|---|
