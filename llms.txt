@@ -52,7 +52,7 @@ every run.
 `pip install .` (the runtime is bundled) or point `METTA_PATH` at a clone.
 
 ```python
-from metta import MeTTa, S, V, G, ground, Expression, equation, rules, parse
+from metta import MeTTa, S, V, G, ground, Expression, equation, rules, parse, forms
 from metta.vocabularies import EffectClass
 context = MeTTa()                         # owns one engine context
 m = context.self                          # the home Space, bound as &self
@@ -69,7 +69,8 @@ created default engine, for scripts that never need a second space.
 Applying a symbol builds an expression: `S.likes(S.Ada, S.Music)` ->
 `(likes Ada Music)`. `Expression` collects any iterable into one ordered
 atom: `Expression((S.f, 1, 2))` is `S.f(1, 2)`.
-`parse("(f $x)")` reads one form without evaluating it.
+`parse("(f $x)")` reads exactly one form without evaluating it.
+`forms("(a) (b)")` reads every top-level form without evaluating any.
 
 Four kinds, all immutable with `__slots__` and one-subpattern
 `__match_args__`: `Symbol`, `Variable`, `Grounded`, `Expression`. So

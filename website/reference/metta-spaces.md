@@ -2,38 +2,10 @@
 
 Source: `extensions/python/metta/spaces.py`.
 
-> Purpose: space views and combinators on the public seam. Object views,
+> Space views and combinators on the public interface. Object views,
 > union, readonly, mapped, and overlay are ordinary SpaceProvider instances;
 > the same engine route therefore matches a live object or composes existing
 > spaces without hardcoded integration paths.
-> Guarantees:
->   - view presents mappings and zero-based sequences through one kv relation
->     and sets as members, reading the Python object afresh for every query
->     [tested: test_view_is_a_live_queryable_space; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
->   - union and readonly implement no write operation, so the engine's own
->     capability refusal answers add-atom on them [tested
->     test_union_refuses_writes_through_the_engine]
->   - mapped presents only atoms unifying its inner shape, both directions
->     derived from the one declaration [tested
->     test_mapped_presents_and_writes_through_the_declaration]
->   - overlay reads both layers and writes, removes, and clears the front
->     only, ChainMap's own rule [tested test_overlay_routes_writes_to_front]
->   - object_view reads live fields, joins with stored atoms through union, and
->     turns an added py-field atom into setattr [tested:
->     test_a_query_joins_stored_atoms_with_live_object_fields;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - provider queries and bridge declarations retain directional pattern
->     matching after public ``unify`` becomes symmetric [tested:
->     test_mapped_repeated_variable_pattern_stays_sound;
->     commit=6917bef7ca902671999eafcae3a7a86db8f69723]
->   - union, readonly, mapped, and overlay snapshot each member once; a live
->     member without the explicit snapshot protocol refuses by member name
->     [tested: test_reify_refuses_and_names_a_live_composite_member;
->     commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None.
 
 The entries below reproduce the source signatures and docstrings.
 

@@ -2,49 +2,12 @@
 
 Source: `extensions/python/metta/structures.py`.
 
-> Purpose: data structures with MeTTa's semantics at Python speed, built on
+> Data structures with MeTTa's semantics at Python speed, built on
 > the boundary-free atom kernel (unify, alpha_eq, variables, order_key) and
 > never touching the engine: importable and usable without janus. PatternMap
 > answers "which entries apply to this atom", MatchIndex answers "which of
 > many registered patterns match it" sublinearly, and AlphaSet holds atoms
 > modulo variable renaming.
-> Assumes:
->   - metta.atoms._match is the private directional primitive every lookup
->     here wants: stored patterns are the pattern side and probes are the atom
->     side [source: extensions/python/metta/atoms.py:_match; commit=6917bef7ca902671999eafcae3a7a86db8f69723]
-> Guarantees:
->   - PatternMap's ground keys behave exactly like dict keys, the no-tax
->     rule [tested test_patternmap_ground_keys_are_dict_keys]
->   - MatchIndex.matches agrees with brute-force unification over every
->     registered pattern, keeping integer and float atoms apart and NaN atoms
->     together the way the engine's matcher does
->     [tested test_matchindex_agrees_with_brute_force,
->     test_matchindex_matches_grounded_numbers_by_unification]
->   - MatchIndex.matches answers in REGISTRATION order whatever order the
->     tree walk reached the entries in, and a remove does not disturb it
->     [measured 2026-08-19: register a, b; remove a; register c; the answer
->     was c before b] [tested
->     test_dispatch_through_the_index_delivers_the_same_subscribers_in_the_same_order]
->   - MatchIndex treats identity-only Grounded handles as opaque values instead
->     of reading the deliberately absent Grounded.value slot [tested:
->     test_a_transaction_commits_async_launch_before_its_landing,
->     test_matchindex_indexes_handles_without_unwrapping_them;
->     commit=173eeed021beb360b5e5f9f8461889e27190affc]
->   - AlphaSet membership is alpha_eq membership [tested
->     test_alphaset_is_alpha_membership]
->   - LiveView holds exactly what the space holds for its pattern, through
->     adds and through removals whose event cannot say which occurrence left
->     [tested test_liveview_mirrors_the_space]
-> Decides:
->   - source text is NOT parsed here, because parsing needs the engine and
->     this module's contract is engine-freedom; parse() first, or build
->     atoms with S/V/Expression
->   - every ordered atom assembled in this file passes one iterable to
->     Expression [tested: test_expression_assembles_one_ordered_atom_from_an_iterable; commit=b1599bdc8201a04a3689c1a88707b6f4b53b4d22]
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None.
 
 The entries below reproduce the source signatures and docstrings.
 

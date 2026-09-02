@@ -2,17 +2,10 @@
 
 Source: `extensions/python/metta/derivation.py`.
 
-> Purpose: proof trees as Python objects. Parses the (derivation ...) atoms
+> Proof trees as Python objects. Parses the (derivation ...) atoms
 > the shim's meta-interpreter produces into a tree of steps, facts and builtin
 > leaves, records finite-depth truncation without confusing it with no proof,
 > and renders the result as indented text or notebook HTML.
-> Guarantees:
->   - Derivation.complete is false exactly when a Truncated node occurs
->     [tested test_depth_exhaustion_returns_a_partial_proof]
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: why-not trees for derivations that fail.
 
 The entries below reproduce the source signatures and docstrings.
 

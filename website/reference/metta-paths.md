@@ -2,19 +2,7 @@
 
 Source: `extensions/python/metta/paths.py`.
 
-> Purpose: build cycle-safe lazy structural paths for query patterns.
-> Guarantees:
->   - a path keeps its root opaque and reads only the named attributes or keys
->     after the engine has matched that root [tested:
->     test_a_path_reaches_into_a_handle_without_converting_it;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - repeated object identities terminate the path as a non-match [tested:
->     test_a_path_reaches_into_a_handle_without_converting_it;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None.
+> Build cycle-safe lazy structural paths for query patterns.
 
 The entries below reproduce the source signatures and docstrings.
 

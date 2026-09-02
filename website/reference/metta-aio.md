@@ -2,7 +2,7 @@
 
 Source: `extensions/python/metta/aio.py`.
 
-> Purpose: the same engine without blocking an event loop. AsyncMeTTa
+> The same engine without blocking an event loop. AsyncMeTTa
 > proxies a MeTTa space onto one dedicated worker thread that holds an
 > attached Prolog engine, the aiosqlite architecture (one thread per
 > connection, a request queue, results delivered back through the loop), so
@@ -12,110 +12,9 @@ Source: `extensions/python/metta/aio.py`.
 > evaluation through the engine's own thread_signal, the sqlite3 reading,
 > and a cancelled task fires it on its own call, so asyncio timeouts stop
 > the engine instead of abandoning it.
-> Guarantees:
->   - async solve, Linda verbs, watch, class/type dispatch, and the two
->     transaction laws execute on the owning worker [tested:
->     test_aio_structural_surface_behaves; commit=cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5]
->   - interrupt_if_running throws the same reserved structured exception as
->     shim resource guards [tested test_aio_interrupt_stops_the_running_evaluation]
->   - close refuses new work, interrupts a running request, rejects queued
->     requests, and bounds the worker join [tested test_aio_close_interrupts_work]
->   - the transition drain discards only a structured interrupt and fails
->     closed on every other error [tested
->     test_aio_drain_only_discards_structured_interrupt]
->   - a cancelled acquisition releases what the worker finished rather than
->     leaving it live and unowned: the worker thread a cancelled connect
->     launched, the registered subscription, the installed assumption facts
->     [tested: test_aio_cancelled_connect_leaves_no_live_worker,
->     test_aio_cancelled_subscription_registration_cancels_it,
->     test_aio_cancelled_assuming_removes_the_facts_it_installed;
->     commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
->   - aclose refuses further work only after the engine has let go, so a close
->     that failed is retryable, and the stream's terminator reaches a consumer
->     whose queue is full [tested:
->     test_aio_a_failed_cursor_close_stays_retryable,
->     test_aio_a_failed_subscription_close_stays_retryable,
->     test_aio_the_close_sentinel_survives_a_full_queue; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
->   - an event queue is published only once its registration succeeded, and its
->     bound is refused unless it is a count of events [tested:
->     test_aio_a_failed_subscription_publishes_no_queue,
->     test_the_async_queue_bound_is_refused_the_same_way; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
->   - an abandoned live owner emits ResourceWarning and registered workers
->     detach during interpreter shutdown [tested test_aio_leak_warns_and_stop_joins,
->     test_aio_shutdown_handler_stops_forgotten_workers]
->   - interpreter shutdown attempts every worker and reports all expected
->     stop failures together [tested test_aio_shutdown_handler_attempts_every_worker]
->   - interpreter shutdown without live workers does not initialize the
->     optional engine bridge [tested test_aio_empty_shutdown_does_not_import_janus]
->   - async names and save formats retain the synchronous surface's contextual
->     types [tested: test_canonical_context_types_replace_public_newtypes;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - async head-named declaration methods reuse the catalog-generated policy aliases and
->     own no duplicate Literal lists [tested: tests/checks/check_policy_inventory.py;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - all fifteen synchronous declaration heads have asynchronous mirrors,
->     including ``reacts`` for ``(on ...)`` while ``reaction`` remains, and no
->     ``declare_*`` aliases [tested:
->     test_aio_covers_the_whole_synchronous_surface,
->     test_m7_narrow_core_surface; commit=0cfc68a483d8d64fb499e53bbe9a3cc63f68990f]
->   - async cast preserves a concrete target class as its static return type and
->     keeps the target positional-only [tested
->     test_target_type_overloads_preserve_the_requested_class,
->     test_cast_target_is_positional_only]
->   - async space forwards anonymous-space inheritance, restriction, and grants
->     on the owning worker [tested:
->     test_async_space_forwards_restriction_and_grants; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - async scoped limits forward stack byte bounds through the synchronous
->     task-local scope [tested: test_stack_limit_is_carried_to_the_limited_six_seam;
->     commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
->   - reader-token registration and removal run on the owning engine worker and
->     mirror the synchronous surface [tested:
->     test_aio_plain_methods_forward_on_the_worker and
->     test_async_anonymous_space_repr_keeps_the_submitting_site;
->     commit=50d1de4d0ead4a0c3997f9b2ef58631bbafaede3]
->   - async eval mirrors the synchronous single answer shape without a
->     residuals flag [tested:
->     test_a_not_reducible_answer_is_the_unreduced_term_with_no_flag;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - async function handles consume the synchronous Answers surface on their
->     owning worker, including the composite ``neg`` operator word [tested:
->     test_aio_structural_surface_behaves; commit=8ec44dec3cafba5981e7cf712749cca0e1bdcc45]
->   - async operation registration requires and forwards the canonical effect
->     argument [tested: test_aio_declare_and_register_delegations_land;
->     commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
->   - execution-policy scopes cross the worker hop and never change awaited
->     return shapes [tested:
->     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - image reaches the synchronous declaration owner on the engine
->     worker [tested: test_aio_covers_the_whole_synchronous_surface;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - async peek and take keep event-loop threads unblocked while the engine
->     worker performs the synchronous Linda wait [tested:
->     test_async_peek_and_take_mirror_the_space_handle; commit=4e2398075da67bb2cbcc123a9fc1e078ecac6fbf]
->   - async match forwards the submitting task's scoped or explicit algebra,
->     and sample mirrors the synchronous random.choices-shaped door [tested:
->     test_aio_covers_the_whole_synchronous_surface; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa]
->   - async reification, world evaluation, and commit keep every engine crossing
->     on the owning worker while immutable atom snapshots remain directly
->     readable [tested: test_async_worlds_stay_on_the_owning_worker;
->     commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
->   - async coverage, compensation declarations, and saga recovery keep their
->     complete synchronous scope on one owning worker [tested:
->     test_async_saga_and_world_coverage_stay_on_the_owning_worker;
->     commit=173eeed021beb360b5e5f9f8461889e27190affc]
 > Owns:
 >   - each owning AsyncMeTTa owns one daemon worker and its attached Prolog
->     engine until aclose(), stop(), or the atexit handler releases it [tested
->     test_aio_leak_warns_and_stop_joins]
-> Guarded by:
->   - _state_lock publishes worker state and engine identity; _transition
->     serializes request completion with interruption [tested
->     test_aio_interrupt_stops_the_running_evaluation]
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None.
+>     engine until aclose(), stop(), or the atexit handler releases it
 
 The entries below reproduce the source signatures and docstrings.
 
@@ -234,7 +133,7 @@ async def eval(
 > a replayable cross-thread iterator is not what an await gives you, so
 > without them there was no way to annotate an EVALUATION asynchronously
 > at all -- match(under=) covered patterns and nothing covered calls
-> [measured 2026-08-31].
+> .
 
 ### `AsyncMeTTa.copy`
 
@@ -323,7 +222,7 @@ async def rules(self, fn: Callable) -> Any:
 > door stops being a decorator instead of stopping existing. It was
 > excluded from the async surface for the first reading of that, which
 > left an async caller unable to land a bundle at all
-> [measured 2026-08-31].
+> .
 
 ### `AsyncMeTTa.pre_add`
 
@@ -357,7 +256,7 @@ async def define(
 > `name=` is the naming ladder's exact-spelling rung, and it is here
 > because the ladder does not shrink from one surface to another: an
 > async caller installing `prime?` or an authored underscore had no
-> door for it while the synchronous define did [measured 2026-08-31].
+> method for it while the synchronous define did.
 
 ### `AsyncMeTTa.limits`
 
@@ -534,7 +433,7 @@ def watch(
 > without: it was subscribe() under a second name, same signature and
 > same body, so an async caller had no way to say "stop waiting after
 > this long" that peek() and take() both give them
-> [measured 2026-08-31].
+> .
 
 ### `AsyncMeTTa.fn`
 
@@ -853,7 +752,7 @@ async def remove(self, atom: Any, *more: Any) -> bool | int:
 > The DRAIN is the pattern-shaped door: `del m[pattern]` takes every
 > unifying occurrence in one crossing and raises when nothing
 > matched, as Python's `del` does, and MeTTa spells it `remove-atom`
-> [source: engine/spaces/foreign.pl, remove_matching_atoms/2].
+> .
 > MeTTa spells this method's grain `subtract-atom`. This is the one
 > door that reports absence.
 >
@@ -908,7 +807,7 @@ async def peek(
 > required true, so "wait for a job whose priority is above five" is one
 > call. Without it the guard had to live in the caller, as a wait and a
 > re-wait around every candidate the guard rejected, and the deadline
-> restarted each time round [measured 2026-08-31].
+> restarted each time round.
 
 ### `AsyncMeTTa.take`
 
@@ -1099,7 +998,7 @@ async def parallel(self, *targets: Any, timeout: float | None = None) -> list[At
 > deliberately no `inferences=`: the engine's inference limit counts
 > the calling thread, and `concurrent_and/2` runs every branch in a
 > worker, so a limit of 50,000 does not stop two branches spending six
-> million [measured 2026-08-15]. An unenforceable bound is worse than
+> million. An unenforceable bound is worse than
 > an absent one, so eval() over a `superpose` is the way to bound this
 > work by inferences, at the cost of running it on one core.
 
@@ -1121,7 +1020,7 @@ async def reducible(self, target: Any) -> bool:
 > `!(hello world)` works, so there is no scope here that refuses one.
 >
 > The Node seat has had m.reducible() since it existed; this seat had
-> only eval_status(), which evaluates to tell you [measured 2026-08-31].
+> only eval_status(), which evaluates to tell you.
 
 ### `AsyncMeTTa.eval_status`
 
@@ -1259,8 +1158,7 @@ async def pure(self, fn: Callable, /, **options: Any) -> Any:
 > only ever raises the rank, so it widens the answer-count claim and
 > never weakens the effect claim -- but it does mean a generator is not
 > cache-safe, which is the whole reason it is lifted out of this class
-> [tested: test_a_generator_is_lifted_to_the_nondeterministic_rank;
-> commit=7e5091540a8dc0903bcee24f3e5b8b85a19f805f].
+> .
 >
 > Every ``op`` keyword applies: ``name``, ``arities``,
 > ``declarations``, ``inverse`` and ``transport``. They arrive as
@@ -1379,7 +1277,7 @@ async def register_prolog(
 > op() is the one most people find first, and every call it
 > serves crosses the janus boundary: 25.16 inferences and 2.34us per
 > call, against 7.16 inferences and 0.13us for the same operation
-> written in Prolog [measured 2026-08-15, 3000 calls in one harness].
+> written in Prolog.
 >
 > Read the microseconds, not the inferences. The crossing counts as ONE
 > inference and costs real time, so inferences say a Python operation is
@@ -1584,7 +1482,7 @@ async def why(self, pattern: Any, *, where: Any | None = None) -> str:
 > Answers.why() always did rather than answering it. Asking why
 > `(job $id $pri)` matched nothing, when it matches two atoms, used to
 > answer "2 job atom(s) exist here but none unifies with it"
-> [measured 2026-08-31].
+> .
 >
 > `where` is match()'s guard, and asking with one is where the answer
 > gets interesting: a query can be empty because the pattern found
@@ -1680,9 +1578,7 @@ async def annotations(
 > context as the explicit first subject. Capabilities are
 > checked against the algebra's requirements before the catalog write;
 > amplitude programs, for example, must explicitly declare ``finite``,
-> ``contractive`` and ``staged`` [tested:
-> test_amplitudes_interfere_inside_the_fragment_and_are_refused_outside;
-> commit=f88aa8be03cb64cb59d3307515ded8701f418321]. Declaring replaces any earlier row for the
+> ``contractive`` and ``staged``. Declaring replaces any earlier row for the
 > context, so the reader never meets two disagreeing atoms.
 
 ### `AsyncMeTTa.algebra`
@@ -1991,7 +1887,7 @@ async def events(
 async def aclose(self, timeout: float = DEFAULT_CLOSE_TIMEOUT) -> None:
 ```
 
-> Interrupt work, reject queued calls, and detach within timeout.
+> Cancel acquired streams, then stop and detach the worker.
 
 ### `AsyncMeTTa.stop`
 
@@ -1999,7 +1895,7 @@ async def aclose(self, timeout: float = DEFAULT_CLOSE_TIMEOUT) -> None:
 def stop(self, timeout: float = DEFAULT_CLOSE_TIMEOUT) -> None:
 ```
 
-> Synchronous cleanup for code without a running event loop.
+> Synchronously cancel streams and stop without an event loop.
 
 ## `AsyncSaga`
 

@@ -2,7 +2,7 @@
 
 Source: `extensions/python/metta/integrate.py`.
 
-> Purpose: the interface any Python library implements to work deeply with
+> The interface any Python library implements to work deeply with
 > MeTTa, and the toolkit that makes implementing it a page of code rather than
 > a project. An integration is a module with install_metta(m), an object with
 > name and install(m), or an entry point in the metta.integrations group; the
@@ -11,41 +11,9 @@ Source: `extensions/python/metta/integrate.py`.
 > and printing, two-way value translation, structure reflected into facts,
 > spaces backed by the library's own storage, and reflective py-field
 > reasoning over any object.
-> Assumes:
->   - inspect.signature reports unsupported callables with TypeError and
->     unavailable signatures with ValueError [source 2026-08-14:
->     https://docs.python.org/3/library/inspect.html#inspect.signature]
-> Guarantees:
->   - protocol type, formatter, conversion, and reflector registrations have
->     exact removal counterparts [tested
->     test_protocol_and_reflector_registrations_can_be_removed,
->     test_type_registration_can_be_removed_and_its_name_reclaimed]
->   - installation idempotence ends with the lifetime of its space [tested
->     test_dropped_space_name_reinstalls_integrations]
->   - discovery refuses duplicate names, missing dependencies, and named
->     dependency cycles, and installs acyclic entries in topological order
->     [tested: test_each_remaining_annotation_shape_refuses_or_carries;
->      commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - module and reflection helpers express transport and Atom delivery without
->     boolean registration pairs [tested:
->     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - callable wrappers require a host-effect classification, and object
->     wrappers require one class per method [tested:
->     test_wrap_object_methods_with_effect_convention; commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
 > Owns:
 >   - _INSTALLED retains one target per live space and integration name;
->     MeTTa.drop releases every record for that space [tested
->     test_dropped_space_name_reinstalls_integrations]
-> Guarded by:
->   - _INSTALLED_LOCK serializes integration installation and invalidation
->     [tested test_dropped_space_name_reinstalls_integrations]
->   - _REFLECTOR_LOCK protects reflector registrations [tested
->     test_protocol_and_reflector_registrations_can_be_removed]
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None.
+>     MeTTa.drop releases every record for that space
 
 The entries below reproduce the source signatures and docstrings.
 

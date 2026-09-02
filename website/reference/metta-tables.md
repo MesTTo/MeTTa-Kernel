@@ -2,7 +2,7 @@
 
 Source: `extensions/python/metta/tables.py`.
 
-> Purpose: derive a whole table-backed space provider from MeTTa bridge
+> Derive a whole table-backed space provider from MeTTa bridge
 > declarations, so the contract is rewrite rules and both directions of
 > the boundary fall out of matching them. The module is metta.tables
 > because a subscription bridge is already the standing bridge RULE between two
@@ -23,9 +23,7 @@ Source: `extensions/python/metta/tables.py`.
 >
 > This is the bidirectional-transformations literature's third approach,
 > writing the consistency relation and deriving both transformations
-> [source: the GRACE report,
-> gsd.uwaterloo.ca/sites/default/files/GRACE-report-ICMT09.pdf; TRIP2 did
-> it with Prolog rules, Wadler's views are the in/out pair], and the lens
+> , and the lens
 > round-trip laws are what check_space_provider verifies against the
 > derived claims.
 >
@@ -35,53 +33,6 @@ Source: `extensions/python/metta/tables.py`.
 > can add the same atom itself, and `TableBridge.from_context(m, "&crm",
 > connection)` reads every one back, so a program carries its schema as
 > knowledge and the attach is one line.
->
-> Guarantees:
->   - tagged atom cells preserve explicit s and p species instead of applying
->     process-local engine provenance [tested:
->     test_space_handles_are_term_operands_and_round_trip; commit=4e2398075da67bb2cbcc123a9fc1e078ecac6fbf]
->   - a database row becomes an atom from its typed cell values; plain text is
->     always a symbol, NULL is Grounded(None), and a structured value is one tagged
->     TEXT cell carrying the atom wire rather than the source parser [tested:
->     test_a_row_value_becomes_an_atom_without_being_reparsed;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - a cell MeTTa wrote reads back as the atom it wrote, whatever the driver
->     and the image catalog do to the database's own values: _is_atom_cell
->     keeps the tag in the text domain, out of reach of a row_factory that
->     adapts binary cells, and _ImageCodec answers it before any image
->     [tested: test_a_nonground_compound_downgrades_and_removal_still_unifies;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - the whole pattern family is filtered exactly where SQL can express
->     it: ground positions become comparisons, a repeated variable becomes
->     the equality it demands (column to column, or column to the declared
->     head literal), and a variable head constrains nothing [tested
->     test_the_kit_certifies_the_pushdown_claim]
->   - a nonground compound below a column variable downgrades pushdown to
->     inexact instead of overclaiming, and removal falls back to
->     unification so it still means what remove-atom means everywhere
->     [tested test_a_nonground_compound_downgrades_and_removal_still_unifies]
->   - writes are refused unless the atom grounds every column, because a
->     row of NULLs standing for variables would silently weaken removal
->     [tested test_a_nonground_add_is_refused]
->   - an atom every shape refuses, or two shapes admit, is refused naming
->     the shapes [tested test_an_ambiguous_add_is_refused_naming_both]
->   - TableBridge.from_context applies `(image <ctx> <Type> <setting>)` to
->     each of the database's own row values before it crosses, keeping opaque
->     objects as handles and projecting transparent objects [tested:
->     test_an_opaque_blob_column_is_reached_by_a_lazy_path_without_crossing;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - fallback row deletion binds only the removal pattern after public
->     ``unify`` becomes symmetric [tested:
->     test_a_nonground_compound_downgrades_and_removal_still_unifies;
->     commit=6917bef7ca902671999eafcae3a7a86db8f69723]
-> Decides:
->   - declarations are trusted code, not user data: table and column
->     names are interpolated into SQL, so a bridge declaration belongs in
->     the program the way a schema does
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None
 
 The entries below reproduce the source signatures and docstrings.
 
