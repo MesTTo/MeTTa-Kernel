@@ -33,11 +33,11 @@ as claims about a tree it is only visiting.
 Guarantees:
   - every planted FIXED, OPEN and UNKNOWN case is reported as such, and nothing
     unplanted is reported FIXED or OPEN [tested:
-    tests/checks/check_spec_status_selftest.py; commit=WORKTREE]
+    tests/checks/check_spec_status_selftest.py; commit=fcf89d61661bf4bf2367dac84fb14d45e79a3774]
   - the same item id reports FIXED when its file exists and is gated, OPEN
     once that exact file is removed, and FIXED again once it returns,
     across three runs of the same checker against the same tree
-    [tested: tests/checks/check_spec_status_selftest.py; commit=WORKTREE]
+    [tested: tests/checks/check_spec_status_selftest.py; commit=fcf89d61661bf4bf2367dac84fb14d45e79a3774]
 Fails when:
   - run against a tree it did not write; it asserts exact ids, verdicts and
     reason substrings in a fixture it generates itself, like

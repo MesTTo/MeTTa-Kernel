@@ -92,14 +92,14 @@ Assumes:
 Guarantees:
   - every P<phase>.<n> id the spec's item tables define is reported exactly
     once, as FIXED, OPEN or UNKNOWN, with the anchor(s) that decided it
-    [tested: tests/checks/check_spec_status_selftest.py; commit=WORKTREE]
+    [tested: tests/checks/check_spec_status_selftest.py; commit=fcf89d61661bf4bf2367dac84fb14d45e79a3774]
   - an id the spec itself defines more than once with different row content
     is reported UNKNOWN and flagged ambiguous, never silently resolved to
     one of its rows [tested: tests/checks/check_spec_status_selftest.py;
-    commit=WORKTREE]
+    commit=fcf89d61661bf4bf2367dac84fb14d45e79a3774]
   - a FIXED verdict flips to OPEN the moment the file or lane it names stops
     existing or stops being GATE-tier, and flips back the moment it returns
-    [tested: tests/checks/check_spec_status_selftest.py; commit=WORKTREE]
+    [tested: tests/checks/check_spec_status_selftest.py; commit=fcf89d61661bf4bf2367dac84fb14d45e79a3774]
 Fails when:
   - an acceptance criterion states its target only in prose, with no
     backticked name. P9.3's own row is one such case: "a script asks the
