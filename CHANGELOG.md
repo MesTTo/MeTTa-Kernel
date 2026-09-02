@@ -7,120 +7,14 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 ## [Unreleased]
 
 ## [0.6.0] - 2026-09-02
-
 The `pymetta` line, which is versioned separately from the inherited
 upstream tags above it. Published to PyPI as `pymetta` 0.6.0.
-
-### Fixed
-
-- **A remote gateway authorized one space and executed against another.** A
-  request that omitted `space` was checked against the served context's name
-  and then run against `&self`, so an authorization callback could approve a
-  write that landed somewhere else. Both paths now resolve the same name.
-- **A recycled thread identifier could crash the process.** `Runtime` recorded
-  its owning thread as `threading.get_ident()`, an operating-system number the
-  kernel reuses after a thread exits. A newly spawned thread could inherit a
-  dead thread's number, be mistaken for the engine's owner, and take the Janus
-  fast path on an engine it did not hold. Ownership is now the live `Thread`
-  object, which cannot collide.
-- **Compiled Python operators follow Python's data model.** `a + b` in a
-  `@m.define` body assumed numbers, so string and list concatenation, set
-  difference, percent formatting, and every reflected or in-place dunder
-  answered an error atom that then flowed on as data. Untyped operands now
-  dispatch through the live protocol. An `int` or `float` annotation keeps the
-  pure engine head, so `def f(x: int) -> int` compiles exactly as before.
-  Equality stays on the protocol path even when annotated, because `1 == 1.0`,
-  `nan == nan` and `-0.0 == 0.0` disagree with the engine relation.
-- **A `for` loop over a string, bytes, or dict answered nothing.** The loop
-  peeled with `decons-atom`, which has no answer for a grounded String, and
-  compared emptiness against the empty Expression. The comprehension form of
-  the same iteration was correct, so the two disagreed inside one function.
-- **`space |= atom` shredded a built atom into its children.** `Atom` was
-  missing from the refusal list while `Expression` registers as a `Sequence`,
-  so `space |= S.f(S.a, S.b)` stored three atoms instead of one.
-- **A compiled `except` matched on the class name.** An unrelated class that
-  merely shared a name was caught, and `Timeout`, `Error`, `ValidationError`
-  and `ConnectionError` are all shared names. Arms now compare class identity.
-- **`limit=0` ran unbounded** at four query entry points and, separately, in
-  `metta.algebra.count_tagged`, whose own validator advertised zero as legal
-  before collapsing it into the engine's no-limit sentinel. Zero is now
-  refused everywhere with one message.
-- **`speculative()` kept writes taken lazily**, and `Space.derivation` escaped
-  it entirely: its proof search ran outside the shared capture, so a
-  diagnostic inside a speculative block left its writes in the engine-global
-  space.
-- **A batch write bypassed the provider's policy gate.** `foreign_add_many`
-  consulted the gate for the first atom only, so an atom a provider declines
-  landed whenever it was batched behind another.
-- **One raising watcher starved every later subscription** of the event that
-  had already committed.
-- **A blocking engine call on a bare thread froze every other Python thread**,
-  including the one that would have unblocked it.
-- **A failed async landing left its future pending forever.** A publication
-  failure was logged and discarded while the context was released, so an
-  awaiting caller had nothing to wake it. Failures now settle the future as an
-  error, and process controls propagate instead of being swallowed.
-- Subscriptions outliving their event loop, abandoned channel queues,
-  `py-atom` declarations, and timed-out remote worker requests all release now
-  rather than accumulate. `assuming()` removes every hypothetical even when
-  one removal fails.
-- A rejected guarded event no longer ends a blocking stream early, native
-  handles round-trip through the public wire codec, and `resolve()` reports a
-  module that exists but fails to import instead of blaming its prefix.
-
-### Changed
-
-- **Declaring a type costs almost nothing now.** A declared compiled call paid
-  46 extra inferences and 1.76 microseconds per call, because the engine
-  re-checked what the compiler could already prove. Checks the translator can
-  discharge statically are now omitted, under support-graph invalidation so a
-  typing rule added later still wins. The same call costs 2 inferences and
-  0.25 microseconds. Unknown arguments and reflective calls keep their checks.
-- **Several operations changed complexity class rather than constant factor.**
-  Stacking K clauses fell from O(K squared) engine crossings to O(K); proof
-  projection from O(N squared) to O(N), which is 3.8 seconds to half a
-  millisecond at four thousand facts; per-iteration source-position lookup
-  from a stack scan to a cached one; `FutureSpace` iteration from a full
-  re-snapshot per poll to a watermarked delta; import resolution from a prefix
-  search to an amortized constant. Deep atom ordering and proof traversal run
-  on a constant Python stack instead of failing at depth 500 and 330.
-- The documentation site was rewritten. The API reference publishes prose
-  rather than the file-local contract headers it had been reproducing, which
-  removed 149 commit hashes and 142 test citations from pages a reader opens.
 
 ### Added
 
 - `Space.effect_plan` answers what a call would write, without running it.
 
 
-### Fixed
-
-- **A trailing underscore now escapes a keyword instead of becoming a
-  hyphen.** `S.not_` answered the symbol `not-`. No head in this tree ends in
-  a hyphen, so that symbol could never match anything and nothing said so.
-  PEP 8's trailing underscore is the escape for a name Python's grammar
-  reserves, and the naming ladder ranks it above the mechanical
-  underscore-to-hyphen map, which the tree already honours elsewhere
-  (`RouteKey.global_.value` is `"global"`). `S.not_` is now `not` and
-  `S.lambda_` is `lambda`, while `S.car_atom` is still `car-atom`, `V._` is
-  still the anonymous variable, and `S["not_"]` still reaches a head that
-  really does end in an underscore. The cause was a second copy of the map
-  inside the atom namespace rather than a call to the one canonical function;
-  the copy is gone.
-
-### Fixed
-
-- **Four documentation facts that were wrong.** `DEVELOPING.md` said the
-  floor was Python 3.11 where `requires-python` is `>=3.12`; the
-  getting-started guide counted thirteen Python examples where the tree
-  holds 24; the README pointed at "Spaces backed by anything" as being
-  below the section that links it when it is above; and the Python
-  examples README tabulated 22 of its 24 programs, omitting
-  `integration/cmetta_space.py` and `reasoning/literature_discovery.py`.
-  The README's own count of 233 gate-run programs was checked against
-  `len(example_parity.corpus())` and is correct.
-
-### Added
 
 - **`transfer` moves atoms between spaces, and the write family is
   variadic.** `a.transfer(x, y, to=b)` moves one unifying occurrence of
@@ -153,96 +47,26 @@ upstream tags above it. Published to PyPI as `pymetta` 0.6.0.
   other drains in one transactional crossing, where before a tuple of
   rows quietly read as one never-matching pattern.
 
-### Fixed
-
-- **`AsyncMeTTa.define` forwards `prolog=` and `name=` on every shape**
-  instead of silently discarding the Prolog source when a function rides
-  the same call, or the name on the prolog-only form.
-- **An abandoned `FutureSpace` warns instead of spinning silently**: the
-  garbage collector emits asyncio's kind of ResourceWarning when a future
-  dies unobserved, while waited, settled and cancelled futures stay
-  silent; the computation itself keeps Python's own future semantics.
-- **`Space.drop` closes an owned provider even when unregistration
-  raises**, so a failing foreign provider cannot leak its connection.
-- **Compile refusals render their file, function, line and an exact
-  caret** for every statement wall, not only expression walls: the
-  compiler derives the coordinates once at its boundary from the held
-  source, and the caret gutter is width-matched to the number gutter,
-  fixing a one-column misalignment every rendered caret had.
-- **A remote mutation's timeout is documented as UNKNOWN, not failed**:
-  the server may commit after the client stops waiting, and the provider
-  door now says so; exactly-once delivery via idempotency keys is the
-  ledgered follow-up.
-
-- **Python's try, raise, dicts, sets, type aliases and the global pragma
-  compile.** A compiled body now carries `try`/`except`/`else`/`finally` on
-  the engine's own error algebra: `raise` produces through the prelude's
-  `throw`, `catch` reifies the host lane, `if-error` splits, the new
-  `except` runtime test walks MRO names so custom hierarchies match as
-  `isinstance` would, and `error-payload` hands `as e` a live instance. A
-  dict literal lowers to lib_dict's dict-space (a SPACE of `(key value)`
-  atoms, with `d[k]`, `in`, `d[k] = v`, `del`, `len`, `.keys()` and the
-  comprehensions riding the library's own doors, and every space operation
-  lawful on the result), a set is a dict to True, `type X = int` becomes
-  the rewrite rule it reads as, and `global` reads and writes the
-  definition module through a grounded reference. Bindings inside a try
-  trap error data and produce it, so an assignment whose right side errors
-  aborts to the arms exactly as Python's raise would.
-
-- **The bitwise family and floored division are engine operations.**
-  `bit-and`, `bit-or`, `bit-xor` and `bit-not` complete the family the
-  shifts opened, exact integer operations on SWI's own instructions, and
-  `floor-div` is SWI's `div`, Python's floored quotient exactly, with the
-  same DivisionByZero error data integer division answers. A compiled
-  body's `&`, `|`, `^`, `~`, `<<`, `>>` and `//` lower to these heads and
-  pay no host crossing.
-
-- **Unknown host expressions island instead of refusing.** What the
-  compile vocabulary does not lower natively (an unregistered call, a
-  host attribute read, a method on a local, keywords against a host
-  callable) crosses as the same visible application-time island `py(...)`
-  spells, with nothing executed at decoration time and the loud refusal
-  kept for names that resolve nowhere. The lint layer records implicit
-  islands under the author's own spelling.
-
-- **`alpha` is the =alpha spelling.** `alpha(x, y)` in compiled bodies,
-  `Atom.alpha(y)` on the atom tier (beside `eq`/`ne`, the same
-  nearest-relative rung), and `fn["=alpha"]` remains the exact door;
-  `alpha_eq` still answers the immediate Python-side check.
-
-- **The MeTTa context is the third generated mirror.** The context tier's
-  doors (`run`, `load`, `eval`, `match`, `add`, `remove`, `define`, `op`,
-  `stats`, `limits`, `trace`, `speculate` and the rest) are generated
-  from Space with signatures, overloads and docstrings carried verbatim,
-  replacing a hand-written subset typed `(*args: Any) -> Any` that erased
-  every overload and missed doors (a context that could define but not
-  eval). The root's lazy exports gained their static faces, so
-  `metta.MeTTa` and its siblings type-check under py.typed instead of
-  reading as Any.
-
-- **A cursor pulls a chunk of answers per engine crossing.** The lazy doors,
-  `stream()` and every iterated `Answers`, crossed the Python/Prolog boundary
-  once per answer, and the crossing cost as much as a plain enumeration's
-  engine work per answer, so a drain spent half its time in the boundary.
-  A cursor now asks for one answer on its first pull and doubles up to 64,
-  the same opening TCP and a growing vector use: taking one answer of an
-  infinite stream still costs one answer's work, taking k computes fewer
-  than 2k, and a short chunk remains the whole of the exhaustion signal, so
-  nothing looks ahead past the doubling. Materialised both ways, draining
-  ten thousand answers went from 27.9x the eager door to faster than it at
-  every size, and a one-answer call costs the same 218 inferences it always
-  did. A budget that trips mid-chunk discards that chunk's collected prefix,
-  which is the accepted price of the crossing win; raising the budget is the
-  diagnosis path and delivers more.
-
-- **The shrink ledger.** `KERNEL.md` classes the engine's 58 translator heads
-  as primitive or derived and makes every fused derived form say why; the
-  Python surface now carries the same ledger over its 110 doors, generated
-  from the code by `tools/ledger.py` and gated. A door expressible by another
-  public door must say what it buys the caller, and the reasons live in one
-  file rather than sixteen docstrings.
-
 ### Changed
+
+- **Declaring a type costs almost nothing now.** A declared compiled call paid
+  46 extra inferences and 1.76 microseconds per call, because the engine
+  re-checked what the compiler could already prove. Checks the translator can
+  discharge statically are now omitted, under support-graph invalidation so a
+  typing rule added later still wins. The same call costs 2 inferences and
+  0.25 microseconds. Unknown arguments and reflective calls keep their checks.
+- **Several operations changed complexity class rather than constant factor.**
+  Stacking K clauses fell from O(K squared) engine crossings to O(K); proof
+  projection from O(N squared) to O(N), which is 3.8 seconds to half a
+  millisecond at four thousand facts; per-iteration source-position lookup
+  from a stack scan to a cached one; `FutureSpace` iteration from a full
+  re-snapshot per poll to a watermarked delta; import resolution from a prefix
+  search to an amortized constant. Deep atom ordering and proof traversal run
+  on a constant Python stack instead of failing at depth 500 and 330.
+- The documentation site was rewritten. The API reference publishes prose
+  rather than the file-local contract headers it had been reproducing, which
+  removed 149 commit hashes and 142 test citations from pages a reader opens.
+
 
 - **One law lands a rules bundle, whichever door.** `m.add(bundle)`,
   `m += bundle` and `bundle.lower()` now share one landing: equations
@@ -2019,7 +1843,6 @@ upstream tags above it. Published to PyPI as `pymetta` 0.6.0.
   batch collapse, and the duplicate-declaration store probe replace three
   measured quadratic or linear-in-program costs with flat ones.
 
-### Changed
 
 - **The matcher is upstream PeTTa's, and its whole cycle discipline is one
   test per answer.** Matching binds raw, with no occurs check, so first
@@ -3505,6 +3328,175 @@ upstream tags above it. Published to PyPI as `pymetta` 0.6.0.
   MeTTa with a differential asserting the two agree verdict for verdict.
 
 ### Fixed
+
+- **A remote gateway authorized one space and executed against another.** A
+  request that omitted `space` was checked against the served context's name
+  and then run against `&self`, so an authorization callback could approve a
+  write that landed somewhere else. Both paths now resolve the same name.
+- **A recycled thread identifier could crash the process.** `Runtime` recorded
+  its owning thread as `threading.get_ident()`, an operating-system number the
+  kernel reuses after a thread exits. A newly spawned thread could inherit a
+  dead thread's number, be mistaken for the engine's owner, and take the Janus
+  fast path on an engine it did not hold. Ownership is now the live `Thread`
+  object, which cannot collide.
+- **Compiled Python operators follow Python's data model.** `a + b` in a
+  `@m.define` body assumed numbers, so string and list concatenation, set
+  difference, percent formatting, and every reflected or in-place dunder
+  answered an error atom that then flowed on as data. Untyped operands now
+  dispatch through the live protocol. An `int` or `float` annotation keeps the
+  pure engine head, so `def f(x: int) -> int` compiles exactly as before.
+  Equality stays on the protocol path even when annotated, because `1 == 1.0`,
+  `nan == nan` and `-0.0 == 0.0` disagree with the engine relation.
+- **A `for` loop over a string, bytes, or dict answered nothing.** The loop
+  peeled with `decons-atom`, which has no answer for a grounded String, and
+  compared emptiness against the empty Expression. The comprehension form of
+  the same iteration was correct, so the two disagreed inside one function.
+- **`space |= atom` shredded a built atom into its children.** `Atom` was
+  missing from the refusal list while `Expression` registers as a `Sequence`,
+  so `space |= S.f(S.a, S.b)` stored three atoms instead of one.
+- **A compiled `except` matched on the class name.** An unrelated class that
+  merely shared a name was caught, and `Timeout`, `Error`, `ValidationError`
+  and `ConnectionError` are all shared names. Arms now compare class identity.
+- **`limit=0` ran unbounded** at four query entry points and, separately, in
+  `metta.algebra.count_tagged`, whose own validator advertised zero as legal
+  before collapsing it into the engine's no-limit sentinel. Zero is now
+  refused everywhere with one message.
+- **`speculative()` kept writes taken lazily**, and `Space.derivation` escaped
+  it entirely: its proof search ran outside the shared capture, so a
+  diagnostic inside a speculative block left its writes in the engine-global
+  space.
+- **A batch write bypassed the provider's policy gate.** `foreign_add_many`
+  consulted the gate for the first atom only, so an atom a provider declines
+  landed whenever it was batched behind another.
+- **One raising watcher starved every later subscription** of the event that
+  had already committed.
+- **A blocking engine call on a bare thread froze every other Python thread**,
+  including the one that would have unblocked it.
+- **A failed async landing left its future pending forever.** A publication
+  failure was logged and discarded while the context was released, so an
+  awaiting caller had nothing to wake it. Failures now settle the future as an
+  error, and process controls propagate instead of being swallowed.
+- Subscriptions outliving their event loop, abandoned channel queues,
+  `py-atom` declarations, and timed-out remote worker requests all release now
+  rather than accumulate. `assuming()` removes every hypothetical even when
+  one removal fails.
+- A rejected guarded event no longer ends a blocking stream early, native
+  handles round-trip through the public wire codec, and `resolve()` reports a
+  module that exists but fails to import instead of blaming its prefix.
+
+
+- **A trailing underscore now escapes a keyword instead of becoming a
+  hyphen.** `S.not_` answered the symbol `not-`. No head in this tree ends in
+  a hyphen, so that symbol could never match anything and nothing said so.
+  PEP 8's trailing underscore is the escape for a name Python's grammar
+  reserves, and the naming ladder ranks it above the mechanical
+  underscore-to-hyphen map, which the tree already honours elsewhere
+  (`RouteKey.global_.value` is `"global"`). `S.not_` is now `not` and
+  `S.lambda_` is `lambda`, while `S.car_atom` is still `car-atom`, `V._` is
+  still the anonymous variable, and `S["not_"]` still reaches a head that
+  really does end in an underscore. The cause was a second copy of the map
+  inside the atom namespace rather than a call to the one canonical function;
+  the copy is gone.
+
+
+- **Four documentation facts that were wrong.** `DEVELOPING.md` said the
+  floor was Python 3.11 where `requires-python` is `>=3.12`; the
+  getting-started guide counted thirteen Python examples where the tree
+  holds 24; the README pointed at "Spaces backed by anything" as being
+  below the section that links it when it is above; and the Python
+  examples README tabulated 22 of its 24 programs, omitting
+  `integration/cmetta_space.py` and `reasoning/literature_discovery.py`.
+  The README's own count of 233 gate-run programs was checked against
+  `len(example_parity.corpus())` and is correct.
+
+
+- **`AsyncMeTTa.define` forwards `prolog=` and `name=` on every shape**
+  instead of silently discarding the Prolog source when a function rides
+  the same call, or the name on the prolog-only form.
+- **An abandoned `FutureSpace` warns instead of spinning silently**: the
+  garbage collector emits asyncio's kind of ResourceWarning when a future
+  dies unobserved, while waited, settled and cancelled futures stay
+  silent; the computation itself keeps Python's own future semantics.
+- **`Space.drop` closes an owned provider even when unregistration
+  raises**, so a failing foreign provider cannot leak its connection.
+- **Compile refusals render their file, function, line and an exact
+  caret** for every statement wall, not only expression walls: the
+  compiler derives the coordinates once at its boundary from the held
+  source, and the caret gutter is width-matched to the number gutter,
+  fixing a one-column misalignment every rendered caret had.
+- **A remote mutation's timeout is documented as UNKNOWN, not failed**:
+  the server may commit after the client stops waiting, and the provider
+  door now says so; exactly-once delivery via idempotency keys is the
+  ledgered follow-up.
+
+- **Python's try, raise, dicts, sets, type aliases and the global pragma
+  compile.** A compiled body now carries `try`/`except`/`else`/`finally` on
+  the engine's own error algebra: `raise` produces through the prelude's
+  `throw`, `catch` reifies the host lane, `if-error` splits, the new
+  `except` runtime test walks MRO names so custom hierarchies match as
+  `isinstance` would, and `error-payload` hands `as e` a live instance. A
+  dict literal lowers to lib_dict's dict-space (a SPACE of `(key value)`
+  atoms, with `d[k]`, `in`, `d[k] = v`, `del`, `len`, `.keys()` and the
+  comprehensions riding the library's own doors, and every space operation
+  lawful on the result), a set is a dict to True, `type X = int` becomes
+  the rewrite rule it reads as, and `global` reads and writes the
+  definition module through a grounded reference. Bindings inside a try
+  trap error data and produce it, so an assignment whose right side errors
+  aborts to the arms exactly as Python's raise would.
+
+- **The bitwise family and floored division are engine operations.**
+  `bit-and`, `bit-or`, `bit-xor` and `bit-not` complete the family the
+  shifts opened, exact integer operations on SWI's own instructions, and
+  `floor-div` is SWI's `div`, Python's floored quotient exactly, with the
+  same DivisionByZero error data integer division answers. A compiled
+  body's `&`, `|`, `^`, `~`, `<<`, `>>` and `//` lower to these heads and
+  pay no host crossing.
+
+- **Unknown host expressions island instead of refusing.** What the
+  compile vocabulary does not lower natively (an unregistered call, a
+  host attribute read, a method on a local, keywords against a host
+  callable) crosses as the same visible application-time island `py(...)`
+  spells, with nothing executed at decoration time and the loud refusal
+  kept for names that resolve nowhere. The lint layer records implicit
+  islands under the author's own spelling.
+
+- **`alpha` is the =alpha spelling.** `alpha(x, y)` in compiled bodies,
+  `Atom.alpha(y)` on the atom tier (beside `eq`/`ne`, the same
+  nearest-relative rung), and `fn["=alpha"]` remains the exact door;
+  `alpha_eq` still answers the immediate Python-side check.
+
+- **The MeTTa context is the third generated mirror.** The context tier's
+  doors (`run`, `load`, `eval`, `match`, `add`, `remove`, `define`, `op`,
+  `stats`, `limits`, `trace`, `speculate` and the rest) are generated
+  from Space with signatures, overloads and docstrings carried verbatim,
+  replacing a hand-written subset typed `(*args: Any) -> Any` that erased
+  every overload and missed doors (a context that could define but not
+  eval). The root's lazy exports gained their static faces, so
+  `metta.MeTTa` and its siblings type-check under py.typed instead of
+  reading as Any.
+
+- **A cursor pulls a chunk of answers per engine crossing.** The lazy doors,
+  `stream()` and every iterated `Answers`, crossed the Python/Prolog boundary
+  once per answer, and the crossing cost as much as a plain enumeration's
+  engine work per answer, so a drain spent half its time in the boundary.
+  A cursor now asks for one answer on its first pull and doubles up to 64,
+  the same opening TCP and a growing vector use: taking one answer of an
+  infinite stream still costs one answer's work, taking k computes fewer
+  than 2k, and a short chunk remains the whole of the exhaustion signal, so
+  nothing looks ahead past the doubling. Materialised both ways, draining
+  ten thousand answers went from 27.9x the eager door to faster than it at
+  every size, and a one-answer call costs the same 218 inferences it always
+  did. A budget that trips mid-chunk discards that chunk's collected prefix,
+  which is the accepted price of the crossing win; raising the budget is the
+  diagnosis path and delivers more.
+
+- **The shrink ledger.** `KERNEL.md` classes the engine's 58 translator heads
+  as primitive or derived and makes every fused derived form say why; the
+  Python surface now carries the same ledger over its 110 doors, generated
+  from the code by `tools/ledger.py` and gated. A door expressible by another
+  public door must say what it buys the caller, and the reasons live in one
+  file rather than sixteen docstrings.
+
 
 - **Five working constraint operators were invisible to the type surface.**
   The engine implements and registers `#//`, `#=`, `#\=`, `#=<` and `#>=`
@@ -7026,7 +7018,6 @@ upstream tags above it. Published to PyPI as `pymetta` 0.6.0.
   generic arity mismatch, SWI tabling being blocked in pooled spaces whose
   shadow repair had captured `$table_mode/3`, and higher-order calls being
   refused under the dispatcher's own name in the tabling purity walk.
-
 
 ## [1.0.5] - 2026-03-02
 
