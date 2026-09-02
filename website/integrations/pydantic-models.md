@@ -6,7 +6,7 @@ Guarantees: examples construct atoms through the canonical Expression type.
 
 # Pydantic models both ways
 
-MeTTa projects structured Python values into constructor expressions, keeps the declarations that describe their fields, and rebuilds Python objects from those atoms. Pydantic models use the same seam as dataclasses and plain annotated classes.
+MeTTa projects structured Python values into constructor expressions, keeps the declarations that describe their fields, and rebuilds Python objects from those atoms. Pydantic models take the same path as dataclasses and plain annotated classes.
 
 Start with a model whose fields are a string and a number:
 

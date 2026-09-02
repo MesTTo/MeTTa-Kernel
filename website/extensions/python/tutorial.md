@@ -1,8 +1,8 @@
 <!--
-Purpose: teach the PyMeTTa seat itself, which is a different job from the eight
+Purpose: teach the PyMeTTa extension itself, which is a different job from the eight
   numbered tutorials: they teach the language and use Python as the notation,
   and this teaches the install, the first program, and the split install that is
-  true of this seat and no other.
+  true of this extension and no other.
 Assumes: the reader knows Python and nothing about MeTTa, and is on a machine
   with no SWI-Prolog yet.
 Guarantees:
@@ -60,7 +60,7 @@ clone uses that tree in place.
 ## Why the install splits in two
 
 `pip install pymetta` on its own always succeeds, even on a machine with no
-SWI-Prolog anywhere. That is deliberate, and it is the thing about this seat
+SWI-Prolog anywhere. That is deliberate, and it is the thing about this extension
 that is not true of any other.
 
 The `engine` extra is `janus_swi`, SWI-Prolog's own Python bridge. It is a C
@@ -154,7 +154,7 @@ row exists only where the same value satisfies each. A row is keyed by the
 names you wrote, so `rows[0].y` reads the middle binding back by name rather
 than by a child index.
 
-## Two doors for a Python function
+## Two ways to give MeTTa a Python function
 
 A Python function can become MeTTa two ways, and the choice is real rather than
 a convenience and its longhand.
@@ -201,7 +201,7 @@ EffectClass.oracleIO
 
 Reach for `@m.define` when the body is expressible as MeTTa and `m.op` when it
 is not. [Python functions in MeTTa](../../guide/python-functions.md) covers
-both doors, the five effect classes, and crossing into Python from inside a
+both ways, the five effect classes, and crossing into Python from inside a
 lowered body.
 
 ## The install is a command-line tool too
@@ -220,5 +220,5 @@ Each subcommand exits nonzero on failure, so all of them script.
 The [eight numbered tutorials](../../tutorials/) teach MeTTa itself from here,
 one idea at a time, starting with atoms and ending with a drawn reduction. The
 [guide](../../guide/) is the same surface arranged by task. The
-[PyMeTTa seat page](./) says what the seat is made of: the control file, the two
+[PyMeTTa extension page](./) says what the extension is made of: the control file, the two
 `entry/2` roles, and the one library it needs.

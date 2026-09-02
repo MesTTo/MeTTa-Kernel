@@ -1,5 +1,6 @@
 <!--
-Purpose: explain provider capability declarations, answer fidelity, and the attachment contract.
+Purpose: explain provider capability declarations, answer fidelity, and the
+attachment contract.
 Guarantees: Python examples use canonical public atom classes.
 [tested: npm run docs:build; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
 -->
@@ -12,11 +13,11 @@ backend gets its own code path inside the engine.
 
 ## One model
 
-A query is an expression with variables. An answer is three things: a
-substitution for the variables, a residue (the part of the query the
-answerer did not discharge, evaluated by the engine), and an annotation
-in a declared semiring (a score, a probability, a source term, or the
-plain Boolean 1 that makes all of this vanish). A provider that knows
+A query is an expression with variables. An answer is three things. A
+substitution for the variables. A residue, meaning the part of the query the
+answerer did not discharge, which the engine evaluates. And an annotation in
+a declared semiring: a score, a probability, a source term, or the plain
+Boolean 1 that makes all of this vanish. A provider that knows
 nothing about any of this yields plain atoms, and that is the complete
 degenerate case: substitution from unification, residue empty,
 annotation 1. Everything a backend can declare refines this triple and
@@ -95,7 +96,7 @@ access-pattern check, done at plan time.
   thread pool is a space whose atoms are spaces, queryable like
   anything else.
 
-Ask the seam what it will do before running anything:
+Ask the engine what it will do before running anything:
 
 ```metta
 !(explain (match &rows (edge $x $y) $y))
@@ -111,7 +112,7 @@ A Python provider or operation may answer bindings for the query's own
 variables instead of an atom:
 
 ```python
-from metta import Answer, Bindings, Symbol
+from metta import Answer, Bindings, Symbol, parse
 
 def match(self, pattern, *, limit=None):
     yield Bindings({pattern.children[2]: Symbol("b")})
@@ -140,16 +141,15 @@ session a replayable oracle.
 
 ## Sources
 
-The design stands on public prior art rather than invention: filter
-pushdown and per-source planning (Apache Calcite, Apache DataFusion,
-Garlic), argument adornments and access patterns (Datalog
-binding-pattern analysis, Mercury modes), one-shot and consuming
-sources (Linda's destructive `in` beside its non-destructive `rd`, and
-Aardappel's linear tree spaces, where a rule consumes what it matches),
-heterogeneous translation
-with declared fidelity (the Distributed Ontology Language and
-multi-context systems with bridge rules), plan and capability
-interchange (Substrait, the WebAssembly Component Model), annotated
-answers (provenance semirings, K-relations), answers with bindings and
-residues (Hyperon's grounded interface, constraint logic programming),
-and replayable host interaction (CakeML's foreign-function oracle).
+Almost none of this is new. Each part of the contract comes from somewhere:
+
+| Part of the contract | Where it comes from |
+|---|---|
+| filter pushdown, per-source planning | Apache Calcite, Apache DataFusion, Garlic |
+| argument adornments and access patterns | Datalog binding-pattern analysis, Mercury modes |
+| one-shot and consuming sources | Linda, whose `in` consumes where `rd` does not; Aardappel's linear tree spaces |
+| translation with declared fidelity | the Distributed Ontology Language; multi-context systems with bridge rules |
+| plan and capability interchange | Substrait, the WebAssembly Component Model |
+| annotated answers | provenance semirings, K-relations |
+| answers carrying bindings and residues | Hyperon's grounded interface, constraint logic programming |
+| replayable host interaction | CakeML's foreign-function oracle |

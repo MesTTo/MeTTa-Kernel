@@ -6,7 +6,7 @@ Guarantees: examples use canonical atoms, effect-classified Space.op, context.sp
 
 # HTTP, routes, and solver loops
 
-Three seams share space operations but do different jobs:
+Three different things share space operations but do different jobs:
 
 - `web_routes.py` models FastAPI-shaped routing in memory. It does not import FastAPI and does not serve HTTP.
 - `metta.remote` serves and attaches spaces over HTTP.

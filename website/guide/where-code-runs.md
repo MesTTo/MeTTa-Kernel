@@ -28,14 +28,14 @@ immutable atom values in the current Python thread. They do not look up a
 function or consult a space. A term can therefore be built before an engine
 exists, stored, inspected, and handed to a space later.
 
-Staging ends only at an evaluating door. `S.fact(6)` does not mean "call
+Staging ends only when you evaluate. `S.fact(6)` does not mean "call
 fact". It means "construct an expression whose head is the symbol `fact`".
 
 ## Live evaluation
 
 `Space.eval(term)` evaluates a term already built in Python. `Space.run(source)`
 first reads source directives and then evaluates each `!` directive. Calling a
-name produced by `@m.define` is another live door: it sends its arguments to
+name produced by `@m.define` also evaluates: it sends its arguments to
 the definition's owning space and returns all answers.
 
 Live evaluation can branch, read or write spaces, and call registered Python

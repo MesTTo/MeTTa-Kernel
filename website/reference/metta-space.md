@@ -2,169 +2,7 @@
 
 Source: `extensions/python/metta/_space.py`.
 
-> Purpose: provide the narrow MeTTa context and context-relative Space handles.
->
-> Assumes:
->   - the six extracted ``_space_*`` modules own query, definition, execution,
->     persistence, eager decoding, and diagnostic implementation [source:
->     extensions/python/metta/_space_query.py, _space_definitions.py,
->     _space_execution.py, _space_persistence.py, _space_objects.py, and
->     _space_diagnostics.py; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
-> Guarantees:
->   - solve, Linda verbs, class define, get-type, bang resolution, and both
->     transaction laws are observable through one Space handle [tested:
->     test_solve_retires_the_five_relational_let_workarounds,
->     test_solve_refuses_an_anonymous_only_subject,
->     test_take_peek_and_watch_retire_the_thread_linda_fn_strings,
->     test_watch_close_before_first_event_cancels_its_eager_subscription,
->     test_define_absorbs_class_declaration_and_frees_space_type,
->     test_fn_strips_one_bang_only_when_the_exact_name_is_absent, and
->     test_transaction_term_uses_empty_answer_rollback_law; commit=c34c9bf3e55a8425d3f251c3ad06c33bc9755a22]
->   - relational solve exposes variables from its pattern before variables from
->     its subject [tested: test_solve_projects_variables_from_the_winning_pattern;
->     commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
->   - ``MeTTa`` carries only context primitives while ``Space`` owns storage,
->     query, declaration, and lifecycle verbs [tested:
->     test_m7_narrow_core_surface; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - ``MeTTa.space()`` creates named or anonymous handles through one door
->     [tested: test_module_tier_is_sugar_over_one_default_engine;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - ``Space.reify`` returns an immutable branch value and ``Space.commit``
->     applies its base-relative diff through ordinary transaction and event
->     doors [tested: test_world_eval_branches_without_touching_parent,
->     test_commit_applies_the_world_diff_as_post_commit_events; commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
->   - ``Space.covers`` and ``Space.compensates`` publish the two effect-safety
->     declarations, while ``Space.saga`` builds recovery on the existing
->     transaction and post-commit event doors [tested:
->     test_world_coverage_admits_the_joined_plan,
->     test_committed_effects_leave_queryable_receipts_and_failed_steps_leave_none;
->     commit=173eeed021beb360b5e5f9f8461889e27190affc]
->   - named space construction accepts a space-name Symbol as well as its text
->     spelling [tested: test_space_factory_accepts_a_name_symbol; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
->   - a Symbol or ground Expression names a source-visible atomic or parametric
->     space, while a free variable refuses before engine state changes [tested:
->     test_python_space_factory_accepts_atom_valued_names; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
->   - a tuple headed by an atom is one subscript pattern, a tuple of complete
->     patterns is a join, list writes stream their atoms, and del drains every
->     match or raises KeyError [tested:
->     test_subscript_one_pattern_and_bulk_delete_laws; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
->   - the ``+=`` write door classifies atoms and scalar conversion kinds before
->     iteration, reads dataframe row protocols before generic iteration, and
->     sends each fact-stream item through the engine write spine [tested:
->     test_adding_an_iterable_of_atoms_writes_one_atom_each,
->     test_write_door_scalar_kinds_are_never_mistaken_for_fact_streams,
->     test_write_door_uses_the_iteration_protocol_not_only_the_iterable_abc,
->     test_the_write_doors_accept_the_same_atoms,
->     test_the_write_door_reads_each_dataframe_row_as_one_atom; commit=012413efb73b4dd27c71354c7f654862f349c03f]
->   - relative ``(admits Type)`` and ``(capacity n)`` values written through
->     ``+=`` invoke the receiver installers, and refuse to overtake a live batch
->     [tested: test_relative_capacity_declaration_installs_the_receiver_contract,
->     test_relative_admits_declaration_installs_the_receiver_contract,
->     test_two_declared_admission_checks_interact_over_one_store,
->     test_relative_declarations_refuse_inside_an_active_batch; commit=012413efb73b4dd27c71354c7f654862f349c03f]
->   - ``Space.match`` returns a lazy Answers view; truth and single unpack pull
->     only their demanded prefix, while len counts inside the engine [tested:
->     test_query_answers_complete_the_lazy_projection_protocol,
->     test_query_single_unpack_pulls_at_most_two_answers; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
->   - match and call answers accept explicit or scoped algebra carriers;
->     counting uses engine aggregates and ordered carriers sort before slicing
->     [tested:
->     test_counting_counts_match_bag_duplicates_without_opening_a_row_cursor,
->     test_counting_counts_duplicate_call_answers_inside_the_engine,
->     test_ranked_and_tropical_slices_are_stable_best_prefixes;
->     commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa]
->   - ``Space.pre_add`` declares one compiled unary judge through the engine's
->     existing pre-add hook [tested: test_pre_add_compiles_the_four_verdict_judge;
->     commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
->   - handle-level Linda waits load their support into the default caller space,
->     never into a distinct waited-on space [tested:
->     test_peek_does_not_import_linda_into_the_waited_space; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
->   - ``Space.match``, every head-named declaration verb, and the write door
->     retain their established semantics after moving off ``MeTTa`` [tested:
->     test_query_surfaces_share_column_order,
->     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms,
->     test_the_python_remove_door_subtracts_one_copy; commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - all fifteen declaration heads use their settled receiver spellings,
->     including ``reacts`` for ``(on ...)``; the former ``reaction`` spelling
->     remains as a compatibility alias and no ``declare_*`` alias returns
->     [tested: test_declarations_use_their_atom_heads_on_the_receiver and
->     test_m7_narrow_core_surface; commit=0cfc68a483d8d64fb499e53bbe9a3cc63f68990f]
->   - Expression recognizes Space as the one iterable Handle whose listing is
->     collected as an assembly-order snapshot [tested:
->     test_expression_of_a_space_is_an_assembly_order_snapshot; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
->   - native iteration snapshots assembly order at iterator creation, handles
->     stay truthy independently of contents, and provider length requires its
->     Sized declaration [tested:
->     test_native_iteration_snapshots_before_mutation,
->     test_space_truth_does_not_ask_for_emptiness,
->     test_provider_length_requires_and_uses_sized; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
->   - ``Space.limits(stack=bytes)`` scopes a positive stack byte count beside
->     time and inference bounds [tested:
->     test_stack_limit_is_carried_to_the_limited_six_seam; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
->   - synchronous run, match, eval, and answers calls made directly in an async
->     body remain legal and record an AsyncMeTTa lint [tested:
->     test_a_sync_engine_call_inside_async_def_is_linted_not_refused;
->     commit=acb40f1912f131ae088083d1af29b4b283019bea]
->   - ``Space.op`` and ``Space.unregister_op`` are the sole public operation
->     lifecycle pair [tested: test_operation_registration_names_are_symmetric;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - encoded generator tuple and sparse-dict yields are relational candidate
->     bindings in every call direction [tested:
->     test_relational_tuple_candidates_unify_in_all_directions_without_changing_multiplicity,
->     test_sparse_relational_dict_candidates_bind_parameter_names;
->     commit=6917bef7ca902671999eafcae3a7a86db8f69723]
->   - ``Space.answers`` and bound ``Space.fn`` expose lazy, replayable
->     evaluation, with unknown function attributes rejected at access [tested:
->     test_bound_function_namespace_validates_at_access,
->     test_function_calls_pull_engine_answers_only_as_demanded;
->     commit=2d4d4583c2d82e90bb21a7e8671842f126edd4f4]
->   - ``Space.answers`` can evaluate one ask against a theory value or through
->     an explicit full-interpreter head without mutating the receiver [tested:
->     test_answers_selects_a_theory_or_interpreter_per_ask;
->     commit=7c4ddf46d4e23de8390a9f2baddbf96f7575da46]
->   - a theory replaces only the receiver's own program for one ask; shared
->     session definitions remain visible and are lexically shadowed by theory
->     definitions [tested:
->     test_an_inherited_arrow_does_not_veto_a_local_definition;
->     commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c]
->   - ``Space.cast`` preserves the inherited one-argument atom cast while its
->     two-argument form keeps explicit context-relative casting [tested:
->     test_atom_cast_delegates_to_the_ambient_space;
->     commit=162214d7a703e9108dd2422f4f18f3b9c007d367]
->   - callable doors cache live deprecation declarations until the next write
->     and issue the catalog's since/remedy warning [tested:
->     test_deprecation_catalog_rows_drive_warnings_and_explanations;
->     commit=d74e2e828cd9272882dcf907cfaf095d2d147ce0]
->   - builtin discovery is cached per logical space, with namespace reads
->     comparing the engine's function generation and explicit Python mutation
->     doors retaining eager invalidation [tested:
->     test_cache_reads_compare_the_function_generation,
->     test_builtin_discovery_is_cached,
->     test_builtin_cache_invalidates_after_a_miss; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
->   - ``Space`` is a grounded ``Handle`` that crosses as a term operand, and
->     ``peek`` and ``take`` expose the engine's event-driven Linda operations
->     [tested: test_space_handles_are_term_operands_and_round_trip,
->     test_space_handle_peek_and_take_are_linda_verbs; commit=4e2398075da67bb2cbcc123a9fc1e078ecac6fbf]
->   - dropping a named space clears that life without returning its public name
->     to the anonymous allocation pool [tested:
->     test_a_named_space_drop_never_enters_the_anonymous_pool;
->     commit=d843bb6d17a525c36afd21cab077d63b34447535]
->   - compiled ``re.Pattern`` reader classes preserve supported semantic flags,
->     reject untranslatable flags, and unregister through the same normalized
->     key [tested: test_compiled_reader_patterns_preserve_flags_and_unregister;
->     commit=50d1de4d0ead4a0c3997f9b2ef58631bbafaede3]
->   - an anonymous space representation records the external file and line that
->     created that life, while named-space representations remain stable
->     [tested: test_anonymous_space_repr_carries_its_creation_site;
->     commit=50d1de4d0ead4a0c3997f9b2ef58631bbafaede3]
-> Owns resources:
->   - ``Space.save`` owns its sibling temporary file and removes it after every
->     failed operation [tested: test_save_failure_preserves_existing_file;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None.
+> Provide the narrow MeTTa context and context-relative Space handles.
 
 The entries below reproduce the source signatures and docstrings.
 
@@ -199,7 +37,7 @@ class Space(Handle):
 > A named space isolates both its atoms and its EQUATIONS, and the rule for
 > equations has a third part this docstring used to get wrong by calling
 > them process-wide. They are per-space, with a dynamic fallback to &self
-> and local shadowing [measured 2026-08-17]:
+> and local shadowing:
 >
 >     equation defined in     &self       s1          s2
 >     ------------------      ---------   ---------   ---------
@@ -562,7 +400,7 @@ def remove(self, atom: Any, *more: Any) -> bool | int:
 > The DRAIN is the pattern-shaped door: `del m[pattern]` takes every
 > unifying occurrence in one crossing and raises when nothing
 > matched, as Python's `del` does, and MeTTa spells it `remove-atom`
-> [source: engine/spaces/foreign.pl, remove_matching_atoms/2].
+> .
 > MeTTa spells this method's grain `subtract-atom`. This is the one
 > door that reports absence.
 >
@@ -611,7 +449,7 @@ def peek(self, pattern: Any, *, where: Any | None = None, deadline: float | None
 > required true, so "wait for a job whose priority is above five" is one
 > call. Without it the guard had to live in the caller, as a wait and a
 > re-wait around every candidate the guard rejected, and the deadline
-> restarted each time round [measured 2026-08-31].
+> restarted each time round.
 
 ### `Space.take`
 
@@ -1124,9 +962,7 @@ def answers(
 >
 > Creating the view performs no engine work. Existence pulls at most
 > one answer, ``one()`` at most two, and ordinary iteration resumes the
-> same held evaluation [tested:
-> test_function_calls_pull_engine_answers_only_as_demanded;
-> commit=2d4d4583c2d82e90bb21a7e8671842f126edd4f4].
+> same held evaluation.
 >
 > ``under=`` has the same carrier semantics as ``match``. In
 > particular, ``space.answers(call, under=counting).one()`` counts the
@@ -1143,9 +979,7 @@ def answers(
 > space on the first pull, evaluates there, and drops the space when the
 > view is exhausted or abandoned. The receiver is unchanged. This
 > mirrors reflective descent functions whose inputs are a reified module
-> and term [source:
-> https://maude.cs.illinois.edu/maude1/manual/maude-manual-html/maude-manual_24.html;
-> commit=0d49980b03d507f9bae0354786ab826a146c20df].
+> and term.
 >
 > ``interpreter=`` instead evaluates the explicit full-interpreter
 > application ``(interpreter target %Undefined% space)`` for this ask,
@@ -1155,9 +989,7 @@ def answers(
 > The two COMPOSE, and are the head and the third argument of one
 > application rather than rival answers to one question: with both, the
 > interpreter is handed the theory's space, so it interprets the theory
-> [measured 2026-08-31: an interpreter tracing its delegate answered
-> `(Traced base)` alone and `(Traced left), (Traced right)` over a
-> two-equation theory]. They used to refuse together.
+> . They used to refuse together.
 >
 > The INTERPRETER must declare its first parameter `Atom`, MeTTa's own
 > way to receive an argument unevaluated, or the engine reduces the
@@ -1202,7 +1034,7 @@ def parallel(self, *targets: Any, timeout: float | None = None) -> list[Atom | U
 > deliberately no `inferences=`: the engine's inference limit counts
 > the calling thread, and `concurrent_and/2` runs every branch in a
 > worker, so a limit of 50,000 does not stop two branches spending six
-> million [measured 2026-08-15]. An unenforceable bound is worse than
+> million. An unenforceable bound is worse than
 > an absent one, so eval() over a `superpose` is the way to bound this
 > work by inferences, at the cost of running it on one core.
 
@@ -1216,8 +1048,7 @@ def pool(self, workers: int | None = None) -> Any:
 >
 > The Python-side twin of `parallel()`. Each worker attaches its own
 > engine, so the process lock that serialises the home engine does not
-> apply to it and the calls genuinely run at once [measured 2026-08-15:
-> 1.94x, 3.90x and 7.26x at 2, 4 and 8 workers].
+> apply to it and the calls genuinely run at once.
 >
 >     m.run("(= (sq $x) (* $x $x))")
 >     with m.pool(workers=4) as p:
@@ -1247,8 +1078,8 @@ def reducible(self, target: Any) -> bool:
 > nothing applies to is its own answer, which is ordinary MeTTa and how
 > `!(hello world)` works, so there is no scope here that refuses one.
 >
-> The Node seat has had m.reducible() since it existed; this seat had
-> only eval_status(), which evaluates to tell you [measured 2026-08-31].
+> The Node surface has had m.reducible() since it existed; Python had
+> only eval_status(), which evaluates to tell you.
 
 ### `Space.eval_status`
 
@@ -1336,7 +1167,7 @@ def stats(self) -> _StatsBlock:
 > match cursor reports 40,049 inferences against about 381,000 the
 > cursor's engine really spent, 10.5% of the work; the real cost is
 > readable off the `inferences` budget, which does count the engine
-> [measured 2026-08-27]. The evaluation cursor behind `answers()`
+> . The evaluation cursor behind `answers()`
 > does report its engine's spend, so that one is whole. The z3py
 > Solver.statistics() reading, on the engine this library actually
 > has.
@@ -1511,8 +1342,7 @@ def pure(self, fn: Callable | None = None, /, **options: Any) -> Any:
 > only ever raises the rank, so it widens the answer-count claim and
 > never weakens the effect claim -- but it does mean a generator is not
 > cache-safe, which is the whole reason it is lifted out of this class
-> [tested: test_a_generator_is_lifted_to_the_nondeterministic_rank;
-> commit=7e5091540a8dc0903bcee24f3e5b8b85a19f805f].
+> .
 >
 > Every ``op`` keyword applies: ``name``, ``arities``,
 > ``declarations``, ``inverse`` and ``transport``. They arrive as
@@ -1631,7 +1461,7 @@ def register_prolog(
 > op() is the one most people find first, and every call it
 > serves crosses the janus boundary: 25.16 inferences and 2.34us per
 > call, against 7.16 inferences and 0.13us for the same operation
-> written in Prolog [measured 2026-08-15, 3000 calls in one harness].
+> written in Prolog.
 >
 > Read the microseconds, not the inferences. The crossing counts as ONE
 > inference and costs real time, so inferences say a Python operation is
@@ -1895,7 +1725,7 @@ def why(self, pattern: Any, *, where: Any | None = None) -> str:
 > Answers.why() always did rather than answering it. Asking why
 > `(job $id $pri)` matched nothing, when it matches two atoms, used to
 > answer "2 job atom(s) exist here but none unifies with it"
-> [measured 2026-08-31].
+> .
 >
 > `where` is match()'s guard, and asking with one is where the answer
 > gets interesting: a query can be empty because the pattern found
@@ -2094,9 +1924,7 @@ def annotations(
 > context as the explicit first subject. Capabilities are
 > checked against the algebra's requirements before the catalog write;
 > amplitude programs, for example, must explicitly declare ``finite``,
-> ``contractive`` and ``staged`` [tested:
-> test_amplitudes_interfere_inside_the_fragment_and_are_refused_outside;
-> commit=f88aa8be03cb64cb59d3307515ded8701f418321]. Declaring replaces any earlier row for the
+> ``contractive`` and ``staged``. Declaring replaces any earlier row for the
 > context, so the reader never meets two disagreeing atoms.
 
 ### `Space.algebra`
@@ -2763,7 +2591,7 @@ def remove(self, atom: Any, *more: Any) -> bool | int:
 > The DRAIN is the pattern-shaped door: `del m[pattern]` takes every
 > unifying occurrence in one crossing and raises when nothing
 > matched, as Python's `del` does, and MeTTa spells it `remove-atom`
-> [source: engine/spaces/foreign.pl, remove_matching_atoms/2].
+> .
 > MeTTa spells this method's grain `subtract-atom`. This is the one
 > door that reports absence.
 >
@@ -3107,8 +2935,7 @@ def pure(self, fn: Callable | None = None, /, **options: Any) -> Any:
 > only ever raises the rank, so it widens the answer-count claim and
 > never weakens the effect claim -- but it does mean a generator is not
 > cache-safe, which is the whole reason it is lifted out of this class
-> [tested: test_a_generator_is_lifted_to_the_nondeterministic_rank;
-> commit=7e5091540a8dc0903bcee24f3e5b8b85a19f805f].
+> .
 >
 > Every ``op`` keyword applies: ``name``, ``arities``,
 > ``declarations``, ``inverse`` and ``transport``. They arrive as
@@ -3192,7 +3019,7 @@ def stats(self) -> _StatsBlock:
 > match cursor reports 40,049 inferences against about 381,000 the
 > cursor's engine really spent, 10.5% of the work; the real cost is
 > readable off the `inferences` budget, which does count the engine
-> [measured 2026-08-27]. The evaluation cursor behind `answers()`
+> . The evaluation cursor behind `answers()`
 > does report its engine's spend, so that one is whole. The z3py
 > Solver.statistics() reading, on the engine this library actually
 > has.

@@ -2,7 +2,7 @@
 
 Source: `extensions/python/metta/subscribe.py`.
 
-> Purpose: the two delivery models the library ships over the public event
+> The two delivery models the library ships over the public event
 > stream. A subscription is the fold that DELIVERS, to a callback
 > synchronously inside the write or to a queue drain() empties; a bridge is
 > the fold that WRITES, landing a template's instantiation in another space.
@@ -15,34 +15,6 @@ Source: `extensions/python/metta/subscribe.py`.
 > the engine's own write hooks deliver. Every write consults the folds on its
 > space, so the dispatch is on the write path and its cost is the write's;
 > metta.events owns that dispatch and its discrimination tree.
-> Guarantees:
->   - subscription publication and cancellation update registry state, engine
->     write guards, and reflection facts together or restore the prior state
->     [tested test_subscription_lifecycle_rolls_back_failed_boundaries]
->   - identical subscriptions share one reflection descriptor until the last
->     subscription cancels [tested
->     test_identical_subscriptions_share_one_reflection_fact]
->   - a watcher that raises reaches the writer as SubscriberError, naming the
->     subscription and saying the write stands, where a refused write does
->     not [measured 2026-08-19: both arrived as EngineError with the same
->     "Python '&lt;Type>': &lt;text>" message template, so a caller could only tell
->     them apart by reading the sentence] [tested
->     test_a_watcher_failure_is_distinguishable_from_a_failed_write]
->   - a queue nobody drains refuses rather than dropping the oldest event
->     [tested test_the_subscription_queue_is_bounded_and_load_takes_a_budget]
->   - the bound is a count of events, checked by type before value, so a
->     queue_max no comparison can be true against is refused instead of
->     silently removing the bound [measured 2026-08-30: queue_max=float("nan")
->     passed the old `queue_max < 1` check and then held 25 of 25 events after
->     25 adds, float("inf") the same] [tested:
->     test_a_queue_bound_that_cannot_fill_is_refused; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
-> Guarded by:
->   - metta.events' fold registry lock protects queue state and the engine
->     subscription snapshot [tested test_subscription_cancel_is_thread_safe]
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None
 
 The entries below reproduce the source signatures and docstrings.
 

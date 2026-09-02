@@ -2,7 +2,7 @@
 
 Source: `extensions/python/metta/events.py`.
 
-> Purpose: the public event stream.
+> The public event stream.
 >
 > Every committed space write is an event, the stream of `(action, space, atom)`
 > is a first-class object, and a FOLD over it is the one way to consume it: a step
@@ -23,60 +23,12 @@ Source: `extensions/python/metta/events.py`.
 > against a particular database", and its stated value is that this "makes
 > it possible for any peer to observe and respond to transactions ... without
 > any coordination with database writes", with reactive query notification
-> left as something you "implement in user space" over it [source: Datomic
-> blog, The Transaction Report Queue, 11 September 2013; Datomic
-> Developers forum, "you could use the tx-report-queue or poll the
-> transaction log to implement one in user space"]. And a fold is the right
+> left as something you "implement in user space" over it. And a fold is the right
 > consumer because a stream and the state it accumulates are two views of one
 > thing: Kafka's stream-table duality states that "a stream can be considered
 > a changelog of a table, where each data record in the stream captures a
 > state change of the table", and that "aggregating data records in a stream
-> ... will return a table" [source: Apache Kafka, Streams Core Concepts].
-> Guarantees:
->   - unscoped writes publish immediately; transaction and atomic scopes publish
->     their ordered diff after commit, while rollback, speculation, and world
->     evaluation publish nothing [tested:
->     test_events_publish_only_after_transaction_commit,
->     test_atomic_scope_commits_or_discards_one_event_segment,
->     test_rollback_and_outer_rollback_discard_every_buffered_event,
->     test_speculative_execution_discards_its_event_segment; commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
->   - event attributes project named pattern bindings and unknown names fail as
->     attributes [tested: test_take_peek_and_watch_retire_the_thread_linda_fn_strings;
->     commit=cff2e7f319bd2212f0c2d74f8d5fe5be3ac693b5]
->   - registry snapshots, fold state and delivery accounting are locked for
->     free-threaded Python [tested test_subscription_queue_is_thread_safe,
->     test_subscription_cancel_is_thread_safe]
->   - dispatch answers the folds on a space in registration order, cancels
->     and re-registrations included, through the discrimination tree in
->     metta.structures rather than one unify per fold [measured 2026-08-19,
->     1000 standing queries on one space and 200 writes, controlled
->     instructions:u min of 3: 4012009981 scanning against 48243634 indexed,
->     83.2x, both delivering 200 of 200] [tested
->     test_dispatch_through_the_index_delivers_the_same_subscribers_in_the_same_order]
->   - cancel waits for steps already in flight and a stale dispatch snapshot
->     cannot deliver after cancellation [tested
->     test_subscription_cancel_waits_for_inflight_delivery,
->     test_stale_subscription_snapshot_cannot_deliver_after_cancel]
->   - subscribe, bridge and reaction are each expressible as a fold over this
->     surface alone, with the same answers as the shipped models [tested
->     test_subscribe_bridge_and_reaction_are_expressible_over_the_public_event_stream]
->   - event delivery binds only the watching pattern and never variables stored
->     in an event atom [tested:
->     test_dispatch_through_the_index_delivers_the_same_subscribers_in_the_same_order;
->     commit=6917bef7ca902671999eafcae3a7a86db8f69723]
->   - fold can thread a running aggregate through a State cell or use a
->     declared algebra merge as the whole step [tested:
->     test_fold_into_state_updates_the_shared_engine_cell,
->     test_fold_under_counting_and_tropical_uses_the_algebra_as_the_step;
->     commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa]
-> Guarded by:
->   - _FoldRegistry._lock protects fold state, the active runtime, delivery
->     counts, and engine subscription snapshots [tested
->     test_subscription_cancel_is_thread_safe]
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None
+> ... will return a table".
 
 The entries below reproduce the source signatures and docstrings.
 

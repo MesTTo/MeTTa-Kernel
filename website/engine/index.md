@@ -22,7 +22,7 @@ than copied, so the version you read is the committed one.
   Prolog grounded predicate all cost about what a MeTTa function costs; a Python
   operation costs the janus crossing. The page also covers reader token classes,
   space providers, atom hooks, custom matchers, and the `extension.pl` control
-  file that makes a folder under `extensions/` a seat the engine reads.
+  file that makes a folder under `extensions/` an extension the engine reads.
 - [The kernel](./kernel) is the ledger of the 58 heads the translator gives a
   meaning of their own, each classified against minimal MeTTa's state-free
   structural core as a counterpart, a follow-up, or a divergence this engine
@@ -34,7 +34,7 @@ than copied, so the version you read is the committed one.
   SWI-Prolog versions, `check.sh` and what its two tiers mean, and the
   measurement rules that decide whether a performance claim is evidence.
 
-The seams themselves are declared in `engine/ext_points.pl`, each with the kind
+The extension points themselves are declared in `engine/ext_points.pl`, each with the kind
 of thing it is (event, ownership, declaration, service), and that file is the
 contract. [The contract](../guide/contract.md) covers the same attachment story
 from the backend author's side, in the guide's voice.

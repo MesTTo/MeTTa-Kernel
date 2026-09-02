@@ -2,7 +2,7 @@
 
 Source: `extensions/python/metta/arrays.py`.
 
-> Purpose: arrays as atoms for every library speaking the standard
+> Arrays as atoms for every library speaking the standard
 > protocols, not one. Recognition is DLPack (__dlpack__), semantics are the
 > Python array API standard reached through array-api-compat, so one operation
 > set serves NumPy, PyTorch, CuPy, JAX, Dask and whatever conforms next, and a
@@ -12,35 +12,6 @@ Source: `extensions/python/metta/arrays.py`.
 > Built entirely on the public integration interface; pettorch instantiates it
 > with torch as the constructor default and proves nothing here is
 > torch-shaped.
-> Guarantees:
->   - _top_indices returns the highest finite scores first and resolves equal
->     scores by insertion order [tested test_top_indices_match_full_order_and_stabilize_ties]
->   - _top_indices uses 35.26% fewer instructions than the prior full sort for
->     500 top-10 selections from 100,000 scores [measured 2026-08-14: minimum
->     of three perf stat instructions:u runs]
->   - the fixed public constructor vocabulary is marked Final to type
->     checkers [tested test_policy_constants_are_final]
->   - all 44 installed operation names own arity-accurate arrows, and
->     broadcast-shape relates compatible dimensions before any array exists
->     [tested: test_every_array_operation_is_typed_and_a_shape_is_a_constraint;
->      commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - array transport and Atom-delivery choices use the same declaration
->     surface as every registered operation [tested:
->     test_no_decorator_flag_changes_the_return_shape_and_declarations_are_atoms;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - operations returning mutable arrays are writesState, scalar inspections
->     are readOnlyLookup, random construction is oracleIO, and embedding search
->     is nondeterministicReadOnly [tested:
->     test_every_array_operation_is_typed_and_a_shape_is_a_constraint,
->     test_embedding_store_runs_on_numpy;
->     commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
-> Guarded by:
->   - _PROTOCOLS_LOCK serializes one-time protocol registration
->     [tested test_array_protocol_registration_is_idempotent]
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None.
 
 The entries below reproduce the source signatures and docstrings.
 

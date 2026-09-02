@@ -2,21 +2,13 @@
 
 Source: `extensions/python/metta/_trace.py`.
 
-> Purpose: the reduction trace as Python objects. m.trace(term) runs
+> The reduction trace as Python objects. m.trace(term) runs
 > that term with every compiled MeTTa function wrapped engine-side, and
 > answers TraceEvent records: a call carries the term entering reduction
 > at its nesting depth, the matching exit carries the answer, and a call
 > with no exit is a reduction that failed. Tracing wraps and unwraps per
 > run, so it costs nothing when off; what is traced executes for real,
 > writes included, exactly like a run.
-> Guarantees:
->   - a term and the source that spells it trace identically, so the one
->     door that shows a reduction takes the argument every other door
->     takes [tested test_trace_takes_the_term_every_other_door_takes]
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None.
 
 The entries below reproduce the source signatures and docstrings.
 

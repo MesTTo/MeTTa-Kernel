@@ -1,6 +1,7 @@
 <!--
-Purpose: map MeTTa concepts onto the canonical Python atom classes, contexts, handles, and result containers.
-Guarantees: every named Python door exists on the narrow public surface.
+Purpose: map MeTTa concepts onto the canonical Python atom classes,
+contexts, handles, and result containers.
+Guarantees: every Python name here exists on the public surface.
 [tested: npm run docs:build; commit=d0631377c5e01a5d34d1c3437e283f87a0fab86f]
 -->
 
@@ -61,8 +62,8 @@ or the module-level `metta.space(name)` creates another `Space` handle.
 named space is any other `&name`. The current context resolves the way
 `bind!` tokens do.
 
-A space of expressions is also a knowledge graph, links connecting
-atoms including other links, and that reading needs no engine support:
+A space of expressions is also a knowledge graph: links connecting atoms,
+including other links. That reading needs no engine support.
 [`examples/integration/networkx_space.py`](https://github.com/MesTTo/MeTTa-Kernel/blob/main/extensions/python/examples/integration/networkx_space.py)
 views any space as a networkx graph on the public surface alone, runs
 an algorithm no match can express, and writes the answer back as atoms.
@@ -87,7 +88,7 @@ demand, which MeTTa calls a foreign space.
 ## The answer-cardinality axis
 
 Evaluation answers a multiset of results, and the caller picks one of
-three readings. The triple is spelled the same at every door:
+three readings. The three are spelled the same everywhere:
 
 | | every answer | the first | exactly one |
 |---|---|---|---|
@@ -110,8 +111,9 @@ that already formed its arguments. An argument declared `Atom` arrives
 unevaluated; if that atom is evaluated under `collapse`, its choices are below
 the boundary and are collected there. Duplicate answers remain duplicates.
 
-The same axis settles the error story. An `(Error ...)` answer stays data at
-every multiset door and raises `MettaResultError` at every single-value door;
+The same axis settles the error story. An `(Error ...)` answer stays data
+wherever a multiset comes back, and raises `MettaResultError` wherever a
+single value does;
 `Rows.raise_for_errors()` is the explicit bridge between the two readings.
 
 ## Special symbols
@@ -138,5 +140,5 @@ also a real answer.
 
 One concept has one name. `add-atom` is the `Space.add` write verb,
 `get-atoms` is iteration or `Space.atoms`, and `new-space` is the
-`metta.space()` factory. A superseded Python door is deleted rather than kept
+`metta.space()` factory. A superseded Python name is deleted rather than kept
 as a synonym.

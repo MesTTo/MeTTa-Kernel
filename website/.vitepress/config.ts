@@ -1,8 +1,10 @@
 /*
 Purpose: configure the MeTTa documentation site's navigation, rendering, and project URL.
 Guarantees:
-  - navigation advertises only live public Python modules and API pages
-    [tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
+  - the top navigation offers five destinations, one per question a reader
+    arrives with: learn it, build with it, connect it to something, look a
+    signature up, or work on the engine
+    [tested: npm run docs:build; commit=WORKTREE]
   - every page in the site is reachable from this navigation, so a written page
     cannot ship findable only by search
     [tested: test_every_site_page_is_reachable_from_the_navigation; commit=a7d2f292004fe06d7671b7931cfc2ce4620b7b35]
@@ -30,8 +32,8 @@ const mettaLanguage = {
 };
 
 export default defineConfig({
-  title: "MeTTa Python",
-  description: "Use MeTTa as a Python library and compose integrations through it.",
+  title: "MeTTa Kernel",
+  description: "MeTTa, implemented in Prolog and C, with Python, TypeScript and C surfaces over one engine.",
   base: "/MeTTa-Kernel/",
   head: [
     ["link", { rel: "icon", type: "image/svg+xml", href: "/MeTTa-Kernel/visuals/favicon.svg" }],
@@ -61,18 +63,16 @@ export default defineConfig({
     nav: [
       { text: "Tutorials", link: "/tutorials/" },
       { text: "Guide", link: "/guide/" },
-      { text: "Reasoning", link: "/reasoning/" },
-      { text: "Integrations", link: "/integrations/" },
-      { text: "Live systems", link: "/live/" },
-      { text: "Extensions", link: "/extensions/" },
-      { text: "Engine", link: "/engine/" },
+      { text: "Recipes", link: "/integrations/" },
       { text: "Reference", link: "/reference/" },
+      { text: "Engine", link: "/engine/" },
       { text: "GitHub", link: "https://github.com/MesTTo/MeTTa-Kernel" },
     ],
     sidebar: [
       {
         text: "Tutorials",
         link: "/tutorials/",
+        collapsed: true,
         items: [
           { text: "01. Atoms and expressions", link: "/tutorials/01-atoms-and-expressions" },
           { text: "02. Spaces and matching", link: "/tutorials/02-spaces-and-matching" },
@@ -87,6 +87,7 @@ export default defineConfig({
       {
         text: "Guide",
         link: "/guide/",
+        collapsed: true,
         items: [
           { text: "Install and first steps", link: "/guide/getting-started" },
           { text: "Concepts and names", link: "/guide/concepts" },
@@ -104,84 +105,51 @@ export default defineConfig({
           { text: "Pettorch", link: "/guide/pettorch" },
         ],
       },
+      // Reasoning, Integrations and Live systems asked the reader to guess
+      // which of three lists held "connect MeTTa to X". They are one section
+      // with three questions under it.
       {
-        text: "Reasoning",
-        link: "/reasoning/",
-        items: [
-          { text: "Custom matching", link: "/reasoning/matchers-measure" },
-          { text: "Weighted relations", link: "/reasoning/weighted-relations" },
-        ],
-      },
-      {
-        text: "Integrations",
+        text: "Recipes",
         link: "/integrations/",
+        collapsed: true,
         items: [
-          { text: "Dataframes", link: "/integrations/dataframes" },
-          { text: "DuckDB as a space", link: "/integrations/duckdb-space" },
-          { text: "SQLite BLOB images", link: "/integrations/sqlite-blobs" },
-          { text: "Pydantic models both ways", link: "/integrations/pydantic-models" },
-          { text: "Arrays and embeddings", link: "/integrations/arrays-embeddings" },
-          { text: "HTTP, routes, and solver loops", link: "/integrations/http-routes-solvers" },
-        ],
-      },
-      {
-        text: "Live systems",
-        link: "/live/",
-        items: [
-          { text: "Standing queries", link: "/live/standing-queries" },
-          { text: "Reflection and steering", link: "/live/reflection" },
-          { text: "Web routes", link: "/live/web-routes" },
-          { text: "Multi-shot solving", link: "/live/multishot" },
-          { text: "Contexts and remotes", link: "/live/contexts" },
-          { text: "Deployment as knowledge", link: "/live/boot" },
-          { text: "The remote space protocol", link: "/live/remote-protocol" },
-          { text: "The loop stays live", link: "/live/async" },
-        ],
-      },
-      // Each seat is named by its PRODUCT, which is what a reader searches for
-      // and what the package registries carry, rather than by its technology.
-      // A host seat is a section with its own page and tutorial; MORK is a
-      // storage backend, so it has no tutorial and stays one entry.
-      {
-        text: "Extensions",
-        link: "/extensions/",
-        items: [
-          { text: "Adding an extension", link: "/extensions/adding" },
           {
-            text: "PyMeTTa",
-            link: "/extensions/python/",
+            text: "Connect a data source",
+            collapsed: true,
             items: [
-              { text: "The seat", link: "/extensions/python/" },
-              { text: "Tutorial", link: "/extensions/python/tutorial" },
+              { text: "Overview", link: "/integrations/" },
+              { text: "Dataframes", link: "/integrations/dataframes" },
+              { text: "DuckDB as a space", link: "/integrations/duckdb-space" },
+              { text: "SQLite BLOB images", link: "/integrations/sqlite-blobs" },
+              { text: "Pydantic models both ways", link: "/integrations/pydantic-models" },
+              { text: "Arrays and embeddings", link: "/integrations/arrays-embeddings" },
             ],
           },
           {
-            text: "MeTTa-node",
-            link: "/extensions/node/",
+            text: "Serve it, and keep it live",
+            collapsed: true,
             items: [
-              { text: "The seat", link: "/extensions/node/" },
-              { text: "Tutorial", link: "/extensions/node/tutorial" },
+              { text: "Overview", link: "/live/" },
+              { text: "Web routes", link: "/live/web-routes" },
+              { text: "HTTP, routes, and solver loops", link: "/integrations/http-routes-solvers" },
+              { text: "Standing queries", link: "/live/standing-queries" },
+              { text: "Multi-shot solving", link: "/live/multishot" },
+              { text: "Contexts and remotes", link: "/live/contexts" },
+              { text: "Deployment as knowledge", link: "/live/boot" },
+              { text: "The loop stays live", link: "/live/async" },
+              { text: "The remote space protocol", link: "/live/remote-protocol" },
             ],
           },
           {
-            text: "CMeTTa",
-            link: "/extensions/cmetta/",
+            text: "Reason with weights",
+            collapsed: true,
             items: [
-              { text: "The seat", link: "/extensions/cmetta/" },
-              { text: "Tutorial", link: "/extensions/cmetta/tutorial" },
+              { text: "Overview", link: "/reasoning/" },
+              { text: "Custom matching", link: "/reasoning/matchers-measure" },
+              { text: "Weighted relations", link: "/reasoning/weighted-relations" },
+              { text: "Reflection and steering", link: "/live/reflection" },
             ],
           },
-          { text: "MORK", link: "/extensions/mork/" },
-        ],
-      },
-      {
-        text: "Engine",
-        link: "/engine/",
-        items: [
-          { text: "Extending the engine", link: "/engine/extending" },
-          { text: "The kernel", link: "/engine/kernel" },
-          { text: "The wire codec", link: "/engine/codec" },
-          { text: "Developing", link: "/engine/developing" },
         ],
       },
       {
@@ -249,6 +217,35 @@ export default defineConfig({
             items: [
               { text: "The library reference", link: "/reference/metta-libraries" },
               { text: "The standard library, in Python", link: "/reference/stdlib-phrasebook" },
+            ],
+          },
+        ],
+      },
+      // The engine and the languages sitting on it are one subject: you arrive
+      // here either to change the engine or to put a fourth language on it.
+      {
+        text: "Engine",
+        link: "/engine/",
+        collapsed: true,
+        items: [
+          { text: "Overview", link: "/engine/" },
+          { text: "Extending the engine", link: "/engine/extending" },
+          { text: "The kernel", link: "/engine/kernel" },
+          { text: "The wire codec", link: "/engine/codec" },
+          { text: "Developing", link: "/engine/developing" },
+          {
+            text: "Language surfaces",
+            collapsed: true,
+            items: [
+              { text: "Overview", link: "/extensions/" },
+              { text: "Adding one", link: "/extensions/adding" },
+              { text: "PyMeTTa (Python)", link: "/extensions/python/" },
+              { text: "PyMeTTa tutorial", link: "/extensions/python/tutorial" },
+              { text: "MeTTa-node (TypeScript)", link: "/extensions/node/" },
+              { text: "MeTTa-node tutorial", link: "/extensions/node/tutorial" },
+              { text: "CMeTTa (C)", link: "/extensions/cmetta/" },
+              { text: "CMeTTa tutorial", link: "/extensions/cmetta/tutorial" },
+              { text: "MORK (storage backend)", link: "/extensions/mork/" },
             ],
           },
         ],

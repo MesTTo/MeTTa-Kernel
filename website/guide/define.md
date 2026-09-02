@@ -1,15 +1,22 @@
 <!--
 Purpose: teach Python-authored equations, rule sets, and lowering declarations.
-Guarantees: examples use the narrow Space.define and Rules.lower doors.
+Guarantees: examples use Space.define and Rules.lower.
 [tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
-Purpose: teach Python-authored equations, rule sets, effect propagation, and lowering declarations.
-Guarantees: examples use the narrow Space.define and Rules.lower doors, and describe definition effects as a strongest-member join.
-[tested: npm run docs:build and test_a_definition_joins_every_called_operations_effect; commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
+Purpose: teach Python-authored equations, rule sets, effect propagation, and
+lowering declarations.
+Guarantees: examples use Space.define and Rules.lower, and describe
+definition effects as a strongest-member join.
+[tested: npm run docs:build and
+test_a_definition_joins_every_called_operations_effect;
+commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
 -->
 
 # Write MeTTa in Python
 
-`@m.define` compiles a Python function into MeTTa equations. Calling the decorated name evaluates through its owning space, the ordinary Python function remains available as `.py`, and `S.name(...)` builds a term explicitly.
+`@m.define` compiles a Python function into MeTTa equations. Calling the
+decorated name evaluates through its owning space, the ordinary Python
+function remains available as `.py`, and `S.name(...)` builds a term
+explicitly.
 
 ```python
 @m.define
@@ -22,10 +29,11 @@ def fact(n):
 check("equations run", m.run("!(fact 6)"), [[720]])
 check("the Python twin agrees", fact.py(6), 720)
 check("calling the name evaluates", fact(6), [720])
-check("the S door builds the term", str(S.fact(6)), "(fact 6)")
+check("S builds the term", str(S.fact(6)), "(fact 6)")
 ```
 
-Repeated definitions stack as MeTTa clauses. Literal defaults become head patterns, and the compiler derives first-match guards:
+Repeated definitions stack as MeTTa clauses. Literal defaults become head
+patterns, and the compiler derives first-match guards:
 
 ```python
 @m.define
@@ -41,7 +49,10 @@ def fib(n):
     return fib(n - 1) + fib(n - 2)   # m.run("!(fib 10)") -> [[55]]
 ```
 
-The subset includes rebinding, `while`, `for`, nested definitions, generators, lambdas, comprehensions, indexing, slicing, formatted strings, and `match(...)` against the running space. Generators compile to nondeterminism. Lowercase names in match patterns bind as variables.
+The subset includes rebinding, `while`, `for`, nested definitions,
+generators, lambdas, comprehensions, indexing, slicing, formatted strings,
+and `match(...)` against the running space. Generators compile to
+nondeterminism. Lowercase names in match patterns bind as variables.
 
 A star pattern in a `case` arm is the engine's segment variable, so it
 destructures a run of children the way Python's own star does:
@@ -90,9 +101,10 @@ yields `(double $value)`); a defined call with ground arguments runs at
 construction and embeds its single result (`fib(10)` embeds `55`, constant
 folding by construction; a ground call answering several results keeps its
 call term, preserving multiplicity). A registered operation follows the same
-split: a ground op call runs now, firing its effect exactly once, while an op
-call carrying a rule variable stages the op-call term, so the law crosses the
-host per application and no host code runs on a variable. The result is a
+split. A ground op call runs now, firing its effect exactly once. An op call
+carrying a rule variable stages the op-call term instead, so the law crosses
+into the host once per application and no host code ever runs on a variable.
+The result is a
 list of ordinary equation atoms you can inspect, match, and add:
 
 ```python
@@ -104,8 +116,8 @@ def arithmetic(value):
 m.add(*arithmetic)
 ```
 
-A rule set can also declare its rewrite strategy and required backend through
-one door:
+A rule set can also declare its rewrite strategy and required backend in
+one call:
 
 ```python
 declaration = arithmetic.lower(S.topdown, requires=S.mork, space=m)
@@ -117,7 +129,7 @@ and registers each symbolic rule head with the translator. An empty rule set
 raises `ValueError` because it has no head to declare.
 
 `equation(lhs).to(rhs)` keeps both halves on one static Python type. It is
-sugar for the container door, which remains first-class:
+sugar for the general form, which stays available:
 `m.add(S["="](S.twice(V.x), V.x + V.x))`.
 
 A local annotated assignment becomes an in-place MeTTa type claim rather than
@@ -136,7 +148,13 @@ names resolve only from builtins, the function's globals and its closure;
 annotation syntax cannot execute an arbitrary call or user subscript while the
 function is compiled.
 
-Unsupported constructs fail with the construct, source line, and a replacement direction. Definitions that only the engine can execute expose a `.py` twin that reports that boundary instead of failing with a Python name error. Function names follow the operation naming policy: the Python name is the MeTTa name, verbatim. Hyphens are the MeTTa convention and Python cannot spell one, so ask for a hyphenated name with `name=` rather than having it inferred.
+Unsupported constructs fail with the construct, source line, and a
+replacement direction. Definitions that only the engine can execute expose a
+`.py` twin that reports that boundary instead of failing with a Python name
+error. Function names follow the operation naming policy: the Python name is
+the MeTTa name, verbatim. Hyphens are the MeTTa convention and Python cannot
+spell one, so ask for a hyphenated name with `name=` rather than having it
+inferred.
 
 ## Facts already present in the source
 
@@ -157,8 +175,7 @@ The same facts are ordinary data in `&metta`:
 There is one source span per stacked clause and one free-variable fact per
 captured name. Each clause joins the effects of the operations it calls, and
 stacked clauses join again. The result is the strongest member of
-`pureStructural < readOnlyLookup < nondeterministicReadOnly < writesState <
-oracleIO`, the same law `EffectClass.compose` exposes for any operation plan.
+`pureStructural < readOnlyLookup < nondeterministicReadOnly < writesState < oracleIO`, the same law `EffectClass.compose` exposes for any operation plan.
 An unclassified or host-observable call is classified conservatively rather
 than making the fact disappear. Replacing a clause replaces these facts, and
 clearing the definition space removes them.
@@ -208,7 +225,7 @@ replace-or-insert, `del d[k]` is `dict-remove`, `len(d)` is `dict-size`,
 and `.keys()`, `.values()`, `.items()`, `.get()` are `get-keys`,
 `dict-values`, `dict-pairs` and `get-value`. A set is a dict to `True`,
 Python's own kinship, and `{k: f(k) for k in ...}` builds the pair
-expression `dict-space` reads back. Every space door works on one: a dict
+expression `dict-space` reads back. Every space method works on one: a dict
 is matchable, mutable through `+=`, and queryable like anything else. A
 missing key answers NOTHING, the space's own reading of absence; a dict
 the Python side keeps mutating belongs behind `py({...})` or `view`.
@@ -225,6 +242,6 @@ and annotations after it mention the alias. The bitwise operators and
 `//` lower to the engine's exact integer family (`bit-and`, `bit-or`,
 `bit-xor`, `bit-not`, `bit-shift-left`, `bit-shift-right`, `floor-div`),
 so none of them crosses into Python at all. And `alpha(x, y)` is the
-`=alpha` test under the nearest name Python can spell, the same rung
+`=alpha` test under the nearest name Python can spell, the same shortening
 `eq()` takes for `==`; `Atom.alpha()` builds the same term on the atom
-tier, and `fn["=alpha"]` stays the exact door.
+tier, and `fn["=alpha"]` still spells the head exactly.

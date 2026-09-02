@@ -17,7 +17,7 @@ def fact(n):                      # -> (= (fact $n)
 check("equations run", m.run("!(fact 6)"), [[720]])
 check("the Python twin agrees", fact.py(6), 720)
 check("calling the name evaluates", fact(6), [720])
-check("the S door builds the term", str(S.fact(6)), "(fact 6)")
+check("S builds the term", str(S.fact(6)), "(fact 6)")
 ```
 
 The comment is the equation this body becomes, and you can read it back out

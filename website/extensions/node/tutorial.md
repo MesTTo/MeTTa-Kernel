@@ -1,8 +1,8 @@
 <!--
-Purpose: teach the MeTTa-node seat itself: the install that needs no
+Purpose: teach the MeTTa-node extension itself: the install that needs no
   SWI-Prolog, how a program starts, and what running the engine on WebAssembly
   costs and buys. The eight numbered tutorials teach the language in Python;
-  this teaches the seat.
+  this teaches the extension.
 Assumes: the reader knows TypeScript or JavaScript, has Node 22.18 or newer,
   and has no SWI-Prolog on the machine.
 Guarantees:
@@ -62,7 +62,7 @@ not change either way.
 Node 22.18 or newer, which is what `package.json` declares.
 
 Two things ride in that tarball besides the compiled JavaScript: `bridge.pl`,
-the seat's Prolog half, and `_runtime/`, a copy of the engine tree and the
+the extension's Prolog half, and `_runtime/`, a copy of the engine tree and the
 MeTTa libraries. Without the second one an installed package resolves `engine/`
 against your project directory and fails looking for a folder you never made.
 
@@ -147,7 +147,7 @@ rows.map((r) => String(r.x));         // ["tom"]
 Rows are keyed by the pattern's own variable names, so you destructure an
 answer instead of counting children.
 
-## Two doors for a TypeScript function
+## Two ways to give MeTTa a TypeScript function
 
 `m.define` LOWERS the body: it is read and installed as equations, so the
 engine owns it and a call crosses into JavaScript not at all.
@@ -217,7 +217,7 @@ That is `fetch`'s own contract, said plainly.
 
 ## Where to go next
 
-[The MeTTa-node seat page](./) is the full surface with worked examples: spaces
+[The MeTTa-node extension page](./) is the full surface with worked examples: spaces
 implemented in TypeScript, proofs as data, standing queries, the saga journal,
 and the 27 subpaths that cost nothing unimported. `examples/gallery.ts` in the
 installed package is five programs that use most of it and print what they got.

@@ -14,7 +14,7 @@ Open Obligations:
 In MeTTa, a grounded value can define its own matching logic. A space is
 the standard instance: in Hyperon a space is a grounded atom whose custom
 matching is query, which is why `unify` accepts a space as an operand. The
-same door is open to your own values. Any Python object whose class
+same mechanism is open to your own values. Any Python object whose class
 defines `match_` participates in `(unify ...)` the moment it appears
 there, with no registration.
 

@@ -11,7 +11,10 @@ commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
 `@m.op` registers a Python callable as a MeTTa function. The signature sets its arities. A generator function is nondeterministic, with one MeTTa answer per yield.
 
 ```python
+import metta
 from metta.vocabularies import EffectClass
+
+m = metta.space()
 
 
 @m.op(effect=EffectClass.pureStructural)
@@ -148,8 +151,8 @@ An attribute docstring written immediately after a field is source-only.
 `(@doc ...)` atom. CPython does not attach the text to the runtime field. A
 slots field such as `Order.total` therefore has
 `Order.total.__doc__ is None`, and a plain field may have no class attribute at
-all. Read the emitted `@doc` data; do not use `field.__doc__` as the
-documentation door.
+all. Read the emitted `@doc` data; do not use `field.__doc__` for
+documentation.
 
 ## Property-test what you build
 

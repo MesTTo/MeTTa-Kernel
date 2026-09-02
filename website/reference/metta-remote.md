@@ -2,7 +2,7 @@
 
 Source: `extensions/python/metta/remote.py`.
 
-> Purpose: spaces across processes, the multi-context reading: each engine
+> Spaces across processes, the multi-context reading: each engine
 > is a context, serve() exposes its spaces over HTTP speaking the same tagged
 > wire the local boundary speaks, connect() answers a transport, and RemoteSpace over it is the backing metta.attach() registers
 > registers a remote engine's space here as a foreign space, so
@@ -12,81 +12,11 @@ Source: `extensions/python/metta/remote.py`.
 > metta-wam's metta_server, translated onto metta's own SpaceProvider
 > protocol; the engine keeps unification for itself, so a remote answer is
 > speed and reach, never trust.
-> Guarantees:
->   - remote JSON decoding preserves explicit s and p tags instead of applying
->     process-local engine provenance [tested:
->     test_space_handles_are_term_operands_and_round_trip; commit=4e2398075da67bb2cbcc123a9fc1e078ecac6fbf]
->   - the ask/next/stop lifecycle answers a chunk at a time and never looks
->     ahead, so taking two answers of an enumeration costs two answers'
->     engine work whatever the enumeration's size [measured 2026-08-20 over
->     real HTTP: 1,250 inferences for two answers whether the space held 10
->     atoms or 10,000, against 1,839 and 1,490,407 for the eager door]
->     [tested test_two_answers_cross_the_wire_without_the_third_being_computed]
->   - a cursor nobody pulls from is released after cursor_idle seconds and
->     a gateway refuses to hold more than cursor_limit at once [tested
->     test_an_idle_cursor_is_released,
->     test_a_gateway_refuses_more_cursors_than_it_holds]
->   - close() releases every cursor a client left open [tested
->     test_closing_the_server_releases_open_cursors]
->   - a candidate whose instantiation is a rational tree crosses as the stored
->     atom, the finite form the protocol names for it, instead of being dropped
->     from the reply [tested: test_a_rational_tree_candidate_crosses_as_the_stored_atom,
->     test_the_kit_certifies_the_attached_space; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
->   - one stored atom reads back as one atom, however much matching the server
->     did in between [tested:
->     test_two_reads_of_one_stored_atom_answer_the_same_atom; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
->   - a close releases what it can and stays retryable: a failed /stop keeps its
->     token, close_all closes every cursor before it raises, and a server whose
->     worker did not stop leaves its cursors to the next close rather than
->     closing one under a live request [tested:
->     test_a_failed_stop_leaves_the_remote_cursor_retryable,
->     test_closing_every_cursor_survives_one_failure,
->     test_a_close_that_cannot_stop_the_worker_keeps_the_cursors;
->     commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
->   - GET /health answers an authorization hook's own failure as JSON instead of
->     dropping the connection [tested:
->     test_a_failing_authorize_hook_answers_json_on_health; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
->   - the same-process guard covers the addresses a wildcard bind serves and the
->     addresses its caller is about to serve [tested:
->     test_attaching_a_wildcard_served_space_through_loopback_is_refused,
->     test_a_manifest_that_attaches_before_it_serves_is_refused;
->     commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
->   - the authorize hook judges /next and /stop against the space the
->     cursor's answers come from, not the request's absent space field
->     [tested test_authorize_sees_the_cursors_own_space]
->   - serve compares Bearer credentials with hmac.compare_digest before
->     consulting the authorization callback [tested
->     test_bearer_token_uses_constant_time_comparison]
->   - connect refuses non-HTTP URLs and refuses credentials over plain HTTP
->     [tested test_remote_connect_refuses_non_http_urls,
->     test_remote_connect_refuses_credentials_over_http]
->   - serve reports worker startup failure before accepting requests and close
->     waits for both owned threads to finish [tested
->     test_remote_serve_reports_worker_startup_failure,
->     test_remote_close_waits_for_worker_detach]
->   - the HTTP boundary rejects ambiguous lengths, oversized bodies, and
->     non-object JSON with a response instead of dropping the connection
->     [tested test_remote_server_rejects_malformed_request_bodies]
->   - RemoteSpace claims every capability the wire carries and declares no
->     event delivery, because the wire carries no event and a watcher would
->     hear only this process's own writes [measured 2026-08-19: an attached
->     space delivered the one atom this process wrote and nothing for the atom
->     the server added] [tested
->     test_remote_space_claims_subscribe_only_if_the_channel_exists]
 > Owns:
 >   - Server owns the HTTP loop and its attached-engine worker until close()
->     joins both [tested test_remote_close_waits_for_worker_detach]
+>     joins both
 >   - a Gateway owns every cursor ask/next/stop holds open, one engine each,
 >     released by close(), by the stream ending, or by the idle deadline
->     [tested test_closing_the_server_releases_open_cursors]
-> Fails when:
->   - a program wants to watch a remote space. There is no event channel to
->     build that on, so the capability is refused rather than half-kept; the
->     refusal names polling and bridge() as the two routes that do work
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None.
 
 The entries below reproduce the source signatures and docstrings.
 
@@ -136,8 +66,7 @@ def close(self) -> None:
 > The token survives a failed /stop and the cursor stays open, because
 > a close that discarded it first could never release the server's
 > cursor afterwards: every later close returned at the flag while the
-> server held the engine to its idle deadline [tested
-> test_a_failed_stop_leaves_the_remote_cursor_retryable].
+> server held the engine to its idle deadline.
 
 ## `RemoteSpace`
 
@@ -176,9 +105,7 @@ def delivers(self) -> tuple[str, str] | None:
 > none of them carries an event, while a remote space's contents change
 > on the server, which is the whole reason it is remote. So a watcher
 > here would hear only the writes this process made and silently miss
-> every other one [measured 2026-08-19: an attached space delivered the
-> one atom this process wrote and nothing for the atom the server
-> added]. Declaring nothing is what refuses the subscription; the
+> every other one. Declaring nothing is what refuses the subscription; the
 > sentence below is what a caller reads.
 
 ### `RemoteSpace.refusal`

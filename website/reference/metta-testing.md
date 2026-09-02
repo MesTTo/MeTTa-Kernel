@@ -2,7 +2,7 @@
 
 Source: `extensions/python/metta/testing.py`.
 
-> Purpose: hypothesis strategies for property-testing code built on this
+> Hypothesis strategies for property-testing code built on this
 > library, the pandas.testing reading: the exact generators the library's own
 > suite fuzzes itself with, exported, so user operations, translators and
 > spaces get tested against atoms the engine actually reads back. The
@@ -15,36 +15,13 @@ Source: `extensions/python/metta/testing.py`.
 > check_space_provider and check_codec run in process against an author's own
 > object, SpaceComplianceSuite and GatewayComplianceSuite are pytest classes
 > that run the engine's own expectations against a provider or a URL.
-> Guarantees:
->   - a repeated source's two enumerations are compared up to variable
->     renaming, because a stored variable's engine name is a stack offset that
->     moves with anything else the process does [tested:
->     test_overlay_passes_the_conformance_kit; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
->   - check_space_provider holds match soundness and exact pushdown claims
->     to the whole pattern family of every stored atom, ground, opened and
->     repeated-variable, judged by two-way unifiability [tested:
->     test_a_repeated_variable_liar_is_caught_by_the_folded_pattern,
->     test_a_ground_only_matcher_is_caught_by_the_open_pattern;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321].
->   - check_twin consumes a Defined call's eager answer list exactly once
->     [tested: test_the_prolog_twin_is_checked_against_its_reference;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321].
+> .
 >   - minted-space conformance recognizes decoded Space handles in provider
->     answers [tested: test_fabricated_space_identities_are_refused;
->     commit=4e2398075da67bb2cbcc123a9fc1e078ecac6fbf]
+>     answers
 >   - numpy_scalars generates non-primitive scalar objects whose identity and
->     numeric dispatch survive an engine round trip [tested:
->     test_numpy_scalar_strategy_round_trips_through_the_engine;
->     commit=a0f1cc5f15a15e5ca6958fe02a20be8832c7237f]
+>     numeric dispatch survive an engine round trip
 >   - from_pattern generates ground substitutions, preserving repeated named
->     variables while drawing anonymous occurrences independently [tested:
->     test_from_pattern_generates_ground_instances_without_losing_aliases and
->     test_from_pattern_draws_anonymous_occurrences_independently;
->     commit=5750e8fe84d8e933c1b5ef5d08c801846c8e5eb8]
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None
+>     variables while drawing anonymous occurrences independently
 
 The entries below reproduce the source signatures and docstrings.
 

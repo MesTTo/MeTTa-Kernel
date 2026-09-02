@@ -15,7 +15,7 @@ shared relation head. Query results keep named columns as `Rows`, then `table`,
 
 ## Read a table into a space
 
-A dataframe whose rows are complete facts uses the same fact-stream door as a
+A dataframe whose rows are complete facts uses the same fact stream as a
 generator or SQL cursor:
 
 ```python

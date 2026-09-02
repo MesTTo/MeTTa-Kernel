@@ -2,7 +2,7 @@
 
 Source: `extensions/python/metta/casting.py`.
 
-> Purpose: runtime typecasting against the engine's own type discipline.
+> Runtime typecasting against the engine's own type discipline.
 > cast(space, value, type) answers value, narrowed to its Python-most
 > spelling, when the engine admits it as that type: the exact
 > ('get-type' then 'get-metatype') acceptance the translator compiles
@@ -17,15 +17,6 @@ Source: `extensions/python/metta/casting.py`.
 > pass unchecked here too, and a Python type spells its MeTTa reading:
 > bool is Bool before int is Number, str is String, any other class its
 > own name, the names get-type itself answers.
-> Guarantees:
->   - a concrete Python target type remains the cast's static return type [tested
->     test_target_type_overloads_preserve_the_requested_class]
->   - the target is positional-only, so its implementation name is not API
->     [tested test_cast_target_is_positional_only]
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None.
 
 The entries below reproduce the source signatures and docstrings.
 

@@ -10,7 +10,7 @@ test suite, so every walkthrough stays true to the code.
 - [SQLite BLOB images](./sqlite-blobs.md) chooses handle or structural crossings per type and context.
 - [Pydantic models both ways](./pydantic-models.md) projects structured values into constructor expressions and rebuilds them.
 - [Arrays and embeddings](./arrays-embeddings.md) gives DLPack array libraries one MeTTa operation vocabulary.
-- [HTTP, routes, and solver loops](./http-routes-solvers.md) tells apart the three seams that share space operations.
+- [HTTP, routes, and solver loops](./http-routes-solvers.md) tells apart the three different things that share space operations.
 
 ## Shipping one as a package
 

@@ -1,7 +1,7 @@
 <!--
-Purpose: introduce the PyMeTTa seat and route to the sections that document it.
+Purpose: introduce the PyMeTTa extension and route to the sections that document it.
 Assumes: the tutorials, guide, integrations, live-systems, reasoning and
-  reference sections are this seat's documentation, so this page routes to them
+  reference sections are this extension's documentation, so this page routes to them
   rather than repeating them.
 Guarantees: every section named here exists in the navigation
   [tested: test_every_site_page_is_reachable_from_the_navigation; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
@@ -9,10 +9,10 @@ Guarantees: every section named here exists in the navigation
 
 # PyMeTTa
 
-PyMeTTa is the Python seat. It is on PyPI as `pymetta` and imports as `metta`,
+PyMeTTa is the Python extension. It is on PyPI as `pymetta` and imports as `metta`,
 and [its tutorial](./tutorial.md) installs it and runs a first program.
 
-The seat is two directions at once, which is why its control file is the
+The extension is two directions at once, which is why its control file is the
 one that declares both `entry/2` roles in two files:
 
 ```prolog
@@ -30,12 +30,12 @@ transport, consulted by the library when it boots, and the engine records it
 without ever loading it.
 
 Its one need is `library(janus)`, SWI's own Python bridge. A build without it,
-the WebAssembly build or a stripped install, cannot host this seat at all, so the
-seat loads nothing and says nothing rather than reporting a fault.
+the WebAssembly build or a stripped install, cannot host this extension at all, so the
+extension loads nothing and says nothing rather than reporting a fault.
 
 ## Its documentation is most of this site
 
-This seat is the one you are reading about everywhere else:
+This extension is the one you are reading about everywhere else:
 
 - [Tutorials](../../tutorials/) teach MeTTa from Python, one concept at a time.
 - [Guide](../../guide/) covers the surface by task: queries, definitions,

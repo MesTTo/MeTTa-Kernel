@@ -2,24 +2,17 @@
 
 Source: `extensions/python/metta/answer.py`.
 
-> Purpose: the explicit answer a provider or operation may yield in place
+> The explicit answer a provider or operation may yield in place
 > of a plain atom: bindings for the query's variables, an optional explicit
 > value, a residue and an annotation. The wire form is ["a", theta, residue,
 > k] with an optional trailing value, and it is transport-agnostic: the
 > Python side sends it over janus, a remote backend sends the same shape
 > over its own pipe, and a Prolog-side provider needs none of it because
 > unification is already the binding step.
-> Guarantees:
->   - to_wire() emits exactly the seam's answer form, theta as
->     [[name, atom-wire], ...] pairs with $-stripped names
->     [tested 2026-08-17: test_answer_wire_form_is_exact].
+> .
 >   - Construction validates shapes eagerly, so a malformed answer fails at
 >     the yield site it was written, not inside an engine callback
->     [tested 2026-08-17: test_answer_validates_eagerly].
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None.
+> .
 
 The entries below reproduce the source signatures and docstrings.
 

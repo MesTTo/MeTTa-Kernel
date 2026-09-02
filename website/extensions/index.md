@@ -1,50 +1,75 @@
 <!--
-Purpose: introduce the seat model and route to one area per shipped extension.
+Purpose: explain what an extension is, list the four that ship, and say
+where to go next.
 Guarantees: every folder under extensions/ carrying an extension.pl has an area
-  here [tested: test_every_extension_has_a_site_area; commit=057cc60ec553c5820f95ee361f1fad057467f3c3]
+    here [tested: test_every_extension_has_a_site_area;
+  commit=057cc60ec553c5820f95ee361f1fad057467f3c3]
 -->
 
 # Extensions
 
-An extension is a folder under `extensions/` carrying an `extension.pl`, a
-control file of facts the engine READS and never runs. Each one below owns its
-own documentation in its own folder; these pages publish it.
+An extension puts another language on the engine, or another storage backend
+underneath it. Four ship today.
 
-There is no kind system. A folder is not a "binding" or a "backend": it is a
-seat, and the two `entry/2` roles in its control file say which direction it
-faces. `entry(engine, File)` is the engine reaching out and consulting the file
-at boot; `entry(host, File)` is that seat's own runtime consulting it. Python
-declares both, in two files. C declares both, in one. Node declares only `host`,
-so the engine records the transport and never loads it. MORK declares only
-`engine`.
+| Extension | What you get |
+|---|---|
+| [PyMeTTa](./python/) | write MeTTa programs in Python, via the `metta` package |
+| [MeTTa-node](./node/) | write them in TypeScript, running on swipl-wasm inside Node |
+| [CMeTTa](./cmetta/) | embed the engine in a C program |
+| [MORK](./mork/) | store spaces in a Rust trie instead of in memory |
 
-| seat | what it is | roles |
-|---|---|---|
-| [PyMeTTa](./python/) | the `metta` library, and the engine reaching Python through janus | engine + host |
-| [MeTTa-node](./node/) | MeTTa in TypeScript, the engine on swipl-wasm inside Node | host |
-| [CMeTTa](./cmetta/) | the engine embedded in a C process through SWI's foreign interface | engine + host |
-| [MORK](./mork/) | spaces on a Rust trie, over the FFI | engine |
+The first three are languages you write programs in, so each has a tutorial
+that starts from an empty directory and ends at a running program:
+[Python](./python/tutorial.md), [TypeScript](./node/tutorial.md),
+[C](./cmetta/tutorial.md). MORK is storage, so there is nothing to write in it
+and it has a single page.
 
-The first three are hosts: you write a program in that language and it drives
-the engine, so each carries a tutorial beside its page.
-[PyMeTTa](./python/tutorial.md), [MeTTa-node](./node/tutorial.md) and
-[CMeTTa](./cmetta/tutorial.md) each start from an empty directory and end at a
-running program. MORK is a storage backend rather than a host, so there is no
-program to write in it and its folder holds one page.
+## How one is put together
 
-A seat whose declared needs are unmet loads nothing and says nothing, because
-not built is not an error. A seat that is built and broken raises, because half
-built is. A library that rests on one says so with
-`!(require-extension! <name>)` and gets a refusal that names the missing half
-and ends in the command that builds it.
+An extension is a folder under `extensions/` containing a file called
+`extension.pl`. That file holds facts, not code: the engine reads it and never
+executes it.
 
-## Adding one
+The facts that matter most say which side loads what. `entry(engine, File)`
+means the engine consults `File` when it boots. `entry(host, File)` means the
+other language's runtime consults it instead. An extension can declare either
+or both:
 
-[The contract for adding an extension](./adding.md) is what to put in the
-folder: the control file's vocabulary, the five scripts and the exit rule they
-share, where tests, examples and benchmarks go, and the three independent
-choices a seat should offer: which direction it faces, whether a definition is
-called or lowered, and what a value crosses as.
+- **Python** declares both, so the engine can call into Python and Python can
+  drive the engine.
+- **C** declares both as well, in one file.
+- **TypeScript** declares only `host`. The engine records that the extension
+  exists and never loads anything, because the TypeScript side owns its own
+  copy of the engine.
+- **MORK** declares only `engine`. There is no MORK program to run; the engine
+  reaches down to it for storage.
 
-[Extending the engine](../engine/extending) is the other half of that story:
-the nine extension points a seat is built out of, and what each one costs.
+## When something is missing
+
+If an extension's prerequisites are absent, it loads nothing and prints
+nothing.
+
+If it is built but broken, it raises, because that is a real fault.
+
+A library that depends on one asks for it explicitly:
+
+```metta
+!(require-extension! mork)
+```
+
+If it is not there, the refusal names what is missing and gives you the command
+that builds it.
+
+## Adding your own
+
+[The contract for adding an extension](./adding.md) covers what goes in the
+folder: the vocabulary of the control file, the five scripts every extension
+provides and the exit code they agree on, and where tests and benchmarks
+live.
+
+It also covers the three choices you make: which direction your extension
+faces, whether a definition is called or compiled, and what a value looks
+like when it crosses.
+
+[Extending the engine](../engine/extending) is the other half: the nine points
+the engine offers, and what each one costs.

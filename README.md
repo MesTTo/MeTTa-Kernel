@@ -301,7 +301,7 @@ async def main():
 assert asyncio.run(main()) == [{"x": "a", "y": "b"}]
 ```
 
-The engine runs on its own thread and every door is awaitable.
+The engine runs on its own thread and every call is awaitable.
 
 ## Parallel evaluation
 
@@ -577,7 +577,7 @@ m.dispose();
 ## C
 
 `extensions/cmetta/` embeds the engine through SWI's foreign interface. It has
-the same two definition doors, and C reaches the lowered one through the
+the same two ways to define, and C reaches the lowered one through the
 preprocessor: Python lowers by reading a function's `__code__` and Node by
 reading its `toString()`, while `#` is C's own access to its source. From
 `extensions/cmetta/examples/lower.c`:
@@ -670,7 +670,7 @@ beside it is the way to say it. They go deeper than this page can:
 | types | parametric, recursive and dependent types |
 | a reasoner you can serve | constructive negation, a dependently-typed backward chainer, PLN deduction, weak unification, the Scallop programs |
 | performance | a million atoms across five index shapes, memoisation and tabling, four million-step kernels |
-| transactions and worlds | a counter five threads share, state cells, arbitrary MeTTa at the write door, admission pools |
+| transactions and worlds | a counter five threads share, state cells, arbitrary MeTTa run on write, admission pools |
 | events and standing queries | subscriptions delivered inside the write that matched them |
 | spaces backed by anything | a space in C, a builtin in C, SQL and DuckDB providers |
 | extending the engine | translator rules, MeTTa written in MeTTa, Prolog underneath |

@@ -36,7 +36,7 @@ A wrapped PyTorch module lets MeTTa rules choose which model runs. `MettaModule`
 
 Reflection writes ordinary facts such as `nn-module`, `nn-child`, `nn-param`, `nn-param-shape`, and `nn-linear`. Rules can match model structure beside application facts.
 
-See the shared [`metta.arrays`](../reference/metta-arrays), [`metta.integrate`](../reference/metta-integrate), and [weighted relations](../reasoning/weighted-relations) pages for the MeTTa side of these seams.
+See the shared [`metta.arrays`](../reference/metta-arrays), [`metta.integrate`](../reference/metta-integrate), and [weighted relations](../reasoning/weighted-relations) pages for the MeTTa side of these integrations.
 
 ## Repository status
 

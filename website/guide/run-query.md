@@ -2,13 +2,17 @@
 Purpose: document Space execution, querying, controls, diagnostics, and result handling.
 Guarantees: examples use the narrow core and satellite-qualified specialist APIs;
 all public lint kinds and the named-intent convention are catalogued here.
-[tested: npm run docs:build and test_every_lint_kind_is_named_on_the_page_its_findings_link_to;
+[tested: npm run docs:build and
+test_every_lint_kind_is_named_on_the_page_its_findings_link_to;
 commit=acb40f1912f131ae088083d1af29b4b283019bea]
 -->
 
 # Run and query
 
-Use `run` for MeTTa source, `eval` for a term already built in Python, and `query` for structural matches against a space. Variables shared by several query patterns form joins. Rows expose the query variable names as attributes.
+Use `run` for MeTTa source, `eval` for a term already built in Python, and
+`query` for structural matches against a space. Variables shared by several
+query patterns form joins. Rows expose the query variable names as
+attributes.
 
 Queries also accept guards, answer bounds, temporary assumptions, and prepared shapes:
 
@@ -25,11 +29,17 @@ grand.solve()
 # Rows[x, y, z]([Row(x=Symbol('Tom'), y=Symbol('Bob'), z=Symbol('Ann'))])
 ```
 
-`where=` is evaluated by the engine for each match. `limit=` stops the engine at the requested count. `assuming(...)` adds facts only for the `with` block. `prepare(...)` fixes the query shape once, and `solve(given=...)` can add facts for one solve without leaving them behind.
+`where=` is evaluated by the engine for each match. `limit=` stops the
+engine at the requested count. `assuming(...)` adds facts only for the
+`with` block. `prepare(...)` fixes the query shape once, and
+`solve(given=...)` can add facts for one solve without leaving them behind.
 
 ## Bounds, stats, and captured output
 
-A query whose join size is unknown, or a program whose recursion depth is someone else's data, should not be able to hold your process. `timeout=` (seconds) and `inferences=` (engine steps) bound any `run`, `eval`, `query`, or `solve` call with the engine's own guards:
+A query whose join size is unknown, or a program whose recursion depth is
+someone else's data, should not be able to hold your process. `timeout=`
+(seconds) and `inferences=` (engine steps) bound any `run`, `eval`, `query`,
+or `solve` call with the engine's own guards:
 
 ```python
 try:
@@ -39,9 +49,17 @@ except metta.errors.TimeLimitError:
     check("a 50ms bound stops a spin that would run for minutes", True)
 ```
 
-Each bound raises its own error, `TimeLimitError` or `InferenceLimitError`, both under `ResourceLimitError`. An inference bound is the deterministic twin of a timeout: the same call stops at the same step on every machine. Whatever the call completed before the stop, writes included, stands, which is what stopping a computation mid-way means everywhere. Ctrl-C reaches a running evaluation too: the runtime installs janus's heartbeat at startup, so a `KeyboardInterrupt` lands within milliseconds instead of queueing until the goal ends, at an interval measured to cost nothing.
+Each bound raises its own error, `TimeLimitError` or `InferenceLimitError`,
+both under `ResourceLimitError`. An inference bound is the deterministic
+twin of a timeout: the same call stops at the same step on every machine.
+Whatever the call completed before the stop, writes included, stands, which
+is what stopping a computation mid-way means everywhere. Ctrl-C reaches a
+running evaluation too: the runtime installs janus's heartbeat at startup,
+so a `KeyboardInterrupt` lands within milliseconds instead of queueing until
+the goal ends, at an interval measured to cost nothing.
 
-`m.stats()` reads the engine's own counters around a with-block. A capture scope collects printed text without changing the answer shape:
+`m.stats()` reads the engine's own counters around a with-block. A capture
+scope collects printed text without changing the answer shape:
 
 ```python
 metta.tables.add(m, "edge", [(i, i + 1) for i in range(200)])
@@ -58,13 +76,22 @@ check("captured print output", "(hello world)" in output.text)
 check("the answers still arrive beside it", groups[1], [3])
 ```
 
-After the block, `s.inferences`, `s.cputime`, `s.walltime`, `s.gc_count`, `s.gc_freed`, and `s.gc_time` carry what the block spent. The full runnable example is [`operations/engine_controls.py`](https://github.com/MesTTo/MeTTa-Kernel/blob/main/extensions/python/examples/operations/engine_controls.py).
+After the block, `s.inferences`, `s.cputime`, `s.walltime`, `s.gc_count`,
+`s.gc_freed`, and `s.gc_time` carry what the block spent. The full runnable
+example is
+[`operations/engine_controls.py`](https://github.com/MesTTo/MeTTa-Kernel/blob/main/extensions/python/examples/operations/engine_controls.py).
 
-Control signals hold everywhere, by engine design: a bound, a Ctrl-C, or an `interrupt()` cannot be eaten by the evaluation it is stopping, not even by a program's own `(catch ...)`. That is the same reasoning that puts `KeyboardInterrupt` outside `Exception` in Python.
+Control signals hold everywhere, by engine design: a bound, a Ctrl-C, or an
+`interrupt()` cannot be eaten by the evaluation it is stopping, not even by
+a program's own `(catch ...)`. That is the same reasoning that puts
+`KeyboardInterrupt` outside `Exception` in Python.
 
 ## Errors are data, until you ask for a value
 
-MeTTa reports a soft failure by answering an `(Error culprit reason)` atom: an error is a RESULT, one element of the answer multiset, so one failed branch never kills the others. Write the idiom with an `if` guard, because every matching equation runs:
+MeTTa reports a soft failure by answering an `(Error culprit reason)` atom:
+an error is a RESULT, one element of the answer multiset, so one failed
+branch never kills the others. Write the idiom with an `if` guard, because
+every matching equation runs:
 
 ```python
 m.run('(= (safe-div $x $y) (if (== $y 0) '
@@ -80,9 +107,9 @@ ordinary collection, so `!(collapse (/ 7 0))` answers the one-element
 expression `((Error (/ 7 0) DivisionByZero))`. Float division retains IEEE
 behavior, including infinity for `(/ 1.0 0.0)` and NaN for `(/ 0.0 0.0)`.
 
-The aggregation doors, `eval()` and `run()`, keep error atoms as data, exactly
+`eval()` and `run()` keep error atoms as data, exactly
 as the multiset semantics says. Query rows are bindings rather than evaluation
-answers, so a stored error record flows through every `Rows` door untouched;
+answers, so a stored error record flows through `Rows` untouched;
 `rows.raise_for_errors()` is the explicit bridge for callers who want the
 `raise_for_status` reading. It raises one error plainly and several as one
 `ExceptionGroup`.
@@ -93,7 +120,13 @@ error values rather than raising Python exceptions on its branches. The group
 keeps the real traceback where the caller invoked `raise_for_errors()`; it
 does not fabricate a stack for any error atom.
 
-Two more things hold across the whole library. Every exception it raises on purpose carries machine-readable parts beside the message, the way `OSError.errno` does: `.atom`, `.space`, `.operation` and `.capability`, each `None` when the error has no such part. And an exception the library raises inside a Python callback, a space provider refusing a write for instance, crosses the engine and re-arrives as the very same object with its fields intact, rather than as a transcript of itself.
+Two more things hold across the whole library. Every exception it raises on
+purpose carries machine-readable parts beside the message, the way
+`OSError.errno` does: `.atom`, `.space`, `.operation` and `.capability`,
+each `None` when the error has no such part. And an exception the library
+raises inside a Python callback, a space provider refusing a write for
+instance, crosses the engine and re-arrives as the very same object with its
+fields intact, rather than as a transcript of itself.
 
 ## Take the first few, without computing the rest
 
@@ -110,7 +143,10 @@ inferences for the same three rows, and the gap grows with the space. Reach for
 
 ## Explain a query
 
-`prepare(...).explain()` answers the query's plan without running it, polars' `LazyFrame.explain` and SQL's `EXPLAIN` pointed at the space seam. When a query over a Python-backed space is slow, the first question is what pushed down, and this is that answer:
+`prepare(...).explain()` answers the query's plan without running it,
+polars' `LazyFrame.explain` and SQL's `EXPLAIN` pointed at a space.
+When a query over a Python-backed space is slow, the first question is what
+pushed down, and this is that answer:
 
 ```python
 sp = metta.space("&db")
@@ -122,11 +158,23 @@ print(sp.prepare(parse("(edge $a $b)"), parse("(other $b $c)")).explain())
 #   a bound reaches the provider only where the class is exact
 ```
 
-Each pattern's line shows its pushdown class and which rule decided it: a declared `(handles ...)` entry, the provider's own `pushdown` method, or silence, in exactly the precedence the match uses. The conjunction line names what a planning provider claimed whole and what the engine joins. A shape a declaration refuses reports as `REFUSED` with the entry that said so, a stored space answers the one true line (engine unification), and a `where=` guard shows where it runs. Nothing is executed and no row is pulled; the report reflects decisions the seam has already made.
+Each pattern's line shows its pushdown class and which rule decided it: a
+declared `(handles ...)` entry, the provider's own `pushdown` method, or
+silence, in exactly the precedence the match uses. The conjunction line
+names what a planning provider claimed whole and what the engine joins. A
+shape a declaration refuses reports as `REFUSED` with the entry that said
+so, a stored space answers the one true line (engine unification), and a
+`where=` guard shows where it runs. Nothing is executed and no row is
+pulled; the report reflects decisions the space has already made.
 
 ## Memoize a function
 
-Tabling is the engine's own memoization: declare a function tabled, and every distinct call computes once, with later calls of the same shape answering from the table. After `!(import! &self (library lib_tabling))`, the declaration is `!(tabled (spin-down $n))`, made after the function is defined, because instrumenting a name that does not exist yet is refused by name and arity instead of silently tabling nothing.
+Tabling is the engine's own memoization: declare a function tabled, and
+every distinct call computes once, with later calls of the same shape
+answering from the table. After `!(import! &self (library lib_tabling))`,
+the declaration is `!(tabled (spin-down $n))`, made after the function is
+defined, because instrumenting a name that does not exist yet is refused by
+name and arity instead of silently tabling nothing.
 
 ```python
     with m.stats() as first:
@@ -138,9 +186,19 @@ Tabling is the engine's own memoization: declare a function tabled, and every di
     assert second.inferences < first.inferences / 10
 ```
 
-Tabling changes what a function means, so the admission burden is yours: it is sound for a pure function whose equations and read spaces stay put while its tables live, whose callers never observe answer order or duplicates, and whose call modes stay bounded. Hyphenated and uppercase names work, repeated declarations are cumulative and idempotent, and a named space's functions instrument their own module. `(untabled ...)` removes the instrumentation, `(table-clear ...)` abolishes one function's cached answers and keeps the declaration, `(table-clear-all)` abolishes every table, and `s.table_bytes` from `m.stats()` watches the memory.
+Tabling changes what a function means, so the admission burden is yours: it
+is sound for a pure function whose equations and read spaces stay put while
+its tables live, whose callers never observe answer order or duplicates, and
+whose call modes stay bounded. Hyphenated and uppercase names work, repeated
+declarations are cumulative and idempotent, and a named space's functions
+instrument their own module. `(untabled ...)` removes the instrumentation,
+`(table-clear ...)` abolishes one function's cached answers and keeps the
+declaration, `(table-clear-all)` abolishes every table, and `s.table_bytes`
+from `m.stats()` watches the memory.
 
-Every live declaration is also a fact: `(tabled space name arity)` in the `&metta` reflection space, input arity, added on declare and removed on undeclare, so a program can ask what is memoized right now:
+Every live declaration is also a fact: `(tabled space name arity)` in the
+`&metta` reflection space, input arity, added on declare and removed on
+undeclare, so a program can ask what is memoized right now:
 
 ```python
     reflection = metta.reflection
@@ -150,7 +208,11 @@ Every live declaration is also a fact: `(tabled space name arity)` in the `&mett
     assert [row.a for row in reflection.match(pattern)] == [1]
 ```
 
-Tabling state dies with the space life. A dropped or cleared space takes its declarations, its tables, and its `&metta` records with it, so a pooled name's next life cannot be answered by a dead life's cache; the suite pins this by redefining a function in a reused space and requiring the new answer.
+Tabling state dies with the space life. A dropped or cleared space takes its
+declarations, its tables, and its `&metta` records with it, so a pooled
+name's next life cannot be answered by a dead life's cache; the suite pins
+this by redefining a function in a reused space and requiring the new
+answer.
 
 ## Put a type where it prunes
 
@@ -218,7 +280,7 @@ with m.bind(v=model.predict(row)):
 ```
 
 The symbol is bare, `v`, not `$v`: a `$` name is a MeTTa variable the engine
-will bind for you, while `bind()` names something you already have. Every door
+will bind for you, while `bind()` names something you already have. Every call
 inside the block reads the same scope, so one block covers a `run()`, an
 `eval()` and an `answers()` together, and a mapping that grows grows down the
 page instead of inside a call. An atom key means itself, so
@@ -247,7 +309,8 @@ so it stays ordinary data and matches structurally. That is not a MeTTa
 convention, it is the reference's own registry rule, and it exists because
 three-element `(:= ...)` atoms already appear in real programs.
 
-`unify-mod` in `lib/minimal_metta_lib/minimal_metta_lib.pl` has read `:=` all along; the engine's
+`unify-mod` in `lib/minimal_metta_lib/minimal_metta_lib.pl` has read `:=`
+all along; the engine's
 own `match` reads it too now. It costs nothing when you do not use it: the
 modifier is lifted while the call site compiles, so a pattern without one
 compiles to exactly what it always did.
@@ -313,8 +376,7 @@ by search:
 !(let 20 (#* (#+ $a 1) 4) $a)    ; 4, solved through two constraints
 ```
 
-`(+ $x 2)` with `$x` unbound raises `Arguments are not sufficiently
-instantiated`. `(#+ $x 2)` posts a constraint and waits, so the same expression
+`(+ $x 2)` with `$x` unbound raises `Arguments are not sufficiently instantiated`. `(#+ $x 2)` posts a constraint and waits, so the same expression
 is a definition in one direction and a question in the other.
 
 The family is `#+ #- #* #div #// #mod #min #max` for arithmetic and
@@ -328,7 +390,9 @@ domain instead of raising:
 ```
 
 Integers only: CLP(FD) is a finite-domain solver, so `(#* 2 $x)` cannot answer
-`1/2`. `examples/ch05-equations-and-evaluation/05-04-arithmetic-that-runs-backwards/02-relational_arithmetic.metta` runs the whole family
+`1/2`.
+`examples/ch05-equations-and-evaluation/05-04-arithmetic-that-runs-backwards/02-relational_arithmetic.metta`
+runs the whole family
 forwards and backwards.
 
 Two more solvers sit beside it, in a library rather than in the engine:
@@ -350,7 +414,8 @@ engine's own `and`/`or`/`not`, which are generate-and-test over two values and
 cheaper until a formula constrains every variable at once; on "exactly one of
 N is true" the crossover is at twelve variables, and above it the gap grows
 without bound, 16,777,154 inferences against 289,037 at twenty.
-`examples/ch05-equations-and-evaluation/05-04-arithmetic-that-runs-backwards/03-constraint_domains.metta` has all of it.
+`examples/ch05-equations-and-evaluation/05-04-arithmetic-that-runs-backwards/03-constraint_domains.metta`
+has all of it.
 
 Constructive negation reads these, which is the payoff. Negate a rule whose
 body is a `#` bound and the answer is the opposite bound rather than an
@@ -396,7 +461,14 @@ available under its own name.
 
 ## The third truth value
 
-Tabled negation gives this engine Well Founded Semantics: an answer can be true, false, or genuinely undefined, a loop through `tnot`. Before this surface, an undefined answer reached Python as an ordinary-looking unbound variable, which is silently wrong. Now every `eval` answer carries its truth: definite answers stay plain atoms, and an undefined one arrives as an `Undefined` holding the answer and the delay condition that makes it undefined. Constraint stores remain inside the language and are inspected there with `residual-goals`; they do not create another Python return shape.
+Tabled negation gives this engine Well Founded Semantics: an answer can be
+true, false, or genuinely undefined, a loop through `tnot`. Before this
+surface, an undefined answer reached Python as an ordinary-looking unbound
+variable, which is silently wrong. Now every `eval` answer carries its
+truth: definite answers stay plain atoms, and an undefined one arrives as an
+`Undefined` holding the answer and the delay condition that makes it
+undefined. Constraint stores remain inside the language and are inspected
+there with `residual-goals`; they do not create another Python return shape.
 
 ```python
 def test_undefined_answers_cross_as_undefined(m, wfs_program):
@@ -407,13 +479,28 @@ def test_undefined_answers_cross_as_undefined(m, wfs_program):
     assert "wfs_loop" in answer.why
 ```
 
-`Undefined` refuses truthiness on purpose, so code cannot branch on it by accident. The carrier is the engine's own `call_delays`, applied per answer inside the enumeration, which is the only place the condition exists. It is unconditional because any "only when tabling" gate would answer silently wrong exactly once, on the first tabled call; the measured cost on the trivial-eval crossing is five to ten percent, amortized below that on real evaluations. `run()` mirrors the CLI and stays two-valued; evaluate through `eval()` when undefined truth matters.
+`Undefined` refuses truthiness on purpose, so code cannot branch on it by
+accident. The carrier is the engine's own `call_delays`, applied per answer
+inside the enumeration, which is the only place the condition exists. It is
+unconditional because any "only when tabling" gate would answer silently
+wrong exactly once, on the first tabled call; the measured cost on the
+trivial-eval crossing is five to ten percent, amortized below that on real
+evaluations. `run()` mirrors the CLI and stays two-valued; evaluate through
+`eval()` when undefined truth matters.
 
 `match()` computes and decodes its bounded answer set before returning it.
 
 ## Strings and regular expressions
 
-Structural match reads terms; strings stay opaque to it. `lib_regex` opens them with the engine's own PCRE2: `(re-match pat text)` answers a boolean and therefore guards queries, `(re-find pat text)` answers every match nondeterministically, `(re-captures pat text)` answers the first match's groups as `((key value) ...)` pairs with a `_I` name suffix answering an integer, and `(re-split ...)`, `(re-replace ...)`, `(re-replace-all ...)` do what they say. Flags ride the pattern inline, PCRE2's `(?i)` style, and a MeTTa string reads a doubled backslash as one, so `"\\d"` spells the digit class, Python's own non-raw convention.
+Structural match reads terms; strings stay opaque to it. `lib_regex` opens
+them with the engine's own PCRE2. `(re-match pat text)` answers a boolean,
+so it guards queries. `(re-find pat text)` answers every match
+nondeterministically. `(re-captures pat text)` answers the first match's
+groups as `((key value) ...)` pairs, where a `_I` name suffix means the
+value is an integer. `(re-split ...)`, `(re-replace ...)` and
+`(re-replace-all ...)` do what they say. Flags ride the pattern inline,
+PCRE2's `(?i)` style, and a MeTTa string reads a doubled backslash as one,
+so `"\\d"` spells the digit class, Python's own non-raw convention.
 
 ```python
 def test_regex_guards_queries(rx, metta):
@@ -423,22 +510,34 @@ def test_regex_guards_queries(rx, metta):
         assert [row.name for row in rows] == [S.Ada, S.Alice]
 ```
 
-The guard is also an optimization: patterns compile once into the engine's cache and every candidate row is tested in C, never crossing to Python. Against an equivalent Python-operation guard on a 2000-row scan, the regex guard measured 2.3x (317 against 138 queries per second, identical rows answered).
+The guard is also an optimization: patterns compile once into the engine's
+cache and every candidate row is tested in C, never crossing to Python.
+Against an equivalent Python-operation guard on a 2000-row scan, the regex
+guard measured 2.3x (317 against 138 queries per second, identical rows
+answered).
 
 ## Content hashes
 
-`lib_crypto` opens the engine's own OpenSSL to MeTTa programs: `(crypto-hash sha256 "text")` answers the lowercase hex digest under any `library(crypto)` algorithm name, an unknown name refuses loudly, and `(crypto-random-hex 16)` answers thirty-two hex characters of cryptographically secure randomness for nonces and fresh ids. Hashes make content keys, so a fact can carry the identity of its own payload, and the digests agree with every other tool's:
+`lib_crypto` opens the engine's own OpenSSL to MeTTa programs: `(crypto-hash sha256 "text")` answers the lowercase hex digest under any `library(crypto)`
+algorithm name, an unknown name refuses loudly, and `(crypto-random-hex 16)`
+answers thirty-two hex characters of cryptographically secure randomness for
+nonces and fresh ids. Hashes make content keys, so a fact can carry the
+identity of its own payload, and the digests agree with every other tool's:
 
 ```python
     (digest,) = cr.eval('(crypto-hash sha256 "hello")')
     assert digest == hashlib.sha256(b"hello").hexdigest()
 ```
 
-The whole-space version of the same idea is [`digest()`](./spaces), one hash naming everything a space stores.
+The whole-space version of the same idea is [`digest()`](./spaces), one hash
+naming everything a space stores.
 
 ## Atomic and what-if runs
 
-The engine has transactions, and a program can already use the inline `(transaction ...)` form for a scope inside itself. `with m.atomic():` lifts that over every whole `run` in the block: every write, facts and equations alike, commits whole or rolls back whole when a directive throws.
+The engine has transactions, and a program can already use the inline
+`(transaction ...)` form for a scope inside itself. `with m.atomic():` lifts
+that over every whole `run` in the block: every write, facts and equations
+alike, commits whole or rolls back whole when a directive throws.
 
 ```python
     with pytest.raises(EngineError):
@@ -450,7 +549,8 @@ The engine has transactions, and a program can already use the inline `(transact
     assert Expression(S.kept, S.fact) in m  # and commits whole on success
 ```
 
-`with m.speculative():` is the what-if twin: each run executes against a frozen view, the answers return, and every write is discarded.
+`with m.speculative():` is the what-if twin: each run executes against a
+frozen view, the answers return, and every write is discarded.
 
 ```python
     with m.speculative():
@@ -459,7 +559,9 @@ The engine has transactions, and a program can already use the inline `(transact
     assert Expression(S.ghost, S.fact) not in m
 ```
 
-Both cover engine state. A Python operation's side effects, and subscription callbacks that already fired, stay where they happened; that is what rolling back a database can honestly mean.
+Both cover engine state. A Python operation's side effects, and subscription
+callbacks that already fired, stay where they happened; that is what rolling
+back a database can honestly mean.
 
 `m.transaction` accepts either Python logic or a MeTTa term. With a
 zero-argument callable, returning commits and a raised exception rolls back;
@@ -487,11 +589,15 @@ def migrate():
     m.remove(S.schema(1))
 ```
 
-There is deliberately no `with m.transaction():` form: SWI's `transaction/1` takes a closed goal, there is no open begin/commit to hold across a block, and pretending otherwise would lie about the isolation actually provided.
+There is deliberately no `with m.transaction():` form: SWI's `transaction/1`
+takes a closed goal, there is no open begin/commit to hold across a block,
+and pretending otherwise would lie about the isolation actually provided.
 
 ## Profile a run
 
-`m.profile(source)` runs source under the engine's statistical profiler and answers the groups beside a profile: sample counters, and one row per predicate with its calls, redos, and ticks, self-ticks first.
+`m.profile(source)` runs source under the engine's statistical profiler and
+answers the groups beside a profile: sample counters, and one row per
+predicate with its calls, redos, and ticks, self-ticks first.
 
 ```python
     m.run("(= (prof-spin $n) (if (== $n 0) done (prof-spin (- $n 1))))")
@@ -500,11 +606,18 @@ There is deliberately no `with m.transaction():` form: SWI's `transaction/1` tak
     assert prof.samples > 0 and prof.ticks > 0
 ```
 
-`prof.top(5)` is where the time went. The sampler is statistical, so profile something that runs; and profiling changes execution, so it is a debugging surface, not a mode to leave on.
+`prof.top(5)` is where the time went. The sampler is statistical, so profile
+something that runs; and profiling changes execution, so it is a debugging
+surface, not a mode to leave on.
 
 ## Trace a reduction
 
-Where the profiler says where time went, `m.trace(source)` says what happened: it runs source with every compiled MeTTa function wrapped by the engine's own predicate wrapping, and answers one call event per reduction entered, depth-nested through the call tree, and one exit event per answer. A reduction that fails is a call with no exit, which is precisely what failing looks like:
+Where the profiler says where time went, `m.trace(source)` says what
+happened: it runs source with every compiled MeTTa function wrapped by the
+engine's own predicate wrapping, and answers one call event per reduction
+entered, depth-nested through the call tree, and one exit event per answer.
+A reduction that fails is a call with no exit, which is precisely what
+failing looks like:
 
 ```python
     m.run("(= (tr-fact $n) (if (== $n 0) 1 (* $n (tr-fact (- $n 1)))))")
@@ -517,11 +630,18 @@ Where the profiler says where time went, `m.trace(source)` says what happened: i
     assert [c.depth for c in calls] == [0, 1, 2, 3]
 ```
 
-Builtins inline and stay invisible, so the trace is about your program, not the engine. The source executes for real, writes included, exactly like a `run`; the wrap exists only while tracing, so untraced calls pay nothing. Printing an event indents it by depth, which makes `for e in m.trace(...): print(e)` a readable story of the evaluation.
+Builtins inline and stay invisible, so the trace is about your program, not
+the engine. The source executes for real, writes included, exactly like a
+`run`; the wrap exists only while tracing, so untraced calls pay nothing.
+Printing an event indents it by depth, which makes `for e in m.trace(...): print(e)` a readable story of the evaluation.
 
 ## Lint a space
 
-MeTTa fails open: a call to a misspelled function stays an unreduced expression, a call with the wrong argument count matches no equation, and a declared type nothing defines promises a function that cannot answer. `m.lint()` walks a space's declarations and equations against the engine's own registries and answers findings:
+MeTTa fails open: a call to a misspelled function stays an unreduced
+expression, a call with the wrong argument count matches no equation, and a
+declared type nothing defines promises a function that cannot answer.
+`m.lint()` walks a space's declarations and equations against the engine's
+own registries and answers findings:
 
 ```python
     m.run("(: ghost-fn (-> Number Number))")
@@ -530,11 +650,15 @@ MeTTa fails open: a call to a misspelled function stays an unreduced expression,
     assert findings[0].subject == "ghost-fn"
 ```
 
-A healthy space answers an empty list. A finding carries nine fields: `kind`, `subject`, `detail` and the `atom` it stands on, plus `severity`, a `suggestion` when there is a near-miss to offer, a `docs_link` to this section, a structured `payload`, and an `autofix`.
+A healthy space answers an empty list. A finding carries nine fields:
+`kind`, `subject`, `detail` and the `atom` it stands on, plus `severity`, a
+`suggestion` when there is a near-miss to offer, a `docs_link` to this
+section, a structured `payload`, and an `autofix`.
 
 ### What a finding says
 
-`severity` is the editor vocabulary, and it ranks the catalogue rather than decorating it:
+`severity` is the editor vocabulary, and it ranks the catalogue rather than
+decorating it:
 
 | severity | means | kinds |
 |---|---|---|
@@ -543,7 +667,9 @@ A healthy space answers an empty list. A finding carries nine fields: `kind`, `s
 | `information` | true and worth knowing | the seven simplifications, `inconsistent-arity`, `subsumed-equation` |
 | `hint` | a heuristic that can be wrong | `possibly-undefined-reference` |
 
-`autofix` is an **atom**, not a text edit: the stored atom with the simplification already applied. So applying one is two calls and needs no source positions at all.
+`autofix` is an **atom**, not a text edit: the stored atom with the
+simplification already applied. So applying one is two calls and needs no
+source positions at all.
 
 ```python
 for finding in m.lint():
@@ -566,7 +692,8 @@ for finding in m.lint():
 
 ### Acknowledge one intentional finding
 
-A lint never refuses execution. When a flagged mix is deliberate, put an exact named directive on the statement, or on the line immediately above it:
+A lint never refuses execution. When a flagged mix is deliberate, put an
+exact named directive on the statement, or on the line immediately above it:
 
 ```python
 for value in values:
@@ -574,7 +701,9 @@ for value in values:
     total += registered_operation(value)
 ```
 
-The directive suppresses only `operation-crossing-in-loop` at that statement. A different kind at the same place still appears. The acknowledgement is retained as data in `&metta`, not discarded as a comment:
+The directive suppresses only `operation-crossing-in-loop` at that
+statement. A different kind at the same place still appears. The
+acknowledgement is retained as data in `&metta`, not discarded as a comment:
 
 ```metta
 (lint-intent &space operation-crossing-in-loop
@@ -582,11 +711,14 @@ The directive suppresses only `operation-crossing-in-loop` at that statement. A 
              "L9Z1-06; ai-python-first-revamp-discussion.md:5613-5618")
 ```
 
-Source-observed events likewise appear as `(lint-evidence Space Kind Subject Path Line Column Authority)`. `clear()` retires both records with the owning space. The corresponding finding payload carries `file`, `line`, `column`, `authority`, and, for operation findings, the published `effect` rank.
+Source-observed events likewise appear as `(lint-evidence Space Kind Subject Path Line Column Authority)`. `clear()` retires both records with the owning
+space. The corresponding finding payload carries `file`, `line`, `column`,
+`authority`, and, for operation findings, the published `effect` rank.
 
 ### Lint a file, with line numbers
 
-The space holds atoms, not text, so a finding from `m.lint()` has no position to give. `lint_file` recovers one:
+The space holds atoms, not text, so a finding from `m.lint()` has no
+position to give. `lint_file` recovers one:
 
 ```python
 from metta.lint import lint_file
@@ -596,17 +728,47 @@ for finding in lint_file("rules.metta"):
     print(f"{place['file']}:{place['line']}: [{finding.severity}] {finding.kind}")
 ```
 
-The file loads into a scratch space, `lint()` runs there, and every finding whose atom alpha-matches a top-level form carries `file`, `line` and `column` in its `payload`, recovered from the reader's own verbatim form texts. Nothing is tracked on the engine's hot path. A finding about an atom no single form wrote stays unanchored rather than guessed.
+The file loads into a scratch space, `lint()` runs there, and every finding
+whose atom alpha-matches a top-level form carries `file`, `line` and
+`column` in its `payload`, recovered from the reader's own verbatim form
+texts. Nothing is tracked on the engine's hot path. A finding about an atom
+no single form wrote stays unanchored rather than guessed.
 
-"Known" there means known to the engine, and the engine gives a head meaning two ways. A function is one, and `fun/1` answers for it. A special form is the other: `if`, `case`, `collapse`, `unify`, `chain`, `once` and 20 more are compiled by the translator instead of being defined by equations, and 29 of the 47 answer `False` to `fun/1`, as do the six stream rewrites `trace!`, `unique`, `alpha-unique`, `union`, `intersection` and `subtraction`. The linter asks `metta_translated_head/1` as well, which reads the translator's clause heads rather than keeping a list, so a form added to the engine is known to the linter the day it is added.
+"Known" there means known to the engine, and the engine gives a head meaning
+two ways. A function is one, and `fun/1` answers for it. A special form is
+the other. `if`, `case`, `collapse`, `unify`, `chain`, `once` and 20 more
+are compiled by the translator rather than defined by equations. 29 of the
+47 answer `False` to `fun/1`, as do the six stream rewrites `trace!`,
+`unique`, `alpha-unique`, `union`, `intersection` and `subtraction`. The
+linter asks `metta_translated_head/1` as well, which reads the translator's
+clause heads rather than keeping a list, so a form added to the engine is
+known to the linter the day it is added.
 
-`tabled-answer-order-read` is the one that catches a program working today for a reason that will not last. Tabling preserves the answer *set* and not its order, so `(car-atom (collapse (pick a)))` over a tabled `pick` answers whatever the trie happens to hold first, and that moves when something unrelated moves: adding three facts nothing calls to another engine file flipped one from `(one two)` to `(two one)`, and removing them flipped it back. Wrapping the collapse in `sort-atom` fixes it and silences the finding, which is what the tabling examples do.
+`tabled-answer-order-read` is the one that catches a program working today
+for a reason that will not last. Tabling preserves the answer *set*, not its
+order. So `(car-atom (collapse (pick a)))` over a tabled `pick` answers
+whatever the trie happens to hold first, and that moves when something
+unrelated moves. Adding three facts that nothing calls, to another engine
+file entirely, flipped one result from `(one two)` to `(two one)`; removing
+them flipped it back. Wrapping the collapse in `sort-atom` fixes it and
+silences the finding, which is what the tabling examples do.
 
-`declaration-types-the-symbol` only reaches the linter from `add_atom`, because a source file is refused outright: see [types and casting](../tutorials/06-types-and-casting) for what the engine checks at load. Building a name's declarations one atom at a time passes through a state where only the first is stored, so the check that can refuse a whole source cannot refuse a single write.
+`declaration-types-the-symbol` only reaches the linter from `add_atom`,
+because a source file is refused outright: see [types and
+casting](../tutorials/06-types-and-casting) for what the engine checks at
+load. Building a name's declarations one atom at a time passes through a
+state where only the first is stored, so the check that can refuse a whole
+source cannot refuse a single write.
 
 ## Cast a value
 
-MeTTa's type discipline is checked, not asserted. `m.cast(value, type)` runs that check natively from Python: the exact acceptance the engine compiles for a typed argument position, with `(: name Type)` declarations from the space and `&self` in scope, answering the value narrowed to its Python-most spelling, so a ground atom unwraps to its Python value. What a typed call refuses silently (the mismatched call just reduces to nothing), `cast` refuses loudly:
+MeTTa's type discipline is checked, not asserted. `m.cast(value, type)` runs
+that check natively from Python. It is the exact acceptance the engine
+compiles for a typed argument position, with `(: name Type)` declarations
+from the space and `&self` in scope. It answers the value narrowed to its
+most Python spelling, so a ground atom unwraps to its Python value. What a
+typed call refuses silently (the mismatched call just reduces to nothing),
+`cast` refuses loudly:
 
 ```python
     m.run("(: Ann Person)")
@@ -616,7 +778,12 @@ MeTTa's type discipline is checked, not asserted. `m.cast(value, type)` runs tha
     assert "Person" in str(caught.value)
 ```
 
-The check is duck-typed the way the engine already is. A protocol registered with `register_object_type` makes any object satisfying its predicate cast to the protocol's name, and a Python type as the target spells its MeTTa reading: `bool` is `Bool` before `int` is `Number`, `str` is `String`, and any other class is its own name, the names `get-type` itself answers:
+The check is duck-typed the way the engine already is. A protocol registered
+with `register_object_type` makes any object satisfying its predicate cast
+to the protocol's name. A Python type as the target spells its MeTTa
+reading: `bool` is `Bool` before `int` is `Number`, `str` is `String`, and
+any other class is its own name. These are the names `get-type` itself
+answers:
 
 ```python
     integrate.register_object_type(lambda x: hasattr(x, "quack"), "Ducky")
@@ -634,9 +801,26 @@ The check is duck-typed the way the engine already is. A protocol registered wit
         m.cast(Silent(), "Ducky")
 ```
 
-Structural targets work too: casting to `(List $t)` admits anything whose type unifies, and a repeated variable in the target constrains. Targets the engine never checks (`Atom`, `%Undefined%`, `_`) pass unchecked here as well. The surface is in [`metta.casting`](../reference/metta-casting).
+Structural targets work too: casting to `(List $t)` admits anything whose
+type unifies, and a repeated variable in the target constrains. Targets the
+engine never checks (`Atom`, `%Undefined%`, `_`) pass unchecked here as
+well. The surface is in [`metta.casting`](../reference/metta-casting).
 
-`metta.tables.add(space, head, source)` reads a Polars frame, a pandas frame, a mapping of columns, or any iterable of rows into facts shaped as `(head v1 .. vn)`. In the other direction, `rows.table()` returns a dict of plain columns accepted by DataFrame constructors, and `rows.to_df()` / `rows.to_pl()` build the pandas or polars frame directly, DuckDB's conversion naming. `rows.build(column, Class)` rebuilds translated objects from a named result column; when one column holds complete constructor expressions, `rows.build(Class)` rebuilds it directly. `rows.into(Class)` is the neighbouring door and a different question: it maps EVERY column onto a field of one `Class` per row, and `match(..., into=Class)` is sugar for it. In a notebook, rows render as a table on their own, and in a [rich](https://rich.readthedocs.io)-using terminal `print`ing rows through a rich console draws the same table. `rows.pipe(fn, *args)` is pandas' chaining shape, so a post-processing pipeline reads left to right: `m.match(pat).pipe(clean).pipe(score, weight=2)`.
+`metta.tables.add(space, head, source)` reads a Polars frame, a pandas
+frame, a mapping of columns, or any iterable of rows into facts shaped as
+`(head v1 .. vn)`. In the other direction, `rows.table()` returns a dict of
+plain columns accepted by DataFrame constructors, and `rows.to_df()` /
+`rows.to_pl()` build the pandas or polars frame directly, DuckDB's
+conversion naming. `rows.build(column, Class)` rebuilds translated objects
+from a named result column; when one column holds complete constructor
+expressions, `rows.build(Class)` rebuilds it directly. `rows.into(Class)` is
+the neighbouring method, and a different question: it maps EVERY column onto
+a field of one `Class` per row, and `match(..., into=Class)` is sugar for
+it. In a notebook, rows render as a table on their own, and in a
+[rich](https://rich.readthedocs.io)-using terminal `print`ing rows through a
+rich console draws the same table. `rows.pipe(fn, *args)` is pandas'
+chaining shape, so a post-processing pipeline reads left to right:
+`m.match(pat).pipe(clean).pipe(score, weight=2)`.
 
 Use `derivation(atom)` to obtain proof trees for an answer. Use `why(pattern)`
 to explain one empty match. An empty result returned directly by `match()`

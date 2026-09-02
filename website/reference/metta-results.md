@@ -2,84 +2,11 @@
 
 Source: `extensions/python/metta/results.py`.
 
-> Purpose: expose eager query rows and lazy immutable evaluation answers.
+> Expose eager query rows and lazy immutable evaluation answers.
 >
 > A Rows is a mutable sequence of Row tuples, one per query answer, while
 > Answers progressively caches one evaluation source for replay, projections,
 > and exact-cardinality reads.
-> Guarantees:
->   - Rows with the same columns share one bounded cached Row subclass [tested
->     test_row_classes_are_reused_and_bounded]
->   - slicing, copying, concatenation, and repetition preserve Rows and its
->     columns [tested test_rows_sequence_operations_preserve_columns]
->   - every mutation validates row width and preserves the named Row type
->     [tested test_rows_mutations_preserve_invariants]
->   - Row and Rows pickle through stable module-level rebuild functions rather
->     than dynamic class names [tested test_rows_copy_and_pickle_protocols]
->   - terminal representations bound both rows and individual values and state
->     the omitted row count [tested test_rows_repr_is_bounded_and_recursive]
->   - Rows.build preserves its requested class as the list element type [tested
->     test_target_type_overloads_preserve_the_requested_class]
->   - a one-column Rows rebuilds constructor expressions through build(cls),
->     and rows_into selects that path for match(into=cls) [tested:
->     test_a_constructor_expression_rebuilds_through_the_query_door;
->     commit=f88aa8be03cb64cb59d3307515ded8701f418321]
->   - Rows.to_dicts returns one Python-native mapping per row, including empty
->     mappings for zero-column rows [tested test_rows_to_dicts_returns_plain_records]
->   - eager query results explain empty pattern, join, and guard outcomes [tested
->     test_query_rows_explain_empty_results]
->   - error_answer recognizes (Error ...) by head symbol alone, so quoted and
->     nested errors stay data, and raise_for_errors chains when clean [tested
->     test_raise_for_errors_chains_when_clean_and_raises_one_plainly]
->   - every Answers iterator replays one shared prefix, and caller-variable
->     projections and slices stay Answers [tested:
->     test_answers_are_lazy_cached_and_cardinality_aware,
->     test_answers_project_caller_variables_and_slices_stay_answers;
->     commit=2d4d4583c2d82e90bb21a7e8671842f126edd4f4]
->   - evaluation values and their caller-binding rows are parallel faces of one
->     Answers cursor [tested: test_calls_keep_values_and_binding_rows;
->     commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
->   - finalizing an Answers releases everything the engine holds for it, the
->     cursor a declined count opened and never handed to the stream included
->     [tested: test_a_counted_view_releases_its_engine_when_it_is_dropped;
->     commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
->   - private item replay lets a deferred algebra route preserve those rows
->     without probing the engine when its Answers view is constructed [tested:
->     test_tagged_derivations_flow_through_match_and_reinterpret_without_requery;
->     commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa]
->   - an Answers view crossing into a term observes exact-one cardinality and
->     encodes that answer as the operand [tested:
->     test_answer_views_observe_when_used_as_operands; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
->   - Rows and Answers project caller variables by attribute, Variable key, or
->     exact string key
->     [tested: test_rows_share_the_answer_projection_contract; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
->   - len on an untouched engine-backed Answers view uses its engine count door
->     without populating the Python cache [tested:
->     test_len_counts_an_unmaterialised_view_engine_side; commit=18b1135167d60396c41e63e42ded2f66d0eb1900]
->   - a count source may decline a second evaluation, in which case len
->     materializes the held cursor once [tested:
->     test_effectful_relational_candidates_run_once_per_yield_on_fresh_list;
->     commit=6917bef7ca902671999eafcae3a7a86db8f69723]
->   - the count source is told whether an iterator has already been handed out,
->     so a count that would have to HOLD its answers can decline for a caller
->     about to read them [measured 2026-08-26: without the hint, list() on an
->     effect-bearing view paid the holding evaluation and ten corpus twins rose
->     by 9 to 256 inferences; command=python
->     extensions/python/tools/twin_coverage.py; commit=bbadc684deb3bdbe3426c44b64685717692c1dbc]
->   - one(default=) distinguishes absence from multiplicity for both eager and
->     lazy faces, while first without a default never returns None [tested:
->     test_query_answers_complete_the_lazy_projection_protocol; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
->   - the eager table doors refuse term answers instead of taking an answer
->     apart into columns, and both display faces render term answers as a
->     bounded list [tested test_term_answers_never_render_as_a_binding_table]
->   - zip and reversed retain their lawful Sequence behavior while recording
->     advisory ordering evidence for Space.lint [tested:
->     test_zip_over_unordered_answers_is_lawful_and_linted,
->     test_reversed_over_unordered_answers_is_lawful_and_linted; commit=acb40f1912f131ae088083d1af29b4b283019bea]
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None.
 
 The entries below reproduce the source signatures and docstrings.
 
@@ -252,7 +179,7 @@ def into(self, cls: type) -> list:
 > conversion was only ever reachable through that keyword, so a
 > prepared query's solve(), or any other Rows, could not ask for it
 > even though rows_into() never cared where the rows came from
-> [measured 2026-08-31]. build(cls) is the neighbouring door and a
+> . build(cls) is the neighbouring door and a
 > different question: it rebuilds ONE column of complete constructor
 > expressions, where this maps every column onto a field.
 
@@ -456,7 +383,7 @@ def close(self) -> None:
 > point: a `__del__` runs during interpreter shutdown with module globals
 > already cleared, which is how an abandoned cursor printed
 > "Exception ignored ... catching classes that do not inherit from
-> BaseException" out of a torn-down module [measured 2026-08-31].
+> BaseException" out of a torn-down module.
 >
 > Closing twice is a no-op, as it is for `drop()`. Answers already pulled
 > stay readable, because they are cached values rather than engine state;

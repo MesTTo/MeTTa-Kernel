@@ -2,58 +2,13 @@
 
 Source: `extensions/python/metta/foreign.py`.
 
-> Purpose: spaces implemented in Python. A SpaceProvider answers match, add,
+> Spaces implemented in Python. A SpaceProvider answers match, add,
 > remove and enumeration for a named space whose atoms live wherever the
 > provider keeps them: a SQL table, a dataframe, a dict, a service. The engine
 > unifies patterns against what the provider yields, so a provider may
 > over-approximate its filtering and stay sound; pushing bound parts of the
 > pattern down into the backend is the performance lever, never a correctness
 > requirement.
-> Guarantees:
->   - capabilities derive from implemented narrow protocols and unknown
->     operations are refused [tested test_capabilities_follow_implemented_methods]
->   - subscribability is not derived: a provider declares what its change
->     events promise through delivers(), registration publishes that as the
->     space's (events ...) row, and one that declares nothing refuses a
->     subscription naming the missing capability [tested
->     test_a_context_that_declares_events_serves_them_and_one_that_does_not_refuses]
->   - providers may decline one concrete request through should_run before its
->     operation executes [tested test_provider_can_decline_one_request]
->   - provider registration changes Python state only after the engine accepts
->     the same change [tested test_provider_registration_is_transactional]
->   - a provider's own refusal sentence reaches the caller, and "implements it
->     and declines it" reads differently from "does not have it" [tested
->     test_a_provider_states_its_own_refusal,
->     test_declining_and_not_implementing_read_differently]
->   - a declined capability is checked where it is USED, so match's fall-through
->     to enumeration consults enumerate [tested
->     test_a_declined_enumerate_is_not_reached_through_match]
->   - a single-pattern bounded query tells a provider whose match takes a limit
->     keyword how many answers the caller keeps, never sends it across a join,
->     and bounds the answers itself whatever the provider does [tested
->     2026-08-16: test_a_bound_reaches_a_provider_that_takes_one,
->     test_a_bound_is_not_pushed_past_a_join,
->     test_a_provider_ignoring_the_bound_is_still_bounded_by_the_engine]
->   - the caller's bound reaches a provider that claimed its filtering exact
->     for that pattern and is withheld from one that claimed nothing, so a
->     provider cannot truncate to a number it never promised it could use, and
->     a false claim is caught by check_space_provider rather than by an answer
->     going missing [tested test_a_bound_is_withheld_from_a_provider_that_claimed_nothing,
->     test_a_bound_reaches_a_provider_that_takes_one,
->     test_a_false_exact_claim_is_caught]
->   - provider length exists only through Python's Sized protocol and never
->     falls back to enumeration [tested:
->     test_provider_length_requires_and_uses_sized; commit=b1de70215dd3f0c9d5437558c57c5911c13948b5]
->   - snapshot capability is structural and explicit, so reification never
->     mistakes live enumeration for an immutable view [tested:
->     test_reify_refuses_and_names_a_live_composite_member; commit=3ded7552797b66d78e666141eb51f3bc14686bd2]
-> Guarded by:
->   - _PROVIDER_LOCK serializes library registration and provider lookups
->     [tested test_provider_registration_is_transactional]
-> Open Obligations:
->   To Do: None
->   Hacks: None
->   Future Enhancements: None.
 
 The entries below reproduce the source signatures and docstrings.
 
@@ -150,12 +105,9 @@ class MatchClassifier(Protocol):
 > reads "Your source guarantees that no output rows will have a false value
 > for this predicate", against Inexact, "Your source has the ability to
 > reduce the data produced, but the output may still include rows that do
-> not satisfy the predicate" [source: Apache DataFusion, Custom Table
-> Providers]. Spark's DataSourceV2 draws the same line as "filters that need
+> not satisfy the predicate". Spark's DataSourceV2 draws the same line as "filters that need
 > to be evaluated after scanning" against those that do not
-> [source: Apache Spark 4.2.0 Java API, SupportsPushDownFilters.pushFilters,
-> "Pushes down filters, and returns filters that need to be evaluated after
-> scanning"].
+> .
 >
 > DataFusion's third rung, Unsupported, is absent here. It exists there
 > because the planner decides whether to SEND a filter at all; the pattern

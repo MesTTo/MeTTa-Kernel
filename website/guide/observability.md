@@ -1,19 +1,37 @@
-# Observability: which door answers which question
+# Observability
 
-Nine doors watch a running system, each answering a different question. They are deliberately distinct things, not one API, so the map is the feature:
+Nine tools, each answering a different question about a running program. Find
+your question in the left column.
 
-| the question you have | the door that answers it |
+| Your question | What answers it |
 |---|---|
-| why is this answer set empty? | `rows.why()`, one sentence naming the pattern, join, or guard that killed it |
-| how was this answer derived? | [`metta.derivation`](../reference/metta-derivation): `Derivation`, `Step`, `Fact` proof trees |
-| what will this query do, before running it? | `prepare(...).explain()` and `cursor.explain()`, the [plan reflected](./run-query#explain-a-query) |
-| what did this evaluation do, step by step? | [`metta.trace`](../reference/metta-trace), the reduction trace as events |
-| what did this call cost? | `m.stats()`, engine counter deltas over a with-block |
-| where did the time go? | `m.profile()`, the engine's own profiler over a block |
-| what is tabling holding? | `(table-stats)`, tables, answers, hits, invalidations |
-| what is silently wrong in this space? | [`metta.lint`](../reference/metta-lint); `lint_file(path)` anchors each finding to its `file:line` |
-| what is changing, as it changes? | `m.subscribe(pattern)`, the [standing query](../live/standing-queries) watching writes |
+| Why is this answer set empty? | `rows.why()`, one sentence naming the pattern, join, or guard that killed it |
+| How was this answer derived? | [`metta.derivation`](../reference/metta-derivation): `Derivation`, `Step`, `Fact` proof trees |
+| What will this query do, before I run it? | `prepare(...).explain()` and `cursor.explain()`, the [plan reflected](./run-query#explain-a-query) |
+| What did this evaluation do, step by step? | [`metta.trace`](../reference/metta-trace), the reduction trace as events |
+| What did this call cost? | `m.stats()`, engine counter deltas over a `with` block |
+| Where did the time go? | `m.profile()`, the engine's own profiler over a block |
+| What is tabling holding? | `(table-stats)`: tables, answers, hits, invalidations |
+| What is silently wrong in this space? | [`metta.lint`](../reference/metta-lint); `lint_file(path)` anchors each finding to its `file:line` |
+| What is changing, as it changes? | `m.subscribe(pattern)`, a [standing query](../live/standing-queries) over writes |
 
-Three habits make them compose. Reach for `why()` before re-running a query with prints, because it already knows which conjunct answered nothing. Read `explain()` before profiling a slow foreign query, because the usual cause is a pattern that stopped pushing down, and that is visible without running anything. And when a number needs to be trusted, use `stats()` inferences rather than wall clock: the counter is deterministic on any machine, which is also why this repository gates its own benchmarks on it.
+## Three that save the most time
 
-The engine's own self-description is a space: [reflection](../live/reflection) reads the `&metta` contract atoms, so `explain`-style questions about what is declared, registered, and served are ordinary matches.
+**Ask `why()` before adding prints.** When a query returns nothing, `why()`
+already knows which conjunct produced no rows. Re-running with print statements
+finds out the same thing more slowly.
+
+**Read `explain()` before profiling a slow foreign query.** The usual cause is
+a pattern that stopped pushing down into the backend, and `explain()` shows
+that without running the query at all.
+
+**Trust `stats()` inferences over wall clock.** The inference counter is
+deterministic: the same workload gives the same number on any machine, under
+any load. Wall clock does not. This repository gates its own benchmarks on
+inferences for that reason.
+
+## The engine describes itself
+
+What the engine has registered, declared, and served is stored as ordinary
+atoms in the `&metta` space, so you can query it the same way you query
+anything else. [Reflection and steering](../live/reflection) covers that.

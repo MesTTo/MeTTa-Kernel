@@ -28,7 +28,7 @@ token: `Space.take()` removes and claims the atom, and adding the replacement
 releases the next waiter. Restore the atom if the computation raises. The lock
 or token must cover both the read and the write.
 
-Real parallelism is a second engine, and there are three doors to one:
+Real parallelism is a second engine, and there are three ways to get one:
 
 - `metta.parallel.engine_thread()` attaches an engine to the current thread for a block, releasing exactly what it attached (`test_engine_thread_owns_only_its_attachment`). Inside the block this thread's calls stop sharing the home lock; measured 1.94x, 3.90x and 7.26x at 2, 4 and 8 threads.
 - `m.pool(workers=n)` owns n threads that each hold their own engine (`test_each_worker_holds_a_distinct_engine`), proves genuine overlap with a barrier rather than a clock (`test_pool_runs_work_concurrently`), answers `map` in input order however workers finish, and reports every failure, one plainly and several as one `ExceptionGroup` in input order (`test_map_raises_every_failure_in_input_order`).

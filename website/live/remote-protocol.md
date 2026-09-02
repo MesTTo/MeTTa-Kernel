@@ -15,7 +15,7 @@ program reaches atoms your process holds.
 Two reference implementations ship in the repository under
 `extensions/python/examples/integration/typescript_space/`: a zero-dependency
 TypeScript server, and a variant whose atoms live in a MeTTaScript
-space, so two MeTTa engines meet through this one seam. Both pass the
+space, so two MeTTa engines meet through this one interface. Both pass the
 conformance kit through `attach()`.
 
 ## Operations
@@ -37,7 +37,7 @@ body must be one JSON object.
 
 `space` defaults to `&self` and selects which of the server's spaces
 answers. `add_many` carries a batch in one request, the engine's own
-bulk-door law on the wire: a batch is a transport optimisation and
+bulk-write law on the wire: a batch is a transport optimisation and
 never a semantic one, and `metta.space(name).add(a, b, c)` against an
 attached gateway crosses once.
 
@@ -58,8 +58,8 @@ A malformed bound (negative, fractional, or not a number) is a 400.
 ```
 
 the wire contract naming its own revision before anyone speaks it.
-Revision 2 added the reflection the in-process seam already has:
-`capabilities` names the seam operations the server admits, so a client
+Revision 2 added the reflection the in-process interface already has:
+`capabilities` names the operations the server admits, so a client
 can ask before writing, and `bound` says whether `/match` honors the
 bound field. Revision 3 adds `stream`, the ask/next/stop lifecycle
 below, which every gateway at this revision speaks.
@@ -89,11 +89,11 @@ POST /stop  {"cursor": "Yy8mB1Rk..."}
      ->     {"stopped": true}
 ```
 
-The lineage is SWI's own `library(pengines)`, whose create/ask/next/stop
-is the same lifecycle over the same kind of wire, and Tarau's engines
-(*A Hitchhiker's Guide to Reinventing a Prolog Machine*, ICLP 2017),
-which state it as a design law: an engine yields one answer and, if
-asked, resumes.
+The lineage is SWI's own `library(pengines)`, whose create/ask/next/stop is
+the same lifecycle over the same kind of wire. It is also Tarau's engines
+(*A Hitchhiker's Guide to Reinventing a Prolog Machine*, ICLP 2017), which
+state it as a design law: an engine yields one answer and, if asked,
+resumes.
 
 **A batch is a chunk, a bound is a cut.** `batch` says how many answers
 one reply may carry and defaults to 1, pengines' own default for the
@@ -122,23 +122,16 @@ one is the plain `{"stopped": false}`, because a client calls stop from
 a finally-block where the stream may have ended already, and stop is
 idempotent by design.
 
-**A cursor is server state, so it is bounded and owned.** A server
-releases a cursor nobody has pulled from after an idle deadline, refuses
-to hold more than a ceiling of them at once, and releases every one it
-still holds when it shuts down. pengines bounds the same resource the
+**A cursor is server state, so it is bounded and owned.** A server releases a cursor nobody has pulled from once an idle deadline passes. It refuses to hold more than a ceiling of them at once, and releases every one it still holds when it shuts down. pengines bounds the same resource the
 same two ways and picks 300 seconds for the first; `metta.remote.serve`
 takes `cursor_idle` and `cursor_limit`, and the TypeScript reference
 server takes `--cursor-idle` and `--cursor-limit`.
 
-**Whether a server actually defers the work is its own affair.** What
-the contract fixes is the shape that makes deferring possible, so that
-a client can rely on it: a store holding ten atoms in an array has
-nothing to defer, and a gateway over a real query engine has everything
-to. MeTTa's own gateway defers: each cursor is an SWI engine holding the
+**Whether a server actually defers the work is its own affair.** The contract fixes only the shape that makes deferring possible, so a client can rely on it. A store holding ten atoms in an array has nothing to defer; a gateway over a real query engine has everything to defer. MeTTa's own gateway defers: each cursor is an SWI engine holding the
 join's state between pulls, so taking two answers costs two answers'
 work. Measured 2026-08-20 over real HTTP, 1,250 inferences for two
 answers whether the enumeration held ten or ten thousand, against 1,839
-and 1,490,407 for the eager door over the same spaces
+and 1,490,407 for the eager form over the same spaces
 [`test_two_answers_cross_the_wire_without_the_third_being_computed`].
 
 **An answer set past the body cap crosses only in chunks.** Bodies are
@@ -147,22 +140,22 @@ larger than that at all; the lifecycle is what carries it
 [`test_an_answer_set_too_large_for_one_body_still_crosses_in_chunks`].
 
 On the client side `RemoteSpace.stream(pattern, batch=...)` is the lazy
-door and `match()` stays the eager one. The core `Space.match()` is eager.
+form and `match()` stays the eager one. The core `Space.match()` is eager.
 `metta.attach("&hq", metta.remote.RemoteSpace(metta.remote.connect(url), batch=1))`
-puts an attached space's matching on the lazy door, so a MeTTa `once`
+makes an attached space's matching lazy, so a MeTTa `once`
 over it stops the serving engine too.
 
 ## What crosses the wire, and what does not
 
-The in-process seam carries more than five operations, and the subset
+The in-process interface carries more than five operations, and the subset
 that crosses is a decision, not drift. The projection:
 
-| seam capability | on the wire | why |
+| capability | on the wire | why |
 |---|---|---|
 | `match` | `POST /match` | the protocol's center |
 | bounded match | `"bound"` on `/match` and `/ask`, advertised in health | trusted-Exact: only an exact matcher may truncate |
 | streamed remote answers | `POST /ask`, `/next`, `/stop`, advertised as `stream` | lazy answers belong to the remote satellite |
-| `enumerate` | `POST /atoms` | one shot: the give-me-everything door has no early exit to protect |
+| `enumerate` | `POST /atoms` | one shot: fetching everything has no early exit to protect |
 | `add` | `POST /add` | |
 | bulk add | `POST /add_many` | a transport batch, never a semantic one |
 | `remove` | `POST /remove` | |
@@ -232,7 +225,7 @@ that catch real matchers being subtly narrower than the law.
 that may contain variables, and ONE stored atom unifying with it goes.
 Two stored copies need two removals. That is the PROVIDER's grain and it
 is finer than the language's: `remove-atom` drains every unifying
-occurrence, and it does so by reading them and then asking this door once
+occurrence, and it does so by reading them and then asking once
 for each, so a provider that takes one per call is what the engine above
 it expects. Rename the pattern's and the stored atom's variables
 apart before unifying: `(f $x 1)` must remove a stored `(f 2 $x)`.
@@ -240,21 +233,20 @@ apart before unifying: `(f $x 1)` must remove a stored `(f 2 $x)`.
 **A space is a multiset.** Adding twice stores twice; `atoms` answers
 duplicates; order promises nothing.
 
-**Certifying an implementation.** `metta.testing.GatewayComplianceSuite`
-is this page made executable: subclass it with a `gateway_url` fixture
-and every promise above is checked against the running server, the
-operations' semantics, the refusal ladder, the health reflection, bound
-honored-or-ignored soundly, exact-or-refused wide integers, the
-ask/next/stop lifecycle answering the eager door's answer set at every
-batch and refusing a cursor it no longer holds,
-and the conformance kit's match contract and round-trip law through an
-attached `RemoteSpace`. Both reference servers pass it, and it caught
-real divergences on both sides of the seam: MeTTaScript's unifier is
-narrower than the wire unifier on some pairs, so its server carries the
-reference unifier as a soundness envelope (over-approximation being
-always legal, that server also ignores `bound` and advertises so), and
-an early revision of the suite itself demanded rational-tree answers,
-which the occurs-checked matcher of the day never produced. Under the
+**Certifying an implementation.** `metta.testing.GatewayComplianceSuite` is this page made executable. Subclass it with a `gateway_url` fixture and every promise above is checked against your running server.
+
+It covers the operations' semantics, the refusal ladder, the health
+reflection, `bound` being honoured or ignored soundly, wide integers being
+exact or refused, and the ask/next/stop lifecycle, which must answer the
+eager form's answer set at every batch and refuse a cursor it no longer
+holds. It also runs the conformance kit's match contract and round-trip law
+through an attached `RemoteSpace`. Both reference servers pass it, and it
+caught real divergences on both sides. MeTTaScript's unifier is narrower
+than the wire unifier on some pairs, so its server carries the reference
+unifier as a soundness envelope; over-approximating is always legal, and
+that server also ignores `bound` and says so. On the other side, an early
+revision of the suite itself demanded rational-tree answers, which the
+occurs-checked matcher of the day never produced. Under the
 per-answer template law that demand was the correct one. The suite's
 own join still carries an occurs check and so skips those pairs instead
 of requiring them, which means a server that drops them is not caught
@@ -263,5 +255,5 @@ here.
 Measured on localhost with the reference server [2026-08-17]: a match
 round trip is about 243 microseconds and an add about 216. The wire is
 request-per-operation deliberately; a space whose queries are chatty
-belongs behind the in-process seams instead, and `EXTENDING.md`
+belongs behind the in-process interface instead, and `EXTENDING.md`
 section 5 is that story.

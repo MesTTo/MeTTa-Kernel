@@ -1,5 +1,5 @@
 <!--
-Purpose: the contract for adding an extension, so a seat is a folder rather
+Purpose: the contract for adding an extension, so an extension is a folder rather
   than an entry in several lists.
 Assumes: the reader is adding a folder here, not changing the engine.
   EXTENDING.md is the other document: it covers the nine points the ENGINE
@@ -11,13 +11,13 @@ Guarantees: every rule here is enforced by a named check or a named lane, and
 # Adding an extension
 
 An extension is a folder under `extensions/` carrying an `extension.pl`. That
-control file is what makes it a seat; everything else here is convention that
+control file is what makes it an extension; everything else here is convention that
 the gate enforces.
 
 Nothing in the engine names your folder. The loader globs
 `extensions/*/extension.pl`, the root `build.sh` and `check.sh` discover their
 component scripts the same way, and `metta list` reads what is on disk. Adding
-a seat needs no edit outside your own directory.
+an extension needs no edit outside your own directory.
 
 There are two documents and they answer different questions. `EXTENDING.md`
 covers the nine extension POINTS the engine offers, ordered by measured cost:
@@ -33,25 +33,25 @@ vocabulary refuses loudly, naming your file and the term, because a control
 file that could smuggle a directive is a script with extra steps.
 
 ```prolog
-title('One line: what this seat is').
+title('One line: what this extension is').
 
 needs(artefact('relative/path/to/build/product')).   % exists_file, relative to your folder
 needs(prolog_library(janus)).                        % exists_source(library(L))
-needs(predicate(open_shared_object/3)).              % current_predicate; a platform door
-needs(extension(mork)).                              % another seat, loaded first
+needs(predicate(open_shared_object/3)).              % current_predicate; a platform check
+needs(extension(mork)).                              % another extension, loaded first
 
 entry(engine, 'bridge.pl').        % the ENGINE consults this, at boot
 entry(host, 'metta/shim.pl').      % YOUR RUNTIME consults this; recorded, never loaded here
 ```
 
 Every need met, and every `entry(engine, _)` loads in the file's own order and
-the seat is recorded loaded. Any need unmet, and nothing loads, nothing prints,
+the extension is recorded loaded. Any need unmet, and nothing loads, nothing prints,
 and the unmet need is recorded where `require-extension!` can name it. **Not
 built is not an error; half built is.**
 
-Declare every artefact you need, not just the first. The MORK seat declared one
+Declare every artefact you need, not just the first. The MORK extension declared one
 of two, and because SWI prints a raising load-time directive and carries on,
-`ensure_loaded/1` still succeeded and the loader recorded the seat LOADED with
+`ensure_loaded/1` still succeeded and the loader recorded the extension LOADED with
 no backend behind it. Twelve of its own tests raised `Unknown procedure` on such
 a tree, quietly, on every boot.
 
@@ -60,10 +60,10 @@ a tree, quietly, on every boot.
 Offer all three, and let a program choose per call site. They are independent,
 and the second and third are routinely confused.
 
-**1. Which direction you face** is the two `entry/2` roles above. A seat may
-hold either or both: Python holds both in two files, the C seat both in one,
-the Node seat only `host`, MORK only `engine`. Direction of control does not
-sort seats into kinds; it is a role, which is why there is one folder here.
+**1. Which direction you face** is the two `entry/2` roles above. An extension may
+hold either or both: Python holds both in two files, the C extension both in one,
+the Node extension only `host`, MORK only `engine`. Direction of control does not
+sort extensions into kinds; it is a role, which is why there is one folder here.
 
 **2. Where a definition's body lives**, CALLED or LOWERED:
 
@@ -72,11 +72,11 @@ sort seats into kinds; it is a role, which is why there is one folder here.
 | what the engine can do | call it, nothing else | read it, specialise it, match on it |
 | where the body is | your language | the engine, as equations |
 | what it must declare | its effect class, since the engine cannot see in | nothing; the engine can see |
-| the seats' spellings | `m.op`, `mt_def`, `op` | `@m.define`, `mt_lower`, `define` |
+| the extensions' spellings | `m.op`, `mt_def`, `op` | `@m.define`, `mt_lower`, `define` |
 
 This is the axis `EXTENDING.md`'s cost table prices: 0.15 microseconds lowered
-against 1.05 called, or 3.93 called through the wire codec. Offer both. A seat
-with only the called door taxes its users 26x for writing the obvious thing.
+against 1.05 called, or 3.93 called through the wire codec. Offer both. An extension
+with only the called form taxes its users 26x for writing the obvious thing.
 
 **3. What a VALUE crosses as**, transparent or opaque, and it is NOT the axis
 above wearing other words. Transparent means translated into MeTTa structure;
@@ -124,31 +124,31 @@ visible:
 Declaring the clause is what makes your values TYPED to MeTTa, and
 `EXTENDING.md` names it as one of the four seams by which a whole host plugs in,
 with the Python bridge as the worked example. Leaving it out is survivable and
-the C seat currently does: its values are grounded, storable and matchable, and
+the C extension currently does: its values are grounded, storable and matchable, and
 `%Undefined%` is what `get-type` says about them. That is a decision to make on
 purpose rather than one to inherit by omission, and it costs a table row in your
-seat's own prose either way.
+extension's own prose either way.
 
 The Python row is the shipped class walk [tested: `metta_object_types`]. The C
 row is measured and has no test behind it, deliberately: pinning `%Undefined%`
-would make this seat's typelessness a contract, and it is a decision still open
+would make this extension's typelessness a contract, and it is a decision still open
 [measured 2026-08-29: the same two questions asked of `mt_object` and of
 `(let $o (py-atom "...datetime(2020,1,1)" Grounded) (get-type $o))`].
 
 **Which shape your handle takes decides what the seam buys you.** There are two,
 and both ship:
 
-- **an SWI blob**, which the C and Python seats use. It is `atomic` and not
+- **an SWI blob**, which the C and Python extensions use. It is `atomic` and not
   `atom`, which is exactly the pre-test `get_type_candidate/2` applies before
   consulting the seam, so a blob with a `host_object` clause reaches
   `metta_grounded_type/2` and gets a real type.
-- **an atom-shaped id**, which the Node seat uses: `'$metta_node_object#7'`,
+- **an atom-shaped id**, which the Node extension uses: `'$metta_node_object#7'`,
   with the object held on its side. An atom fails that pre-test, so no type
   arrives this way. What the seam buys here is the METATYPE: without the clause
   `metatype_of/2` would reach its `atom(X)` case first and call your handle a
   `Symbol`, which is the bridge's own reason for having one.
 
-**The seats' spellings**, since this is the axis a reader comes here to compare:
+**The extensions' spellings**, since this is the axis a reader comes here to compare:
 
 | | C | Python | Node |
 |---|---|---|---|
@@ -162,7 +162,7 @@ must answer the second yourself.** Round trip holds everywhere: the value that
 comes back is the one you put in, and a C pointer stored in a space and matched
 out again is the very same pointer [tested:
 `extensions/cmetta/tests/test_cmetta.c`, "a live C value crosses MeTTa and comes
-back the same object"]. Wrapping the same value TWICE is where the seats differ.
+back the same object"]. Wrapping the same value TWICE is where the extensions differ.
 Node interns by identity through a `WeakMap`, so `G(x) === G(x)` for one object
 and the engine-side handle table holds one entry per object. Python answers
 `True` to `==` for two `py-atom` reads of one object. C does not intern:
@@ -176,7 +176,7 @@ by a table on your side, so interning keeps that table one entry per object
 instead of one per crossing, which is Node's stated reason for the `WeakMap`. A
 blob has no such table and is released by SWI's own garbage collector, so not
 interning costs no memory; what it costs is that two wraps of one value are two
-MeTTa values that compare unequal. Either way, say which in your seat's own
+MeTTa values that compare unequal. Either way, say which in your extension's own
 prose, and wrap once and pass the atom.
 
 **Own the lifetime.** A blob's release callback is where the structure is freed
@@ -191,15 +191,15 @@ success claims the value, so recognise only your own and let everything else
 fail. It may cut after that test, unlike an event seam, and
 `no_cut_in_an_event_hook` checks the distinction rather than banning cuts. And
 it sits in front of every grounded-type lookup, so its cost is paid at each of
-them and not once per seat. What that is worth is measured on the sibling
+them and not once per extension. What that is worth is measured on the sibling
 ownership seam: the Node bridge's `seam:foreign_space/1` cost exactly one
 inference on every space operation whether or not any provider existed, 239,005
-against 238,505 on that seat's `define-call` benchmark. Write the guard so a
+against 238,505 on that extension's `define-call` benchmark. Write the guard so a
 failure costs one indexed lookup.
 
 **If your objects can be CALLED, say so.** `seam:grounded_applicable/1` answers
 whether a value is applicable and `seam:grounded_apply/3` applies it, which is
-how `($f 2)` works wherever the atom lands. The C seat's pair is two clauses over
+how `($f 2)` works wherever the atom lands. The C extension's pair is two clauses over
 `blob(Obj, cmetta_object)`, and it is what C answers to a Python callable being
 an atom.
 
@@ -215,30 +215,30 @@ one.
 
 | path | what it is | required |
 |---|---|---|
-| `extension.pl` | the control file | yes; it is what makes this a seat |
+| `extension.pl` | the control file | yes; it is what makes this an extension |
 | `llms.txt` | the consumer's cheat sheet: install, first call, the surface | yes; its presence is checked, its content is the author's |
-| `README.md` | the seat's own prose, published on the site | yes for a host seat |
+| `README.md` | the extension's own prose, published on the site | yes for a host extension |
 | `build.sh` | build your artefacts | if you have any |
 | `check.sh` | your gate lanes, SOURCED by the root gate | yes |
 | `test.sh` | your tests, the same entry the gate uses | if you own tests |
 | `bench.sh` | your suite against committed pins | if you own benchmarks |
-| `tests/` | tests whose subject is this seat | yes |
-| `examples/` | runnable programs a reader can copy, plural | yes for a host seat |
-| `examples/language-feature-examples/` | the shipped MeTTa corpus written again in this host, one file per example | if the seat mirrors the corpus |
+| `tests/` | tests whose subject is this extension | yes |
+| `examples/` | runnable programs a reader can copy, plural | yes for a host extension |
+| `examples/language-feature-examples/` | the shipped MeTTa corpus written again in this host, one file per example | if the extension mirrors the corpus |
 | `benchmarks/` | the suite plus `baseline.json` | yes if `bench.sh` exists |
-| `kit/` | the codec conformance corpus and its driver | for a host seat with a wire |
+| `kit/` | the codec conformance corpus and its driver | for a host extension with a wire |
 
-The tree is not yet uniform on two of these: the Node seat spells its test
-directory `test/` in the singular, and the Python seat ships no `README.md`.
+The tree is not yet uniform on two of these: the Node extension spells its test
+directory `test/` in the singular, and the Python extension ships no `README.md`.
 Follow the plural, and write the README.
 
-`language-feature-examples/` is where a seat proves it can express the whole
-language rather than a chosen tour of it. The Python seat carries one, 219 files
+`language-feature-examples/` is where an extension proves it can express the whole
+language rather than a chosen tour of it. The Python extension carries one, 219 files
 mirroring `examples/` path for path, each defining `twin(m)` and pinned to an
-inference budget that `tools/twin_coverage.py` measures; the Node and C seats
+inference budget that `tools/twin_coverage.py` measures; the Node and C extensions
 answer the shipped corpus from the Python side instead, through
 `extensions/python/tests/ch21_another_language_at_the_seam/`, so neither ships
-a folder of its own yet. A seat that grows one puts it here, under `examples/`,
+a folder of its own yet. An extension that grows one puts it here, under `examples/`,
 because it IS examples: the same programs a reader already knows, in a
 different host. Say in the folder's README how they run, since a corpus driven
 by a tool is not a corpus you execute file by file.
@@ -264,15 +264,15 @@ by reading that text, so a path reached through a variable is a path the
 evidence gate cannot see.
 
 Have `check.sh` call `test.sh` and `bench.sh` rather than repeating their
-commands. The gate and a developer should run one file. When the Python seat's
+commands. The gate and a developer should run one file. When the Python extension's
 pytest flags lived in the lane alone, running `pytest` by hand used different
 settings from the ones that make the run correct.
 
 ## Tests
 
-Own the tests whose subject is your seat. Drive your public doors rather than
+Own the tests whose subject is your extension. Drive your public API rather than
 reaching into internals, and cover the paths a built tree cannot reach: what
-happens with your artefact absent, with a need unmet, with the seat present and
+happens with your artefact absent, with a need unmet, with the extension present and
 its backend broken.
 
 A test that can SKIP is not evidence until its output proves it ran. Report a
@@ -280,15 +280,15 @@ count, and fail a built tree that reported fewer tests than the file declares.
 A worktree has no gitignored build output, so a lane that skips there reads
 green while proving nothing.
 
-A host seat also passes the codec conformance kit: `kit/corpus.json` and its
+A host extension also passes the codec conformance kit: `kit/corpus.json` and its
 driver, which `extensions/python/tests/ch21_another_language_at_the_seam/`
-compares across seats so two languages cannot disagree about what an atom is.
+compares across extensions so two languages cannot disagree about what an atom is.
 
 ## Benchmarks
 
 **Do not write a harness.** Import `BenchmarkBaseline`, `benchmark_case`,
 `count_atoms` and `measure_instructions` from `metta.testing`; `DEVELOPING.md`
-says so and every seat's suite is a thin driver over it. It already gives you
+says so and every extension's suite is a thin driver over it. It already gives you
 minimum-of-three with fresh setup per sample, a two-sided band where a stale
 high pin fails as well as a regression, configuration stamps that refuse rather
 than misreport, and perf measurement that fails loudly.
@@ -307,7 +307,7 @@ beside them as a third reading of what the ENGINE did. Wall clock never decides.
 it was taken in, and the stamp is what refuses instead of reporting a phantom
 regression. Stamp everything that moves your numbers: the C artefacts move one
 case by four orders of magnitude, and the loaded SEAT SET moves a boot by 23,155
-inferences and every space operation by two. Ask the engine which seats loaded
+inferences and every space operation by two. Ask the engine which extensions loaded
 rather than modelling the rule.
 
 **Say where it was measured.** Instruction counts move with the checkout's path
@@ -321,8 +321,8 @@ Named, so you know what turns red rather than discovering it:
 
 - `test_the_tree_partitions_by_seam` and its neighbours: a component owning a
   test directory ships `test.sh`; one shipping a benchmark suite ships its
-  baseline; every seat ships an `llms.txt`.
-- `test_every_extension_has_a_site_area`: every seat has a page under
+  baseline; every extension ships an `llms.txt`.
+- `test_every_extension_has_a_site_area`: every extension has a page under
   `website/extensions/`.
 - `every_seam_declares_one_kind` and `every_seam_kind_matches_its_direction`:
   a seam clause you contribute, `seam:host_object/1` among them, is declared
@@ -334,7 +334,7 @@ Named, so you know what turns red rather than discovering it:
 - the `codespell`, `ruff-drivers` and `docs` lanes reach your files.
 - your own lanes, from `check.sh`, sourced into the same summary table.
 
-## The smallest seat that works
+## The smallest extension that works
 
 ```
 extensions/mine/

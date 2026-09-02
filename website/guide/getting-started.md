@@ -20,7 +20,7 @@ metta.match("(parent Tom $x)")       # [Row(x=Bob)]
 metta.run("!(+ 40 2)")               # [[Grounded(42)]]
 ```
 
-Every module function is one line over the default context's `Space` handle. The rungs, each sugar for the one below it:
+Every module function is one line over the default context's `Space` handle. Each row is sugar for the one below it:
 
 | today | shorter |
 |---|---|

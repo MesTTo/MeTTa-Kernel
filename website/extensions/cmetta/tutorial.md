@@ -1,6 +1,6 @@
 <!--
-Purpose: teach the CMeTTa seat itself: how it builds, how a C program of your
-  own links against it, and the one thing that is true of this seat and no
+Purpose: teach the CMeTTa extension itself: how it builds, how a C program of your
+  own links against it, and the one thing that is true of this extension and no
   other, which is that the engine runs inside your process and there is no
   serialisation at the boundary.
 Assumes: the reader writes C, and has SWI-Prolog with its development headers
@@ -11,9 +11,10 @@ Guarantees:
     [source: extensions/cmetta/examples/hello.c,
     extensions/cmetta/examples/ops.c, extensions/cmetta/examples/stream.c,
     extensions/cmetta/examples/lower.c; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
-  - the four example programs run under the seat's own suite, so a fence copied
+  - the four example programs run under the extension's own suite, so a fence copied
     from one cannot drift away from working code
-    [tested: sh extensions/cmetta/test.sh; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
+        [tested: sh extensions/cmetta/test.sh;
+    commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
   - the page is in the navigation and its links resolve
     [tested: test_every_site_page_is_reachable_from_the_navigation,
     npm run docs:build; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709]
@@ -61,7 +62,7 @@ make
 ```
 
 That produces `libcmetta.so`, the four example programs, and the two drivers
-the cross-seat parity test and the benchmarks use. `make test` builds from
+the cross-extension parity test and the benchmarks use. `make test` builds from
 clean and runs the C suite, the header-surface check, and all four examples.
 
 Two prerequisites: a C compiler, and SWI-Prolog with its development files.
@@ -78,7 +79,7 @@ SWIPL=/path/to/swipl, or install the SWI-Prolog development package.  Stop.
 ```
 
 `swipl-ld` is not the tool here. It builds an extension loaded INTO SWI, and
-this seat goes the other way: it calls `PL_initialise` to embed SWI in a C
+this extension goes the other way: it calls `PL_initialise` to embed SWI in a C
 program of yours.
 
 ## Compile a program of your own
@@ -102,7 +103,7 @@ environment; `METTA_PATH` still overrides it at run time.
 
 ## There is no boundary to cross
 
-This is what makes the seat worth having. PyMeTTa reaches the engine through
+This is what makes the extension worth having. PyMeTTa reaches the engine through
 janus and MeTTa-node reaches it through a WebAssembly build, so both cross a
 language boundary and both encode every term into the tagged arrays
 [the wire codec](../../engine/codec) describes. C is already inside. It
@@ -174,7 +175,7 @@ value; `mt_bindings_len`, `mt_binding_var` and `mt_binding_value` iterate all of
 them. The binding set retains its atoms until `mt_bindings_free`.
 
 Two more rules and you have the memory and error models. A `const mt_atom *`
-BORROWS and a non-`const` one is TAKEN, so every door you hand a fresh term to
+BORROWS and a non-`const` one is TAKEN, so every function you hand a fresh term to
 consumes it and the common shape needs no cleanup line; `mt_keep(t)` hands over
 a new reference for a term you are keeping. Errors are `errno`-shaped: set on
 failure and not cleared on success, so a run of calls is checked once with
@@ -219,11 +220,12 @@ That is `mt_bound(row, "n")` rather than `mt_at(row, 2)` and a comment
 explaining why 2. It works at any depth in the pattern and costs one walk of
 the term, with no engine call.
 
-When you want one value rather than a walk, `mt_one(r)` claims EXACTLY one and
-refuses zero or many, `mt_first(r)` takes the first and claims nothing about
-the rest, `mt_one_int(r)` and its `_float`, `_truth` and `_name` siblings give
-you the value with no atom to look after, and `mt_all(r)` gives every answer as
-an `mt_list`. Each consumes the cursor.
+When you want one value rather than a walk, four functions take it for you.
+`mt_one(r)` claims exactly one answer and refuses zero or many.
+`mt_first(r)` takes the first and claims nothing about the rest.
+`mt_one_int(r)`, and its `_float`, `_truth` and `_name` siblings, give you
+the value with no atom to look after. `mt_all(r)` gives every answer as an
+`mt_list`. Each consumes the cursor.
 
 The resulting list can become one space write without rebuilding it:
 
@@ -247,7 +249,7 @@ attempt to return one reports `MT_UNSUPPORTED` rather than dereferencing the
 released value. A reference retained with `mt_keep` remains valid until it is
 dropped.
 
-There are two doors for a C function. `mt_def` publishes a C function the
+There are two ways to give MeTTa a C function. `mt_def` publishes a C function the
 engine CALLS:
 
 ```c
@@ -338,7 +340,7 @@ same runtime. A thread other than the one that opened it calls
 
 ## Where to go next
 
-[The CMeTTa seat page](./) is the seat's own README: the five rules in full,
+[The CMeTTa extension page](./) is the extension's own README: the five rules in full,
 the twelve atom kinds, scope cleanup with `MT_AUTO`, measuring with the
 engine's own counters, and what a C value crossing MeTTa by reference does and
 does not get. `extensions/cmetta/cmetta.h` is the contract and documents every

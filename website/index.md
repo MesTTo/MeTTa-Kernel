@@ -1,50 +1,71 @@
----
-layout: home
+<!--
+Purpose: state what MeTTa Kernel is, show it working, and route to the four things a reader can want.
+Guarantees: the Python block runs as written against the shipped surface.
+[tested: npm run docs:build; commit=WORKTREE]
+-->
 
-hero:
-  name: "MeTTa Python"
-  text: "Compose Python and MeTTa"
-  tagline: "Learn the language, use the Python library, and inspect every public module."
-  actions:
-    - theme: brand
-      text: Start the tutorials
-      link: /tutorials/01-atoms-and-expressions
-    - theme: alt
-      text: Open the guide
-      link: /guide/getting-started
-    - theme: alt
-      text: Browse the reference
-      link: /reference/
+# MeTTa Kernel
 
-features:
-  - title: Learn MeTTa from Python
-    details: Follow eight graded tutorials from atoms and spaces through types, diagnostics, and graph views.
-    link: /tutorials/01-atoms-and-expressions
-  - title: Build with MeTTa
-    details: Use the guide for queries, Python operations, definitions, spaces, notebooks, and Pettorch.
-    link: /guide/getting-started
-  - title: Check the exact surface
-    details: Open generated signatures and source docstrings grouped by the job each module performs.
-    link: /reference/
----
+MeTTa, implemented in Prolog and C. You write Python; it becomes rules the
+engine can run, query, and reason over.
 
-# One language for several paradigms
+```sh
+sudo apt install swi-prolog     # or: brew install swi-prolog
+pip install 'pymetta[engine]'
+```
 
-If you know Python and have not used MeTTa, start with [Atoms and expressions](./tutorials/01-atoms-and-expressions). The eight tutorials build one concept at a time and use generated pictures of the terms they teach.
+## What it looks like
 
-If you already use MeTTa, open the [Guide](./guide/getting-started) for task-oriented explanations, [Integrations](./integrations/dataframes) for library boundaries, or the [API reference](./reference/) for exact signatures and source docstrings.
+```python
+from metta import MeTTa, S, V, match
 
-MeTTa is built to be a lingua franca. Each MeTTa integration translates another paradigm's semantics into MeTTa's own: routing becomes unification over facts, multi-shot solving becomes parts and toggled truths, validation becomes declarations, tables become facts, and neural predicates become weighted relations. Once translated, the paradigms compose with each other in one substrate.
+m = MeTTa().self
+m.add(S.parent(S.Tom, S.Bob), S.parent(S.Bob, S.Ann), S.parent(S.Ann, S.Zoe))
 
-The translation keeps the concepts visible. A web route is a fact a program can query. A subscription is a standing query over a space. An array keeps its host identity while operations follow the array API. A neural classifier answers the same weighted pairs that the measure algebra consumes.
+@m.define
+def ancestor(x):
+    yield match(S.parent(x, V.y), V.y)                # a parent, or
+    yield ancestor(match(S.parent(x, V.y), V.y))      # an ancestor of one
 
-| Integration concept | MeTTa reading |
-|---|---|
-| functions and methods | grounded functions whose calls reduce |
-| tables, caches, and populations | spaces queried by matching |
-| generators, search, and retrieval | nondeterministic answers |
-| schemas and records | constructor expressions with declarations |
-| routes and handlers | facts plus unification in registration order |
-| model outputs | weighted relations over classes |
+ancestor(S.Tom)          # [Bob, Ann, Zoe]
+```
 
-Start with [the tutorials](./tutorials/01-atoms-and-expressions), then use the sidebar to move into deeper guides, reasoning tools, integrations, live systems, and reference pages. [The engine](./engine/) is the other direction: the extension points and what each costs, the forms the translator gives meaning to, the wire every atom crosses on, and how to work on the repository itself.
+Three things happened there that ordinary Python does not do.
+
+**The function became rules.** `@m.define` read the source of `ancestor` and
+installed two equations. The body never ran as Python. `ancestor.py` still
+holds the original callable if you want to run it that way.
+
+**Two `yield`s are two rules, not two items.** The engine tries both and
+returns every answer either one produces. Recursion terminates because the
+second rule stops finding parents, not because a loop counter ran out.
+
+**A pattern is a question.** `match(S.parent(x, V.y), V.y)` asks the space for
+every `y` that `x` is a parent of. Write two patterns and you get a join:
+
+```python
+m.match(S.parent(V.a, V.b), S.parent(V.b, V.c))
+# [Row(a=Tom, b=Bob, c=Ann), Row(a=Bob, b=Ann, c=Zoe)]
+```
+
+The same rules are reachable as MeTTa source, because they are the same rules:
+
+```python
+m.run("!(ancestor Tom)")     # [[Bob, Ann, Zoe]]
+```
+
+## Where to go
+
+**[Tutorials](./tutorials/01-atoms-and-expressions)** if this is new. Eight of
+them, one idea each, starting from what an atom is.
+
+**[Guide](./guide/getting-started)** if you are building something. Installing,
+querying, writing rules, spaces, threads, and what to do when a query returns
+nothing.
+
+**[Reference](./reference/)** for exact signatures.
+
+**[Engine](./engine/)** to work on MeTTa Kernel itself, or to put a fourth
+language on top of it. Python, TypeScript and C are the three surfaces built so
+far, each reaching the engine through a documented wire format rather than a
+hand-written port.

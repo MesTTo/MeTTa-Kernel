@@ -3,7 +3,7 @@ outline: [2, 3]
 ---
 
 <!--
-Purpose: publish extensions/README.md, the contract for adding a seat, without
+Purpose: publish extensions/README.md, the contract for adding an extension, without
   copying it.
 Guarantees: the page is exactly the committed extensions/README.md, the file an
   author finds by opening the folder they are adding to
