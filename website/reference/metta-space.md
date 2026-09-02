@@ -504,6 +504,19 @@ def lint(self):
 > Answers metta.lint.Finding records, empty when nothing looks
 > wrong.
 
+### `Space.effect_plan`
+
+```python
+def effect_plan(self, target: Any) -> _ops_module.EffectPlan:
+```
+
+> Return operations the target may execute and their joined effect.
+>
+> The engine translates the same atom or source form ``eval`` accepts,
+> follows nested compiled calls, and reads current operation metadata.
+> It does not execute the target. A later registration change is visible
+> on the next call. This is the analysis reified-world admission uses.
+
 ### `Space.copy`
 
 ```python

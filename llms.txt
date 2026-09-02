@@ -479,6 +479,8 @@ m.why(pattern) -> str            one empty match explained in words
 rows.why()                       pattern miss, failed join, or rejecting guard
 m.lint() -> list[lint.Finding]   the silently-wrong class, from stored structure
 metta.lint.lint_file(path, m=None)   the same findings anchored to file:line
+m.effect_plan(target) -> EffectPlan(operations, effect), translates and follows
+        nested compiled calls without executing the target
 m.eval_status(target) / m.run_status(src)  each answer paired with the path that
         produced it: "value" (equation, builtin or special form applied),
         "not-reducible" (no rule applied, the answer is the term itself),
