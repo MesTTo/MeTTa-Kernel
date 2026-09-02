@@ -1,7 +1,7 @@
 <!--
 Purpose: state what MeTTa Kernel is, show it working, and route to the four things a reader can want.
 Guarantees: the Python block runs as written against the shipped surface.
-[tested: npm run docs:build; commit=WORKTREE]
+[tested: npm run docs:build; commit=34c48b5b6f2e9515a1410a937d5784d6420e1d23]
 -->
 
 # MeTTa Kernel
