@@ -128,7 +128,8 @@ test ! -e "$fixture/unreachable/fixture"
 # An existing directory nested inside another checkout is not itself a Git
 # checkout. Git commands run there can see the parent, so this case must compare
 # the reported worktree root rather than merely ask whether the path is inside
-# one [tested: this script; commit=WORKTREE].
+# one [tested: this script;
+# commit=60b4e5a39f2274ad5d207dd9ce7b948b74a299ab].
 mkdir -p "$fixture/non-git"
 git -C "$fixture/non-git" init -q
 mkdir -p "$fixture/non-git/fixture"
