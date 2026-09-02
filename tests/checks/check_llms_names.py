@@ -32,10 +32,13 @@ Guarantees:
   - a path that stopped resolving, a roster that stopped matching `lib/`, a
     count that stopped matching its own roster, and a language-surface name the
     engine does not know each fail independently and name the file and line
-    [tested: tests/checks/check_llms_selftest.py]
-  - every llms.txt in the tree is read, the root's and each seat's, so a seat
-    sheet is not exempt from the promise the root makes
-    [tested: tests/checks/check_llms_selftest.py]
+    [tested: tests/checks/check_llms_selftest.py; commit=WORKTREE]
+  - every llms.txt in the tree is read, including the root and each extension,
+    so an extension sheet is not exempt from the promise the root makes
+    [tested: tests/checks/check_llms_selftest.py; commit=WORKTREE]
+  - each Python call is checked against the receiver's actual class, and an
+    unlabelled API block containing such calls is still inspected
+    [tested: tests/checks/check_llms_selftest.py; commit=WORKTREE]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -108,44 +111,71 @@ _ROSTER = re.compile(
 #: The same count where the sources table states it a second time.
 _TABLE_COUNT = re.compile(r"\|\s*`lib/lib_\*/lib_\*\.metta`\s*\|\s*(?P<count>\d+) MeTTa libraries")
 
-#: The receiver names the sheets use in their examples. A door written on one
-#: of these has to exist on the library; anything else with a dot is a module
-#: path, a file or prose. `m` is a context in one sheet and a space in
-#: another, so a door is checked against BOTH tiers and the package: the
-#: question worth failing on is "does this door exist at all", and asking it
-#: per tier reported forty names that were only written on the other one.
-_RECEIVERS = frozenset({"m", "kb", "space", "store", "metta"})
-_DOOR = re.compile(r"\b(" + "|".join(sorted(_RECEIVERS)) + r")\.(\w+)")
+#: Receiver names used by the Python examples. The same spelling can denote a
+#: different class in each sheet, so the class is selected before a method is
+#: checked. ``self`` is the one supported property hop because the Python
+#: extension sheet teaches context.self methods directly.
+_RECEIVERS = frozenset({"m", "context", "ctx", "kb", "space", "store", "metta"})
+_METHOD = re.compile(
+    r"\b(?P<receiver>"
+    + "|".join(sorted(_RECEIVERS))
+    + r")\.(?:(?P<via>self)\.)?(?P<method>\w+)"
+)
+_ROOT_SHEET = REPO / "llms.txt"
+_PYTHON_SHEET = REPO / "extensions/python/llms.txt"
+_PYTHON_DOCUMENTS = frozenset({_ROOT_SHEET, _PYTHON_SHEET})
 
 
-def _python_blocks(text: str) -> str:
-    """The python fenced blocks, every other line blanked.
+def _python_blocks(sheet: Path, text: str) -> str:
+    """Return Python examples with every other source line blanked.
 
-    Blanked rather than dropped so a finding's line number still points at the
-    sheet's own line.
+    Explicit ``python`` fences always qualify. In the two Python documents, an
+    unlabelled fence qualifies when it contains a recognized receiver call.
+    That admits compact signature tables while leaving MeTTa source blocks
+    alone. Blanking preserves each finding's source line.
     """
+    lines = text.splitlines()
+    kept = [""] * len(lines)
     inside = False
-    kept: list[str] = []
-    for line in text.splitlines():
-        if line.startswith("```"):
-            inside = line.strip() == "```python"
-            kept.append("")
-        else:
-            kept.append(line if inside else "")
+    language = ""
+    body_start = 0
+
+    def retain(body_end: int) -> None:
+        body = lines[body_start:body_end]
+        inferred = (
+            language == ""
+            and sheet in _PYTHON_DOCUMENTS
+            and any(_METHOD.search(line) for line in body)
+        )
+        if language == "python" or inferred:
+            kept[body_start:body_end] = body
+
+    for index, line in enumerate(lines):
+        if not line.startswith("```"):
+            continue
+        if not inside:
+            inside = True
+            language = line.removeprefix("```").strip()
+            body_start = index + 1
+            continue
+        retain(index)
+        inside = False
+        language = ""
+    if inside:
+        retain(len(lines))
     return "\n".join(kept)
 
 
-def door_findings(sheet: Path, text: str) -> list[str]:
-    """Every door a sheet teaches that the library does not have.
+def method_findings(sheet: Path, text: str) -> list[str]:
+    """Every taught Python method absent from its documented receiver.
 
-    `m.query(...)` sat in the Python seat's sheet in three places and had
-    never existed on either tier; nothing read the sheet, so nothing said so
-    [measured 2026-09-01]. Read from the CLASSES rather than an instance, so
-    the check costs an import instead of an engine boot.
+    The check reads classes rather than instances, so it costs one import and
+    never boots an engine. The root sheet binds ``m`` to ``Space``; the Python
+    extension sheet binds it to ``MeTTa``. Named spaces always use ``Space``.
     """
-    seat = str(REPO / "extensions" / "python")
-    if seat not in sys.path:
-        sys.path.insert(0, seat)
+    python_path = str(REPO / "extensions" / "python")
+    if python_path not in sys.path:
+        sys.path.insert(0, python_path)
     try:
         import metta as package  # noqa: PLC0415  -- imported only when the lane runs
     except ImportError as absent:
@@ -154,30 +184,42 @@ def door_findings(sheet: Path, text: str) -> list[str]:
         # half green on exactly the tree where the doors moved.
         return [
             f"{sheet.relative_to(REPO)}: the metta package under "
-            f"extensions/python did not import, so no door was checked: {absent}"
+            f"extensions/python did not import, so no method was checked: {absent}"
         ]
-    known = (
-        set(dir(package))
-        | set(dir(package.MeTTa))
-        | set(dir(package.Space))
-        | set(dir(package.Atom))
-    )
+
+    m_class = package.Space if sheet == _ROOT_SHEET else package.MeTTa
+    receivers = {
+        "m": (m_class, m_class.__name__),
+        "context": (package.MeTTa, "MeTTa"),
+        "ctx": (package.MeTTa, "MeTTa"),
+        "kb": (package.Space, "Space"),
+        "space": (package.Space, "Space"),
+        "store": (package.Space, "Space"),
+        "metta": (package, "the metta package"),
+    }
     findings: list[str] = []
-    # Only a PYTHON CODE BLOCK teaches a door. Prose discusses one, including
-    # to say it does not exist -- the root sheet's "there is no
-    # `metta.measure` and no `metta.matching`" is a true sentence this half
-    # read as two false claims -- and another seat's blocks are another
-    # language's objects, where `m.dispose` is correct TypeScript and nothing
-    # to do with this package.
-    text = _python_blocks(text)
-    for match in _DOOR.finditer(text):
-        receiver, door = match.groups()
-        whole = f"{receiver}.{door}"
-        if Path(whole).suffix in _SUFFIXES or door in known:
+    # Only Python blocks teach Python calls. Prose can deny that a name exists,
+    # and another language can correctly expose a different method set.
+    code = _python_blocks(sheet, text)
+    for match in _METHOD.finditer(code):
+        receiver = match.group("receiver")
+        via = match.group("via")
+        method = match.group("method")
+        target, label = receivers[receiver]
+        whole = match.group(0)
+        if via is not None:
+            if via not in dir(target):
+                findings.append(
+                    f"{sheet.relative_to(REPO)}:{_line_of(code, match.start())}: "
+                    f"teaches `{whole}`, but {label} has no `{via}` property"
+                )
+                continue
+            target, label = package.Space, "Space"
+        if method in dir(target):
             continue
         findings.append(
-            f"{sheet.relative_to(REPO)}:{_line_of(text, match.start())}: teaches "
-            f"`{whole}`, which the library has on no tier"
+            f"{sheet.relative_to(REPO)}:{_line_of(code, match.start())}: teaches "
+            f"`{whole}`, but {label} has no `{method}` method"
         )
     return findings
 
@@ -192,8 +234,8 @@ _SURFACE_BLOCK = re.compile(
 def sheets() -> list[Path]:
     """Every llms.txt the tree ships, the root's first."""
     root = REPO / "llms.txt"
-    seats = sorted((REPO / "extensions").glob("*/llms.txt"))
-    return [path for path in (root, *seats) if path.is_file()]
+    extensions = sorted((REPO / "extensions").glob("*/llms.txt"))
+    return [path for path in (root, *extensions) if path.is_file()]
 
 
 def _line_of(text: str, index: int) -> int:
@@ -341,7 +383,7 @@ def main(argv: list[str] | None = None) -> int:
         text = sheet.read_text(encoding="utf-8")
         findings.extend(path_findings(sheet, text))
         findings.extend(library_findings(sheet, text))
-        findings.extend(door_findings(sheet, text))
+        findings.extend(method_findings(sheet, text))
         if known is not None:
             findings.extend(head_findings(sheet, text, known))
     for finding in findings:

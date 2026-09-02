@@ -54,8 +54,9 @@ every run.
 ```python
 from metta import MeTTa, S, V, G, ground, Expression, equation, rules, parse
 from metta.vocabularies import EffectClass
-m = MeTTa()                      # binds &self, the same space the CLI uses
-m.self.run("(= (f) 1) !(f) !(+ 1 2)")  # [[Grounded(1)], [Grounded(3)]]
+context = MeTTa()                         # owns one engine context
+m = context.self                          # the home Space, bound as &self
+m.run("(= (f) 1) !(f) !(+ 1 2)")         # [[Grounded(1)], [Grounded(3)]]
 ```
 
 Module-level `metta.run/match/eval/add/remove/parse/fn/trace` act on one lazily
@@ -110,13 +111,13 @@ takes anything. Python's `a == b` still answers `False` across kinds, because
 
 ## Running and querying: exact return shapes
 
-```
+```python
 m.run(src, *, timeout=, inferences=)
                        -> list[list[Atom]], one inner list per ! directive
-m.eval(target, *, using=, timeout=, inferences=)
-                                           -> list[Atom | Undefined]
+m.eval(target, *more, timeout=, inferences=, under=, theory=, interpreter=)
+                 -> list[Atom | Undefined] | list[list[Atom | Undefined]]
 m.match(*patterns, where=, limit=, timeout=, inferences=, under=, into=) -> Answers
-m.answers(target, *, using=, timeout=, inferences=, under=) -> Answers
+m.answers(target, *, timeout=, inferences=, under=, theory=, interpreter=) -> Answers
 m.sample(query, *, k=10, seed=7) -> list[Atom]
 m.prepare(*patterns, where=) -> Prepared; .solve(given=...) many times, .columns
 m.parse(src) -> Atom
@@ -127,10 +128,9 @@ m.save(path, format="metta"|"fast") -> int   (atomic, fsynced)
 m.digest() -> str, 64-hex content hash of the space, store-independent
 ```
 
-`target` may be a string or an already-built atom. `using=` maps BARE SYMBOLS
+`target` may be a string or an already-built atom. `bind()` maps BARE SYMBOLS
 (not `$vars`) to Python objects, which cross by identity, not by copy or repr:
-`m.eval("(gated v)", using={"v": tensor})`; it lives on `eval` and its async
-twin, and `with m.bind(v=tensor): m.run(src)` scopes the same binding over any
+`with m.bind(v=tensor): m.eval("(gated v)")` scopes that binding over every
 call inside the block. A target with no applicable rule is returned as the
 unreduced term; `eval_status()` names that path `not-reducible`.
 
@@ -152,9 +152,7 @@ implicit `(rate n)` tags using a local seeded generator.
 
 `with m.capture() as output:` collects printed text in `output.text` without
 changing either return shape. `with m.atomic():` makes each whole run one
-transaction; `with m.speculative():` rolls its writes back; and
-`with m.strict():` raises `StrictError` on a `not-reducible` directive
-(opt-in, because an unreduced term is an ordinary MeTTa value).
+transaction; `with m.speculative():` answers and rolls its writes back.
 
 `Rows` is a list of `Row` with `.columns`. `row.x` and `row["x"]` both work.
 `rows.one()` (exactly one), `.first()`, `.column(name)` -> that column's atoms,
@@ -403,63 +401,65 @@ has no type answer and does not fall back to a tuple type.
 The empty expression is the unit value: `get-type` and `get-type-space` report
 its type as `(->)`. That is an observer rule; argument checking continues to
 treat `()` as gradual rather than forcing a unit-type constraint.
-`m.self.arities(name)`, `m.self.is_function(name)` (visible from here),
-`m.self.is_function_here(name)` (has clauses HERE), `m.self.builtins()` (every
+`m.arities(name)`, `m.is_function(name)` (visible from here),
+`m.is_function_here(name)` (has clauses HERE), `m.builtins()` (every
 registered function and translator special form, sorted without duplicates);
 each is a `Space` method, so any space handle answers for its own view.
 
 ## Declarations: how a space behaves, written as atoms
 
-Each `m.declare_*` writes one atom into `&metta` and returns it; removing that
-atom withdraws the declaration. Coherence is checked eagerly in the same
-transaction as the write, so a new entry that could disagree with an existing
-one fails there, naming both, rather than on the first query in their overlap.
+Each head-named method below writes one atom into `&metta` and returns it;
+removing that atom withdraws the declaration. Coherence is checked eagerly in
+the same transaction as the write, so a new entry that could disagree with an
+existing one fails there, naming both, rather than on the first query in their overlap.
 A variant-identical `(: name type)` row is likewise refused and names the first
 row; distinct arrows for one function remain valid overloads. A public batch
 is checked before its first write, so `m.add(declaration, declaration)` leaves
 neither copy behind.
 
-```
-declare_handles(name, pattern, "Exact"|"Partial"|"Sound"|"Refuse", det=)
+```python
+m.handles(pattern, "Exact"|"Partial"|"Sound"|"Refuse", det=)
         how faithfully a space answers one query shape. Exact licenses pushing
         the caller's bound down to the provider; Partial and Sound stay
         candidates the engine re-unifies; Refuse makes the query a loud error
         instead of a silent partial answer. (in $x) at a position matches only
         queries arriving with it bound, so a scan-only source is three words.
-declare_emits(name, "depth"|"fair"|"best-first")     answer order
-declare_merge(pattern, "depth"|"fair"|"best-first")  how answers merge
-declare_source(name, "linear"|"repeated"|"peek")     consumption discipline
-declare_writes(name, "transactional"|"atomic-single"|"best-effort")
-declare_context(name, "closed-world"|"open-world")   what absence means
-declare_on_error(name, pattern, "keep"|"empty"|"abort")
-space.algebra(name, *, combine, extend, zero, one, laws=(), carrier=(),
-              requires=(), order=None)
+m.emits("depth"|"fair"|"best-first")                 answer order
+m.merge(pattern, "depth"|"fair"|"best-first")        how answers merge
+m.source("linear"|"repeated"|"peek")                 consumption discipline
+m.atomicity("transactional"|"atomic-single"|"best-effort")
+m.context("closed-world"|"open-world")               what absence means
+m.on_error(pattern, "keep"|"empty"|"abort")
+m.image(type_name, "opaque"|"transparent"|"auto")    how values cross
+m.algebra(name, *, combine, extend, zero, one, laws=(), carrier=(),
+          requires=(), order=None)
         add one catalog algebra; equational laws are exhaustively checked over
         the finite carrier before they may license answer fusion
 metta.algebra(name, *, plus, times, zero, one, laws=(), carrier=(),
               requires=(), order=None) -> DeclaredAlgebra
         construct an arbitrary algebra through the callable `metta.algebra`
         module; counting, tropical, prob, prov and ranked are shipped objects
-declare_annotations(name, algebra, *, capabilities=())
-        choose any declared algebra for a space or operation; required
+m.annotations(algebra, *, capabilities=())
+m.annotations(operation, algebra, *, capabilities=())
+        choose any declared algebra for this space or an operation; required
         capabilities are checked before the catalog row lands
-add_tagged_fact(tag, proposition)     store ordinary (fact tag proposition)
-add_tagged_rule(tag, head, *premises) store the generic threaded rule form
-match(query, under=algebra) / answers(call, under=algebra)
+m.add_tagged_fact(tag, proposition)     store ordinary (fact tag proposition)
+m.add_tagged_rule(tag, head, *premises) store the generic threaded rule form
+m.match(query, under=algebra) / m.answers(call, under=algebra)
         return annotated answers; these are the only public algebra evaluators
-sample(query, *, k=10, seed=7)
+m.sample(query, *, k=10, seed=7)
         stable weighted selection from nonnegative `(rate n)` tags
-declare_admits(name, type_name)     only TYPE-carrying atoms enter
-declare_capacity(name, limit)       an add beyond LIMIT is refused loudly
-declare_reaction(name, pattern, operation, priority=)  stored as an (on ...) atom
-declare_agenda(name, "declaration"|"recency"|"specificity"|"priority"|"user",
-               function=None)
+m.admits(type_name)                 only TYPE-carrying atoms enter
+m.capacity(limit)                   an add beyond LIMIT is refused loudly
+m.reacts(pattern, operation, priority=)  stored as an (on ...) atom
+m.agenda("declaration"|"recency"|"specificity"|"priority"|"user",
+         function=None)
         which reaction fires first when several match one write. declaration
         is the default and the order they were declared; user names a MeTTa
         function that SCORES a reaction. Every policy ties on declaration
         order and an undeclared priority reads as 0.
-declare_events(name, "at-most-once"|"at-least-once"|"per-write-exactly",
-               "ordered"|"unordered")
+m.events("at-most-once"|"at-least-once"|"per-write-exactly",
+         "ordered"|"unordered")
         what a foreign context's change events promise. Subscribability is a
         promise about the context, not an inference from its write methods: a
         context that declares nothing refuses subscribe, bridge and reaction
@@ -492,7 +492,7 @@ metta.engine().info() -> versions of metta, janus, swi_prolog, python, metta_pat
 ```
 
 Errors: `MettaError` is the base, then `EngineError`, `MettaSyntaxError`,
-`CastError`, `CompileError`, `StrictError`, `SourceNotFound`,
+`CastError`, `CompileError`, `SourceNotFound`,
 `MettaResultError`, `TransportFailure`, and `ResourceLimitError` with
 `TimeLimitError` and `InferenceLimitError` under it, plus `Interrupted`.
 `MettaOperationError(EngineError)` is a builtin refusing a value, with the parts
@@ -788,7 +788,7 @@ inertly. `max-time` takes a positive number of seconds,
 `max-inferences` a positive integer, and `none` explicitly disables
 either bound; an invalid value leaves the previous setting unchanged.
 
-280 builtins are registered; `m.self.builtins()` lists the live union of registered
+280 builtins are registered; `m.builtins()` lists the live union of registered
 functions and translator special forms. The callable registry includes the
 py-* bridge (`py-atom`, `py-call`, `py-dot`, `py-iter`, `py-len`, `py-list`,
 `py-dict`, `py-tuple`, `py-str`, `py-repr`, `py-format`, `py-slice`, `py-range`,
