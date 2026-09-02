@@ -17,13 +17,13 @@ Guarantees:
     naming an absent one, a count disagreeing with lib/, and a language-surface
     name the engine does not know are each caught, and a clean text of the same
     shape reports nothing [tested: this file is its own test, run by the gate;
-    commit=WORKTREE]
+    commit=b089d4309f34b205c5fdaee46960d1fcd9c1ac42]
   - Python methods are checked on the class named by their receiver, including
     calls in compact unlabelled API blocks [tested: this file is its own test,
-    run by the gate; commit=WORKTREE]
+    run by the gate; commit=b089d4309f34b205c5fdaee46960d1fcd9c1ac42]
   - the real sheets are read by the lane itself, never edited here, so a
     planted fault cannot race the lane reading the shipped file [tested:
-    tests/checks/check_llms_names.py; commit=WORKTREE]
+    tests/checks/check_llms_names.py; commit=b089d4309f34b205c5fdaee46960d1fcd9c1ac42]
 Open Obligations:
   To Do: None
   Hacks: None

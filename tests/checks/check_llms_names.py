@@ -32,13 +32,13 @@ Guarantees:
   - a path that stopped resolving, a roster that stopped matching `lib/`, a
     count that stopped matching its own roster, and a language-surface name the
     engine does not know each fail independently and name the file and line
-    [tested: tests/checks/check_llms_selftest.py; commit=WORKTREE]
+    [tested: tests/checks/check_llms_selftest.py; commit=b089d4309f34b205c5fdaee46960d1fcd9c1ac42]
   - every llms.txt in the tree is read, including the root and each extension,
     so an extension sheet is not exempt from the promise the root makes
-    [tested: tests/checks/check_llms_selftest.py; commit=WORKTREE]
+    [tested: tests/checks/check_llms_selftest.py; commit=b089d4309f34b205c5fdaee46960d1fcd9c1ac42]
   - each Python call is checked against the receiver's actual class, and an
     unlabelled API block containing such calls is still inspected
-    [tested: tests/checks/check_llms_selftest.py; commit=WORKTREE]
+    [tested: tests/checks/check_llms_selftest.py; commit=b089d4309f34b205c5fdaee46960d1fcd9c1ac42]
 Open Obligations:
   To Do: None
   Hacks: None
