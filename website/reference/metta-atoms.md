@@ -14,7 +14,7 @@ def ground(value: Any) -> Grounded:
 
 > Carry a Python value whole, whatever it is.
 >
-> This is the FFI boxing door. Structural wire conversion lives in
+> This is the FFI boxing form. Structural wire conversion lives in
 > :mod:`metta.wire`; ``ground([1, 2, 3])`` therefore carries one list by
 > identity instead of turning it into an expression.
 
@@ -157,11 +157,11 @@ def substitute(atom: Any, bindings: Mapping[str, Atom]) -> Atom:
 > variable stays itself, so a partial substitution is a narrower pattern
 > rather than an error.
 >
-> ``Atom.subs`` is the public door and the one implementation. It is keyed by
+> ``Atom.subs`` is the public method and the one implementation. It is keyed by
 > ATOM because a bare name cannot say which kind it means on a surface that
 > has both: this function reads ``{"x": ...}`` as the VARIABLE $x while
-> a ``bind()`` scope at the evaluation doors reads the same mapping as the SYMBOL x
-> . Two
+> a ``bind()`` scope at the evaluation methods reads the same mapping as the
+> SYMBOL x. Two
 > meanings for one spelling is fine inside the library, where each caller
 > knows which it holds, and is not something to publish.
 
@@ -186,4 +186,4 @@ def unify(left: Any, right: Any, *more: Any) -> Mapping[Atom, Atom] | None:
 > Keyed by the VARIABLES themselves, which is what ``Atom.subs`` accepts, so
 > a substitution this produces is one the library can apply. A bare name
 > cannot say whether it means a variable or a symbol, and this language has
-> both: ``bind({"x": 5})`` at the evaluation doors means the SYMBOL x.
+> both: ``bind({"x": 5})`` at the evaluation methods means the SYMBOL x.

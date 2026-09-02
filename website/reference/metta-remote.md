@@ -82,7 +82,7 @@ class RemoteSpace(SpaceProvider):
 > against the local pattern, so a lying or stale remote can only cost
 > time, not soundness.
 >
-> `batch` chooses which door match() uses, and the choice is the one
+> `batch` chooses how match() retrieves answers, and the choice is the one
 > match() and stream() make in-process. Left None, match() is the eager
 > /match: one crossing carrying the whole answer set, which is what a
 > space whose answers fit in an HTTP body wants. Set to a count, match()
@@ -146,12 +146,12 @@ def stream(
 ) -> RemoteCursor:
 ```
 
-> The lazy door: answers pulled a chunk at a time, so taking two
+> The lazy method: answers pulled a chunk at a time, so taking two
 > of a large enumeration costs the server two answers' work instead
 > of the whole join's.
 >
-> match() is the eager door and stays it, the split match() and
-> stream() already make in-process. Reach for this to take answers
+> match() remains eager, matching the in-process split between match()
+> and stream(). Reach for this to take answers
 > until you have seen enough, or when the answer set is larger than
 > one HTTP body.
 >
@@ -206,7 +206,7 @@ def add(self, atom: Atom) -> None:
 def add_many(self, atoms: list[Atom]) -> None:
 ```
 
-> One request carries the batch, the engine's own bulk-door law on
+> One request carries the batch, the engine's own bulk-write law on
 > the wire: a batch is a transport optimisation and never a semantic
 > one, and the engine already routes only plain stores through it.
 

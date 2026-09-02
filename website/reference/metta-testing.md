@@ -11,7 +11,7 @@ Source: `extensions/python/metta/testing.py`.
 > symbol spellings canonicalize, and that `_` is the anonymous variable,
 > fresh at every occurrence.
 >
-> The conformance surfaces live here too, one rung per audience:
+> The conformance surfaces live here too, one layer per audience:
 > check_space_provider and check_codec run in process against an author's own
 > object, SpaceComplianceSuite and GatewayComplianceSuite are pytest classes
 > that run the engine's own expectations against a provider or a URL.
@@ -198,7 +198,7 @@ def check_space_provider(provider, *, atoms_to_store=None, source='repeated') ->
 > Raises AssertionError on the first violation, naming the provider class,
 > the operation and the atom.
 >
-> THE DOOR IS UNIVERSAL: a provider is any foreign substrate, not only a
+> THE CHECK IS UNIVERSAL: a provider is any foreign substrate, not only a
 > Python object, and every substrate sits behind the space seam. Handed a
 > ``Space`` handle, this runs the engine's own checker
 > (lib/lib_conformance/lib_conformance.pl's ``check-space-provider``), which holds the

@@ -14,7 +14,7 @@ def lint(space) -> list[Finding]:
 
 > Diagnose a space and return an empty list when no check fires.
 >
-> One of nine observability doors, the one for the silently-wrong
+> One of nine observability methods, the one for the silently-wrong
 > class; rows.why() explains one empty answer, and the guide's
 > observability page maps the family.
 

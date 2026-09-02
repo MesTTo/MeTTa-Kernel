@@ -207,7 +207,7 @@ async def op(
 ) -> Callable:
 ```
 
-> Register a callable through the single short operation door.
+> Register a callable through the short operation form.
 
 ### `AsyncMeTTa.rules`
 
@@ -218,8 +218,8 @@ async def rules(self, fn: Callable) -> Any:
 > Collect and land a non-exclusive equation bundle on the worker.
 >
 > An awaitable CALL rather than a decorator, which is the same answer
-> define() gives to the same problem: decoration cannot await, so the
-> door stops being a decorator instead of stopping existing. It was
+> define() gives to the same problem: decoration cannot await, so this
+> method accepts only the applied form. It was
 > excluded from the async surface for the first reading of that, which
 > left an async caller unable to land a bundle at all
 > .
@@ -230,7 +230,7 @@ async def rules(self, fn: Callable) -> Any:
 async def pre_add(self, fn: Callable) -> Any:
 ```
 
-> Compile or accept one unary judge and claim this space's write door.
+> Compile or accept one unary judge and claim this space's write hook.
 >
 > Excluded for the same reading as rules(), and restored the same way.
 
@@ -250,13 +250,12 @@ async def define(
 ```
 
 > Compile a Python function into equations on the worker. The
-> returned handle's own calls are synchronous doors; evaluate
+> returned handle's own calls are synchronous methods; evaluate
 > through fn(name) or run() from async code.
 >
-> `name=` is the naming ladder's exact-spelling rung, and it is here
-> because the ladder does not shrink from one surface to another: an
-> async caller installing `prime?` or an authored underscore had no
-> method for it while the synchronous define did.
+> `name=` preserves an exact spelling on the async surface. Without it,
+> an async caller installing `prime?` or an authored underscore had no
+> equivalent of the synchronous define method.
 
 ### `AsyncMeTTa.limits`
 
@@ -429,10 +428,9 @@ def watch(
 
 > Observe matching writes, raising Timeout after each quiet deadline.
 >
-> The synchronous watch()'s meaning, which this door carried the NAME of
-> without: it was subscribe() under a second name, same signature and
-> same body, so an async caller had no way to say "stop waiting after
-> this long" that peek() and take() both give them
+> This method once shared subscribe()'s signature and body despite being
+> named watch(), so an async caller had no way to set the quiet deadline
+> that peek() and take() both provide
 > .
 
 ### `AsyncMeTTa.fn`
@@ -444,7 +442,7 @@ def fn(self) -> _AsyncFunctionNamespace:
 > Engine functions as async callables, by attribute or exact name.
 >
 > ``m.fn.car_atom`` transliterates underscores to hyphens and
-> ``m.fn["=="]`` preserves exact punctuation, the same two doors the
+> ``m.fn["=="]`` preserves exact punctuation, the same two forms the
 > sync namespace has. Resolution is lazy: the worker is asked when the
 > function is awaited, so an unknown name raises there rather than at
 > access.
@@ -508,8 +506,8 @@ async def run(
 > after reading, before anything runs. It is a BLOCK rather than a
 > keyword because a binding mapping is the kind of value that grows,
 > and a block grows down the page where a keyword has to fit beside
-> everything else on the call. Every target door reads the same scope,
-> so one block covers a run(), an eval() and an answers() together.
+> everything else on the call. Every call that accepts a target reads the
+> same scope, so one block covers run(), eval(), and answers() together.
 >
 > `timeout` (seconds) and `inferences` (engine steps) bound the call
 > with the engine's own guards; passing either raises TimeLimitError
@@ -652,7 +650,7 @@ async def load(
 > A load that raises leaves the previous definitions standing, so a
 > broken edit costs nothing but the error.
 >
-> `!(import! &self path)` is the other door and loads a file that is
+> `!(import! &self path)` is the other form and loads a file that is
 > new or edited, skipping one that is neither. The two agree on what
 > a reload means and differ only in whether an unchanged file runs
 > again, which is SWI's consult/1 against its if(changed).
@@ -720,7 +718,7 @@ async def add(self, *atoms: Any) -> None:
 > spelling. That is the right property for a logic engine and it is the
 > one thing about storage that surprises everybody once.
 >
-> A library IS knowledge, so the same door imports it: ``m += lib.he``
+> A library IS knowledge, so the same operator imports it: ``m += lib.he``
 > performs ``!(import! <m> (library lib_he))`` with this space as the
 > target. An import is an effect, so it refuses to hide inside an atom
 > batch or share a call with stored atoms.
@@ -745,16 +743,16 @@ async def remove(self, atom: Any, *more: Any) -> bool | int:
 > subtracts the multiplicity given rather than clearing the key.
 > That is the only reading under which the operators are inverses,
 > so `s += a; s -= a` leaves the space it found. `-=` classifies its
-> operand exactly as `+=` does, so the fact stream one door stores
-> the other subtracts, one occurrence per element, in one
+> operand exactly as `+=` does, so `-=` subtracts the same fact stream
+> `+=` stores, one occurrence per element, in one
 > transactional crossing.
 >
-> The DRAIN is the pattern-shaped door: `del m[pattern]` takes every
+> `del m[pattern]` is the draining form: it takes every
 > unifying occurrence in one crossing and raises when nothing
 > matched, as Python's `del` does, and MeTTa spells it `remove-atom`
 > .
 > MeTTa spells this method's grain `subtract-atom`. This is the one
-> door that reports absence.
+> method that reports absence.
 >
 > A bare variable is the remove-everything reading a multiset space
 > gives it, each atom leaving through its own proper path, equations
@@ -867,6 +865,19 @@ async def lint(self):
 > duplicate equations, and references no function or fact carries.
 > Answers metta.lint.Finding records, empty when nothing looks
 > wrong.
+
+### `AsyncMeTTa.effect_plan`
+
+```python
+async def effect_plan(self, target: Any) -> _ops_module.EffectPlan:
+```
+
+> Return operations the target may execute and their joined effect.
+>
+> The engine translates the same atom or source form ``eval`` accepts,
+> follows nested compiled calls, and reads current operation metadata.
+> It does not execute the target. A later registration change is visible
+> on the next call. This is the analysis reified-world admission uses.
 
 ### `AsyncMeTTa.digest`
 
@@ -1019,7 +1030,7 @@ async def reducible(self, target: Any) -> bool:
 > nothing applies to is its own answer, which is ordinary MeTTa and how
 > `!(hello world)` works, so there is no scope here that refuses one.
 >
-> The Node seat has had m.reducible() since it existed; this seat had
+> The Node extension has had m.reducible() since it existed; Python had
 > only eval_status(), which evaluates to tell you.
 
 ### `AsyncMeTTa.eval_status`
@@ -1058,7 +1069,7 @@ async def eval_status(
 > keys mean themselves, so `bind({V.x: 5})` fills a variable hole.
 >
 > `theory` and `interpreter` are eval()'s own, and mean the same here.
-> This is the door that says which evaluation path produced an answer, so
+> This is the method that says which evaluation path produced an answer, so
 > being unable to point it at an alternative evaluation relation was the
 > sharpest form of the gap: `m.eval_status(target, interpreter=my_eval)`
 > is how you see whether an explicit interpreter reduced a term or handed
@@ -1111,7 +1122,7 @@ async def one(
 >
 > An `(Error ...)` answer raises MettaResultError carrying the
 > atom: an error among the answers is the evaluation reporting
-> failure, and failure outranks the count. eval() is the door
+> failure, and failure outranks the count. eval() is the method
 > that keeps errors as data.
 
 ### `AsyncMeTTa.first`
@@ -1808,7 +1819,7 @@ async def admits(self, type_name: str) -> Atom:
 > Type a pool's membership: only TYPE-carrying atoms enter.
 >
 > A thread pool is a space whose atoms are spaces, and this is its
-> door: (admits &pool Space) plus per-atom (: &lt;space> Space)
+> declaration: (admits &pool Space) plus per-atom (: &lt;space> Space)
 > declarations make membership a type judgement the ontology
 > already knows how to make.
 
