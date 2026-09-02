@@ -607,6 +607,15 @@ metta_platform_capability('compressed-sources', library(zlib),
 %imported_from(system), and /usr/lib/swi-prolog/library/fastrw.pl defines
 %only the /1 wrappers and fast_write_to_string/3]. The engine's load is what
 %the census speaks for, and the engine loads both.
+%library(json) is SWI's ext/json pack rather than its core, so a build can be
+%complete and still not have it; the Windows runner is such a build. The C
+%implementation engine/build.sh produces from json_codec.c serves the same
+%forms when it is present, which is why this is a capability rather than a
+%hard requirement.
+metta_platform_capability(json, library(json),
+                          'converting between MeTTa atoms and JSON text, \c
+                           unless engine/json_codec.so was built from \c
+                           json_codec.c, which answers the same forms').
 metta_platform_capability('fast-cache', [library(fastrw), library(memfile)],
                           'saving a space in the fast binary format and \c
                            loading one back; every load reads its source \c

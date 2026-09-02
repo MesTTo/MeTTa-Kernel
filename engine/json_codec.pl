@@ -40,9 +40,55 @@
             json_codec_c_active/0
           ]).
 
-:- use_module(library(json),
-              [ json_read/3, json_read_dict/3,
-                json_write/3, json_write_dict/3 ]).
+%library(json) ships in SWI's ext/json pack, not its core, so an install
+%without that pack has no json_read/3 at all. A hard use_module there fails the
+%whole directive, which took this file's load with it, then main.pl's, and the
+%engine's boot after that: one absent optional pack stopped everything.
+%
+%The engine already has a mechanism for exactly this, so use it: the load goes
+%through metta_platform_load/2, which records the capability as absent and
+%lets metta_platform/4 report it beside every other one. The fallback is not
+%decoration. This file is also loaded WITHOUT the engine, by the host suite
+%that holds the shim to an engine-free contract, and there is no census there
+%to consult [source: tests/prolog/suites/host/shim.plt].
+%Reached by CALLING rather than by current_predicate/1: this file is loaded
+%after engine/metta.pl's rebasing loop has run, so whether the census is
+%visible depends on the module the host consulted the engine into, and asking
+%whether the name resolves answers a different question in each of them.
+:- (   catch(metta_platform_load(json, [ json_read/3, json_read_dict/3,
+                                         json_write/3, json_write_dict/3 ]),
+             error(existence_error(procedure, _), _),
+             fail)
+   ->  true
+   ;   catch(use_module(library(json),
+                        [ json_read/3, json_read_dict/3,
+                          json_write/3, json_write_dict/3 ]),
+             error(existence_error(source_sink, _), _),
+             true)
+   ).
+
+%Whether the Prolog implementation is reachable at all. The C one is asked
+%first by every dispatch, so this decides only whether a fallback exists.
+json_codec_library_active :-
+    current_predicate(json:json_read/3).
+
+%What a conversion calls before it tries. metta_require_platform/2 is the
+%engine's own refusal and names the capability, what needs it, and what is
+%lost; without the engine there is no census, so say the same thing directly.
+json_codec_require_library :-
+    json_codec_library_active,
+    !.
+json_codec_require_library :-
+    catch(metta_require_platform('json conversion', json),
+          error(existence_error(procedure, _), _),
+          fail),
+    !.
+json_codec_require_library :-
+    throw(error(existence_error(source_sink, library(json)),
+                context(json_codec/0,
+                        'JSON needs library(json), from SWI\'s ext/json pack, \c
+                         or engine/json_codec.so built by engine/build.sh'))).
+
 :- use_module(library(apply), [maplist/2]).
 :- use_module(library(lists), [memberchk/2]).
 % An embedding that cannot load shared objects at all must still boot: the
@@ -189,6 +235,7 @@ json_codec_read(Text, Value, Options) :-
     ).
 
 json_codec_read_prolog(Text, Value, Shape, COptions) :-
+    json_codec_require_library,
     json_codec_library_options(COptions, LibraryOptions),
     open_string(Text, Stream),
     call_cleanup(json_codec_read_stream(Stream, Value, Shape, LibraryOptions),
@@ -252,6 +299,7 @@ json_codec_hook_defined(Head) :-
 %out over many lines once it passes 72 columns, which is a second output
 %format for the one codec to have and is not a form the C writer implements.
 json_codec_write_prolog(Value, Text, Shape, Options) :-
+    json_codec_require_library,
     json_codec_library_options(Options, LibraryOptions),
     (   Shape == dicts
     ->  with_output_to(string(Text),
