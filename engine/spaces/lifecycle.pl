@@ -11,7 +11,7 @@
 %   Release context names the exact dying execution module and restores an
 %   outer release after recursive child cleanup, so support repair can mute
 %   only functions that are going away
-%   [tested: translator_rule_module_home; commit=WORKTREE].
+%   [tested: translator_rule_module_home; commit=d1318d20b5d89d33079c49d0e94aa29e12685664].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 

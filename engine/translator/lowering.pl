@@ -4,7 +4,7 @@
 %   apply_translator_rule_dl/7 receives a rule's declarations and owning
 %   module from one translator_rule/3 row and invokes the hook in that module,
 %   so a global rule has the same body from every compiling space
-%   [tested: translator_rule_module_home; commit=WORKTREE].
+%   [tested: translator_rule_module_home; commit=d1318d20b5d89d33079c49d0e94aa29e12685664].
 %   Typed compilation resolves declarations from the nearest space that binds
 %   the head while type reporting remains additive across visible spaces
 %   [tested: test_an_inherited_arrow_does_not_veto_a_local_definition,

@@ -27,7 +27,7 @@
 %     read projections. A rule registered in one space therefore has one body
 %     module that every compiling space can resolve
 %     [tested: translator_rule_module_home;
-%     commit=WORKTREE].
+%     commit=d1318d20b5d89d33079c49d0e94aa29e12685664].
 %   - a bidirectional declaration is ONE declaration: the inverse equation is
 %     derived, added to the space as an ordinary atom, and registered, and
 %     removing the rule removes it again

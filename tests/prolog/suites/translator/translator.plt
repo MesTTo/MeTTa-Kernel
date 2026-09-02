@@ -33,7 +33,7 @@
 %   - translator rules retain the execution module that owns their body,
 %     compile from sibling spaces, and retire before release-time repair can
 %     re-enter a half-cleared home [tested: translator_rule_module_home;
-%     commit=WORKTREE].
+%     commit=d1318d20b5d89d33079c49d0e94aa29e12685664].
 %   - bulk and single-atom ingestion apply the same definition-local type mask
 %     while an equation is arriving [tested:
 %     translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask;

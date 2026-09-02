@@ -25,7 +25,7 @@
 %       [tested: consulted_source_units_are_attributed_to_their_umbrella; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 %     - the spaces lifecycle may retire module-owned translator registrations
 %       before clearing the module that supplies their bodies
-%       [tested: translator_rule_module_home, engine_layering; commit=WORKTREE]
+%       [tested: translator_rule_module_home, engine_layering; commit=d1318d20b5d89d33079c49d0e94aa29e12685664]
 % Fails when:
 %     - a call is assembled at run time from a term no analysis can see. That
 %       is the residue this shares with every other static walk in the tree.

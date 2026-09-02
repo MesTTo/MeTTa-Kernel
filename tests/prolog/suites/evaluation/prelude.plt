@@ -12,7 +12,7 @@
 %     prelude_docs:the_formal_doc_family_uses_the_selected_space].
 %   - a definition in a named space withdraws a same-named prelude translator
 %     registration and retains ordinary evaluated function arguments
-%     [tested: prelude_derived_forms; commit=WORKTREE].
+%     [tested: prelude_derived_forms; commit=d1318d20b5d89d33079c49d0e94aa29e12685664].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

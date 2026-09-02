@@ -3,7 +3,7 @@
 Purpose: record and verify the implementation that makes translator-rule
 registry scope agree with the module that owns each rule body.
 
-Evidence snapshot: [tested: GATE_ONLY=1 sh check.sh; commit=WORKTREE].
+Evidence snapshot: [tested: GATE_ONLY=1 sh check.sh; commit=d1318d20b5d89d33079c49d0e94aa29e12685664].
 
 ## Outcome
 

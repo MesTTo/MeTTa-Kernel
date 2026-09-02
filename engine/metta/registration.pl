@@ -5,7 +5,7 @@
 %   prelude translator-rule name, and unregister_fun_in/2 retires a global rule
 %   whose owning module lost its final body clause
 %   [tested: prelude_derived_forms, translator_rule_module_home;
-%   commit=WORKTREE].
+%   commit=d1318d20b5d89d33079c49d0e94aa29e12685664].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 

@@ -175,7 +175,7 @@
 %     is how a DERIVED form ships. A program that defines such a name in any
 %     execution module takes the whole form over, so the global registration
 %     is withdrawn with the clauses
-%     [tested: prelude_derived_forms; commit=WORKTREE].
+%     [tested: prelude_derived_forms; commit=d1318d20b5d89d33079c49d0e94aa29e12685664].
 %   - add-translator-rule! REFUSES a protected_core_head/1 name and puts that
 %     name in the error term, and records what an accepted registration took
 %     over from in translator_rule_override/2, so a rule going ahead of a

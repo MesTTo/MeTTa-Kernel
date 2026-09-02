@@ -118,7 +118,7 @@
 %   - support invalidation does not enqueue recompilation for a function in
 %     the execution module currently being released; dependents in every live
 %     module retain the ordinary repair path
-%     [tested: translator_rule_module_home; commit=WORKTREE].
+%     [tested: translator_rule_module_home; commit=d1318d20b5d89d33079c49d0e94aa29e12685664].
 %   - A file that loads again REPLACES what it put in that space rather than
 %     adding to it, reaches any other space its change has made stale, and
 %     says what it withdrew [tested 2026-08-19:
