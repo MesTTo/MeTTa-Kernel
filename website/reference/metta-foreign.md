@@ -249,8 +249,8 @@ class Planner(Protocol):
 > pattern stops constraining the query. Each row is a list of instantiated
 > atoms, one per claimed pattern, in the order you claimed them.
 >
-> A claim is EXACT, which is the one place this seam differs from the rest of
-> it. Elsewhere you may over-approximate because the engine re-unifies each
+> A claim is EXACT, which is the one place this contract differs from the
+> rest. Elsewhere you may over-approximate because the engine re-unifies each
 > candidate cheaply; there is no cheap re-check for a join, so a provider that
 > cannot answer exactly must decline.
 
@@ -338,10 +338,10 @@ class SpaceProvider:
 > an identity rather than a spelling and the engine renames on the way in.
 > Fuzzing the round trip with 500 examples found the rename in 174 of them
 > and nothing else: ground atoms are exact in both directions, and what a
-> provider stores comes back to it unchanged. It is not a seam defect, the
-> native path does the same, but a provider that PERSISTS atoms persists the
-> renamed form, and a rule editor, a serializer or a diff built on this will
-> meet it. If you need the source spelling, keep it yourself.
+> provider stores comes back to it unchanged. It is not a wire-protocol
+> defect, the native path does the same, but a provider that PERSISTS atoms
+> persists the renamed form, and a rule editor, a serializer or a diff built
+> on this will meet it. If you need the source spelling, keep it yourself.
 
 ### `SpaceProvider.delivers`
 
@@ -358,7 +358,7 @@ def delivers(self) -> tuple[str, str] | None:
 > the same promise the engine acts on.
 >
 > None is the default and it is the safe one. Whether a space can emit
-> change events is a promise about the SPACE, not something the seam
+> change events is a promise about the SPACE, not something the interface
 > can read off the methods: a store whose every write comes through
 > this engine gets per-write-exactly for free from the engine's own
 > write hooks, and one whose contents also change elsewhere gets

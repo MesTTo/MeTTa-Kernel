@@ -171,7 +171,7 @@ def server_capabilities(self) -> dict[str, Any]:
 ```
 
 > The server's own advertisement from GET /health: `capabilities`
-> names the seam operations it admits, so a client can ask before
+> names the protocol operations it admits, so a client can ask before
 > writing, and `bound` says whether /match honors the bound field
 > exactly. A transport built by connect() knows its URL; a
 > hand-built transport must carry its own `health` callable, or

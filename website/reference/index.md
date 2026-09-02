@@ -1,6 +1,6 @@
 <!--
 Purpose: index the public Python modules and handle APIs documented by the generated reference pages.
-Guarantees: deleted module doors have no reference link, the Space handle is not presented as a module, and the reified strategy satellite points to its executable phrasebook.
+Guarantees: deleted module methods have no reference link, the Space handle is not presented as a module, and the reified strategy satellite points to its executable phrasebook.
 [tested: npm run docs:build; commit=0d37dd6b24fe916e44cdbfb4efc6a1d5ffaf74aa]
 -->
 
