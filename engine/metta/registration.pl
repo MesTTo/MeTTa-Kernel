@@ -1,6 +1,11 @@
 % Purpose: register function names and arities, protect callable surface, and import host and backend builtins
 % Assumes: engine/metta.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/metta.pl's implementation module and original load order.
+%   register_fun_in/2 lets a definition in any execution module take over a
+%   prelude translator-rule name, and unregister_fun_in/2 retires a global rule
+%   whose owning module lost its final body clause
+%   [tested: prelude_derived_forms, translator_rule_module_home;
+%   commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -604,22 +609,45 @@ register_builtin_fun(N) :- register_fun(N),
                            register_prolog_arities(N),
                            ( builtin_fun(N) -> true ; assertz(builtin_fun(N)) ).
 
-register_fun_in(Module, N) :- register_fun(N),
-                              ( fun_in(Module, N) -> true
-                              ; assertz(fun_in(Module, N), FunInRef),
-                                record_source_assertion(FunInRef) ),
-                              ( metta_self_module(Module) -> true
-                              ; fun_scoped(N) -> true
-                              ; assertz(fun_scoped(N), ScopedRef),
-                                record_source_assertion(ScopedRef) ).
+register_fun_in(Module, N) :-
+    must_be(atom, N),
+    %Fold named-space eviction into register_fun/1's existing fun/1 question.
+    %A fresh name takes no registry lookup; a prelude rule is already a
+    %function and reaches the one additional test it needs.
+    (   fun(N)
+    ->  (   prelude_translator_rule(N)
+        ->  evict_prelude_definition(N)
+        ;   true
+        )
+    ;   assertz(fun(N), Ref),
+        record_source_assertion(Ref),
+        repair_after_late_registration(N)
+    ),
+    (   fun_in(Module, N)
+    ->  true
+    ;   assertz(fun_in(Module, N), FunInRef),
+        record_source_assertion(FunInRef)
+    ),
+    (   metta_self_module(Module)
+    ->  true
+    ;   fun_scoped(N)
+    ->  true
+    ;   assertz(fun_scoped(N), ScopedRef),
+        record_source_assertion(ScopedRef)
+    ).
 
-unregister_fun_in(Module, N) :- retractall(fun_in(Module, N)),
-                                metta_self_module(Self),
-                                ( fun_in(Other, N), Other \== Self
-                                  -> true
-                                ; restricted_dispatch_name(N)
-                                  -> true
-                                ; retractall(fun_scoped(N)) ).
+unregister_fun_in(Module, N) :-
+    retractall(fun_in(Module, N)),
+    %Withdraw the global name before repair can translate a dependent against
+    %a missing body.
+    translator_rules:retire_translator_rule_in(Module, N),
+    metta_self_module(Self),
+    (   fun_in(Other, N), Other \== Self
+    ->  true
+    ;   restricted_dispatch_name(N)
+    ->  true
+    ;   retractall(fun_scoped(N))
+    ).
 
 unregister_fun_everywhere(N) :- retractall(fun_in(_, N)),
                                 retractall(fun_scoped(N)).

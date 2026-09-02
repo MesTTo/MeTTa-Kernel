@@ -303,7 +303,7 @@ metta_special_form_head(Name) :-
 %used correctly, `if` alone accounting for 378 [measured 2026-08-17]
 %[tested: test_calling_a_special_form_is_not_an_undefined_reference].
 metta_translated_head(Name) :- metta_special_form(Name), !.
-metta_translated_head(Name) :- translator_rule(Name, _), !.
+metta_translated_head(Name) :- translator_rule(Name, _, _), !.
 
 %A head the engine will try to REDUCE from Module's view: meaning through
 %the translator, or a function the module can see. A variable or compound

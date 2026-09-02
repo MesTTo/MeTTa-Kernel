@@ -22,11 +22,12 @@
 %     injectivize and only then invert; the injectivization step is what
 %     embeds a computation's history and is not attempted here].
 % Guarantees:
-%   - translator_rule/2 is the registry and translator_rule/1 is its name
-%     projection, so a rule's direction has one place to live and every
-%     existing reader of the name set keeps working
-%     [tested: test_a_translator_rule_declares_its_direction_and_a_bidirectional_rule_is_one_declaration;
-%     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
+%   - translator_rule/3 is the atomic name/declarations/home registry;
+%     translator_rule/2, translator_rule/1 and translator_rule_home/2 are its
+%     read projections. A rule registered in one space therefore has one body
+%     module that every compiling space can resolve
+%     [tested: translator_rule_module_home;
+%     commit=WORKTREE].
 %   - a bidirectional declaration is ONE declaration: the inverse equation is
 %     derived, added to the space as an ordinary atom, and registered, and
 %     removing the rule removes it again
@@ -90,6 +91,8 @@
             'remove-translator-rule!'/2,
             translator_rule/1,
             translator_rule/2,
+            translator_rule/3,
+            translator_rule_home/2,
             translator_rule_declaration/2,
             translator_rule_direction/1,
             translator_rule_extra_variables_exempt/2,
@@ -99,7 +102,10 @@
             translator_rule_dispatch_orients/3,
             cost_ordered_translator_rule/1,
             protected_core_head/1,
-            note_translator_rule_refusal/3
+            note_translator_rule_refusal/3,
+            forget_translator_rule/1,
+            retire_translator_rule_in/2,
+            retire_translator_rules_in/1
           ]).
 
 %%%% The protected core %%%%
@@ -161,18 +167,25 @@ refuse_protected_core_rule(Name) :-
 
 %%%% The registry %%%%
 %
-%One row per registered rule, holding what the registration declared about it.
+%One row per registered rule, holding what the registration declared about it
+%and the module that owns its executable clauses. The name is global, matching
+%upstream's registry; the home is the `fun_in/2` half of the same fact, so a
+%compiler never has to guess that the body belongs to its current module.
 %The set used to be bare names, so a rule's direction had nowhere to live and
 %an author who wanted a rewrite read both ways wrote the inverse by hand.
 %
 %Declarations are a canonical sorted list, so two spellings of the same
 %declaration set compare equal and a re-registration that changes nothing is
 %the no-op it always was.
-:- dynamic translator_rule/2.
+:- dynamic translator_rule/3.   %translator_rule(Name, Declarations, HomeModule)
 
-%The name set, which is what the translator and every tool that came before
-%the declarations asks for.
-translator_rule(Name) :- translator_rule(Name, _).
+%Read-only projections for tools that ask about declarations, the name set, or
+%the owner independently. Engine hot paths read translator_rule/3 directly so
+%the projection costs nothing per compiled head.
+translator_rule(Name, Declarations) :-
+    translator_rule(Name, Declarations, _).
+translator_rule(Name) :- translator_rule(Name, _, _).
+translator_rule_home(Name, Home) :- translator_rule(Name, _, Home).
 
 %The equations a bidirectional declaration wrote into a space, so
 %that removing the rule removes them too. Recording the atom rather than
@@ -294,11 +307,11 @@ refuse_repeated_declaration(Declarations) :-
     ).
 
 translator_rule_declared_cost(Name, Cost) :-
-    translator_rule(Name, Declarations),
+    translator_rule(Name, Declarations, _),
     memberchk(cost(Cost), Declarations).
 
 translator_rule_extra_variables_exempt(Name, Reason) :-
-    translator_rule(Name, Declarations),
+    translator_rule(Name, Declarations, _),
     memberchk(extra_variables_exempt(Reason), Declarations).
 
 %%%% Registration %%%%
@@ -317,7 +330,8 @@ translator_rule_extra_variables_exempt(Name, Reason) :-
     derive_translator_rule_inverse(HV, Declarations).
 
 register_translator_rule(Name, Declarations) :-
-    (   translator_rule(Name, Existing)
+    current_metta_module(Home),
+    (   translator_rule(Name, Existing, _)
     ->  %Variant, not identity: two spellings of one declaration differ only
         %in the variables their patterns happen to hold, and =@=/2 is the
         %comparison engine/trs.pl already uses for exactly that reason.
@@ -328,7 +342,7 @@ register_translator_rule(Name, Declarations) :-
                                 'a rule name identifies one declaration')))
         )
     ;   note_translator_rule_override(Name),
-        assertz(translator_rule(Name, Declarations)),
+        assertz(translator_rule(Name, Declarations, Home)),
         note_cost_ordered_rule(Name, Declarations)
     ).
 
@@ -347,10 +361,28 @@ withdraw_derived_equation(Space, Equation) :-
     forget_translator_rule(InvHead).
 
 forget_translator_rule(Name) :-
-    retractall(translator_rule(Name, _)),
+    retractall(translator_rule(Name, _, _)),
     retractall(translator_rule_override(Name, _)),
     retractall(cost_ordered_translator_rule(Name)),
     translator:metta_rule_gates_refresh.
+
+%A function body and its global translator registration are one lifetime. A
+%live removal reaches this after Home loses its final local clause, before
+%dependents are repaired; a same-named rule owned elsewhere is untouched. A
+%release has already retired all rows for Home in one module-keyed sweep, so
+%its per-function removal path does not search the rule registry again.
+retire_translator_rule_in(Home, _) :-
+    nb_current('$metta_space_releasing_module', Home),
+    !.
+retire_translator_rule_in(Home, Name) :-
+    (   translator_rule(Name, _, Home)
+    ->  'remove-translator-rule!'(Name, _)
+    ;   true
+    ).
+
+retire_translator_rules_in(Home) :-
+    findall(Name, translator_rule(Name, _, Home), Names),
+    forall(member(Name, Names), 'remove-translator-rule!'(Name, _)).
 
 %%%% The conjunctive left side %%%%
 %
@@ -604,7 +636,7 @@ translator_rule_dispatch_orients(Name, Args, Produced) :-
 %The distinction is the reason it exists. Every evaluated call crosses
 %metta_boundary_result/3, whose gated body asks this, so the answer for a
 %name that is not a rule has to cost about as little as a predicate call
-%can. Read off translator_rule/2 it would cost the indexed lookup plus a
+%can. Read off translator_rule/3 it would cost the indexed lookup plus a
 %memberchk over the declarations; asserted here it is one indexed probe.
 %The program that registers NO cost-ordered rule, which is nearly all of
 %them, pays nothing at all: while this table is empty the boundary doors

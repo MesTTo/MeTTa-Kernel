@@ -158,7 +158,7 @@ metta_typed_dispatch_applies(Module, F) :-
     (   catch_recover(type_declaration_in(Module, F, _), fail),
         catch_recover(governing_type_declaration_in(Module, F, _), fail)
     ->  true
-    ;   translator_rules:translator_rule(F, _)
+    ;   translator_rules:translator_rule(F, _, _)
     ).
 
 %A declaration that is not an arrow types the SYMBOL and cannot type a call to

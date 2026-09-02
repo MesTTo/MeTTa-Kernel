@@ -1,6 +1,10 @@
 % Purpose: lower runnable expressions, calls, arguments, and dispatch policies into Prolog goals
 % Assumes: engine/translator.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
+%   apply_translator_rule_dl/7 receives a rule's declarations and owning
+%   module from one translator_rule/3 row and invokes the hook in that module,
+%   so a global rule has the same body from every compiling space
+%   [tested: translator_rule_module_home; commit=WORKTREE].
 %   Typed compilation resolves declarations from the nearest space that binds
 %   the head while type reporting remains additive across visible spaces
 %   [tested: test_an_inherited_arrow_does_not_veto_a_local_definition,
@@ -1010,9 +1014,11 @@ translate_expr_to_conj(Input, Conj, Out) :- translate_expr(Input, Goals, Out),
 %the two disciplines agree on: did the rule MATCH, did it then DECLINE, and
 %does the rewrite it produced go the way that lowers the form's cost. Anything
 %the rule says about a call it did not match is not about that call, so the
-%re-check comes first; the declarations arrive as an argument because the
-%caller already read the registry row that decided this was a rule at all.
-apply_translator_rule_dl(HV, Declarations, Args, AfterHead, Goals, Out) :-
+%re-check comes first. The caller reads one registry row directly so an
+%ordinary non-rule head pays no extra predicate frame; that same row supplies
+%both declarations and the body module without a second lookup.
+apply_translator_rule_dl(HV, Declarations, RuleModule,
+                         Args, AfterHead, Goals, Out) :-
     (   catch_recover(type_declaration(HV, TypeChain), fail)
     ->  TypeChain = [->|Xs],
         append(ArgTypes, [_], Xs),
@@ -1022,7 +1028,6 @@ apply_translator_rule_dl(HV, Declarations, Args, AfterHead, Goals, Out) :-
     copy_term_nat(Values, Matched),
     append(Matched, [Expansion], RuleArgs),
     HookCall =.. [HV|RuleArgs],
-    current_metta_module(RuleModule),
     call(RuleModule:HookCall),
     %THE RULE MATCHED only if it did not reach back into the call. The body ran
     %on the copy, so subsumes_term/2 rejects a rule that instantiated the
@@ -1083,8 +1088,9 @@ translate_expr_dl(X, Goals, Goals, X) :-
 translate_expr_dl([H|T], Goals0, Goals, Out) :-
         translate_expr_dl(H, Goals0, AfterHead, HV),
         %--- Translator rules ---:
-        ( nonvar(HV), translator_rule(HV, Declarations),
-          apply_translator_rule_dl(HV, Declarations, T, AfterHead, Goals, Out)
+        ( nonvar(HV), translator_rule(HV, Declarations, RuleModule),
+          apply_translator_rule_dl(HV, Declarations, RuleModule,
+                                   T, AfterHead, Goals, Out)
           -> true
         ; atom(HV), translate_special_dl(HV, T, AfterHead, Goals, Out) -> true
         %The Prolog importer consumes its function-name list as data. Keeping

@@ -8,6 +8,10 @@
 %   an atom, or it is foreign, so asking which module it uses is a read and
 %   leaves its name reusable [tested: a_read_of_a_module_does_not_retire_its_space_name,
 %   a_space_that_compiled_a_clause_still_refuses_a_late_parent; commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
+%   Release context names the exact dying execution module and restores an
+%   outer release after recursive child cleanup, so support repair can mute
+%   only functions that are going away
+%   [tested: translator_rule_module_home; commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -1075,6 +1079,32 @@ space_equation_home_root(Space, Root) :-
 %the first query's erasures reclaimable
 %[measured 2026-08-31, three configurations of the same workload;
 %tested: test_dropping_a_space_reclaims_its_atoms].
+:- meta_predicate with_metta_space_releasing(+, 0).
+
+%The boolean keeps the existing release guards cheap. The module value lets a
+%repair distinguish a dying function from a live function that depended on
+%it, and restoring the prior value makes child release properly nest inside
+%its world's release.
+with_metta_space_releasing(Space, Goal) :-
+    space_module(Space, Module),
+    (   nb_current('$metta_space_releasing_module', Previous)
+    ->  Prior = present(Previous)
+    ;   Prior = absent
+    ),
+    setup_call_cleanup(
+        ( nb_setval('$metta_space_releasing', true),
+          nb_setval('$metta_space_releasing_module', Module) ),
+        ( translator_rules:retire_translator_rules_in(Module),
+          Goal ),
+        restore_metta_space_releasing(Prior)).
+
+restore_metta_space_releasing(present(Module)) :- !,
+    nb_setval('$metta_space_releasing', true),
+    nb_setval('$metta_space_releasing_module', Module).
+restore_metta_space_releasing(absent) :-
+    nb_setval('$metta_space_releasing', false),
+    nb_delete('$metta_space_releasing_module').
+
 metta_release_space(Space) :-
     with_mutex('$metta_metta_exec',
                ( metta_assert_space_releasable(Space),
@@ -1085,11 +1115,10 @@ metta_release_space(Space) :-
                  %(inherits ...) heir refused above. Recompiling a dying
                  %user resolved super inside a half-dead world and threw
                  %[tested: a_context_close_takes_its_world_with_it].
-                 setup_call_cleanup(
-                     nb_setval('$metta_space_releasing', true),
+                 with_metta_space_releasing(
+                     Space,
                      ( metta_release_world_children(Space),
-                       metta_host_clear_space(Space) ),
-                     nb_setval('$metta_space_releasing', false)),
+                       metta_host_clear_space(Space) )),
                  transaction(( metta_forget_space_parent(Space),
                                retractall(space_equation_home(Space, _)),
                                metta_forget_space_restriction(Space),
@@ -1773,9 +1802,7 @@ metta_host_clear_space(Space) :-
 %[measured 2026-08-31: post_gc_atom_count 20008 -> 6 at 10,000 atoms;
 %commit=57f21ba9edf94bcf28cde11f938bce2c241a3709].
 metta_clear_space_for_release(Space) :-
-    setup_call_cleanup(nb_setval('$metta_space_releasing', true),
-                       metta_host_clear_space(Space),
-                       nb_setval('$metta_space_releasing', false)).
+    with_metta_space_releasing(Space, metta_host_clear_space(Space)).
 
 metta_host_clear_foreign_storage(Space) :-
     clear_foreign_atoms(Space),

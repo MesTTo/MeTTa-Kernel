@@ -850,7 +850,7 @@ metta_host_goal_effect_plan(Module,
     metta_effect_plan_source_complete(Module, Source, RuntimeState),
     (   RuntimeState = Roots0-_,
         member(Name/_, Roots0),
-        translator_rules:translator_rule(Name, _)
+        translator_rules:translator_rule(Name, _, _)
     ->  metta_effect_plan_body_source_backed(
             Module, Body, RuntimeState, Roots-Direct)
     ;   Roots-Direct = RuntimeState
@@ -925,7 +925,7 @@ metta_effect_plan_compile_source(_, Source, Queue-Effects,
 metta_effect_plan_compile_source(_, [Head|Args], Queue0-Effects,
                                  [Head/Arity|Queue0]-Effects) :-
     atom(Head),
-    translator_rules:translator_rule(Head, _),
+    translator_rules:translator_rule(Head, _, _),
     !,
     length(Args, ArgCount),
     Arity is ArgCount + 1.
@@ -1359,7 +1359,7 @@ metta_effect_plan_source_head(_, Head, _, Queue-Effects,
 metta_effect_plan_source_head(_, Head, Args, Queue0-Effects,
                               [Head/Arity|Queue0]-Effects) :-
     atom(Head),
-    translator_rules:translator_rule(Head, _),
+    translator_rules:translator_rule(Head, _, _),
     !,
     length(Args, ArgCount),
     Arity is ArgCount + 1.

@@ -172,9 +172,10 @@
 %     commit=6f06e918c8f3382e8e1c8ccd8d120c6d809999a5].
 %   - The prelude loads exactly three form shapes: a declaration, an equation,
 %     and `!(add-translator-rule! NAME)` for a name it defines itself, which
-%     is how a DERIVED form ships. A program that defines such a name takes
-%     the whole form over, so the registration is withdrawn with the clauses
-%     [tested 2026-08-19: prelude_derived_forms].
+%     is how a DERIVED form ships. A program that defines such a name in any
+%     execution module takes the whole form over, so the global registration
+%     is withdrawn with the clauses
+%     [tested: prelude_derived_forms; commit=WORKTREE].
 %   - add-translator-rule! REFUSES a protected_core_head/1 name and puts that
 %     name in the error term, and records what an accepted registration took
 %     over from in translator_rule_override/2, so a rule going ahead of a
@@ -1397,8 +1398,9 @@ load_builtin_type_surface :- index_builtin_masks.
 %a program's declaration ahead of the surface, prelude_type_declaration
 %is consulted last. Eviction is one-way; removing the user's equation
 %later does not resurrect the prelude's, the same as redefining any
-%function. Named spaces need none of this: their clauses shadow through
-%their own module already, the builtin-override rule.
+%function. An ordinary named-space function shadows through its module, but a
+%translator registration is global, so register_fun_in/2 invokes this door for
+%a prelude rule name from every module.
 evict_prelude_definition(FAtom) :-
     (   retract(prelude_owned(FAtom))
     ->  %Read before the declarations go, for the reason the write door reads
@@ -1410,7 +1412,7 @@ evict_prelude_definition(FAtom) :-
         retractall(prelude_doc_atom(FAtom, _)),
         retractall(prelude_equation(FAtom, _)),
         (   retract(prelude_translator_rule(FAtom))
-        ->  retractall(translator_rule(FAtom, _))
+        ->  translator_rules:forget_translator_rule(FAtom)
         ;   true
         ),
         %The prelude is the base tier's, so its eviction is &self's change.

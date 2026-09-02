@@ -6,6 +6,16 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Translator rules now keep the execution module that owns their body. A rule
+  registered in one space therefore compiles calls in every other space, and
+  releasing its home retires the global registration before any live
+  dependent can resolve a missing body. Release-time support repair skips only
+  functions in the dying module. Named-space definitions also withdraw a
+  same-named prelude translator rule, matching the existing user-wins policy
+  for definitions in `&self`.
+
 ## [0.6.0] - 2026-09-02
 The `pymetta` line, which is versioned separately from the inherited
 upstream tags above it. Published to PyPI as `pymetta` 0.6.0.

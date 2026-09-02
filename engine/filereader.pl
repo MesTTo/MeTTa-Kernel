@@ -115,6 +115,10 @@
 %     generation only when it adds a fresh fun/1 name [tested:
 %     function_catalogue_generation:an_import_bringing_an_equation_bumps_once;
 %     commit=4c9a794750103e0a3a2e9d883adde337ffb501f0].
+%   - support invalidation does not enqueue recompilation for a function in
+%     the execution module currently being released; dependents in every live
+%     module retain the ordinary repair path
+%     [tested: translator_rule_module_home; commit=WORKTREE].
 %   - A file that loads again REPLACES what it put in that space rather than
 %     adding to it, reaches any other space its change has made stale, and
 %     says what it withdrew [tested 2026-08-19:
@@ -1377,6 +1381,10 @@ repair_typing_policy_invalidations :-
 :- dynamic support_recompile_pending/3.
 :- multifile support_graph:support_invalidation_action/1.
 support_graph:support_invalidation_action(compiled_function(Module, G)) :-
+    %A dying module is cleared one equation at a time, so recompiling one of
+    %its users would resolve it inside a half-cleared world. A live module is
+    %not muted merely because one of its dependencies is being released.
+    \+ nb_current('$metta_space_releasing_module', Module),
     supports(translated_form(_, _), compiled_function(Module, G)),
     %Skipping the ownership pins is what keeps a pending drainable: a pin
     %carries a CLOSED load whose drain has already run, so a pending keyed by

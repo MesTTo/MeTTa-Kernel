@@ -10,6 +10,9 @@
 %   - get-type-space isolates a selected space and the formal doc helpers
 %     reproduce upstream's shapes [tested: prelude:get_type_space_selects_only_the_space,
 %     prelude_docs:the_formal_doc_family_uses_the_selected_space].
+%   - a definition in a named space withdraws a same-named prelude translator
+%     registration and retains ordinary evaluated function arguments
+%     [tested: prelude_derived_forms; commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -453,5 +456,23 @@ test(a_user_definition_withdraws_the_registration_with_the_clauses,
     assertion(\+ prelude_translator_rule('or-else')),
     process_metta_string("!(or-else True whatever)", Answers),
     assertion(Answers == ['taken-over']).
+
+%A named-space equation shadows an ordinary shared function through its module,
+%but a translator rule is a global registry claim. It must therefore withdraw
+%the prelude claim explicitly instead of becoming that rule's accidental body.
+test(a_named_space_definition_withdraws_a_prelude_translator_registration,
+     [ setup(( retractall(silent(_)), assertz(silent(true)) )),
+       cleanup(( catch(metta_release_space('&plunit-prelude-rule-shadow'),
+                       _, true),
+                 retractall(silent(_)), assertz(silent(false)),
+                 load_engine_prelude )) ]) :-
+    assertion(translator_rule(union)),
+    process_metta_string(
+        "(= (union $a $b) (car-atom $a))\n!(union (+ 1 2) x)",
+        Answers,
+        '&plunit-prelude-rule-shadow'),
+    assertion(Answers == [[]]),
+    assertion(\+ translator_rule(union)),
+    assertion(\+ prelude_translator_rule(union)).
 
 :- end_tests(prelude_derived_forms).

@@ -23,6 +23,9 @@
 %     - a plain source unit below engine/<owner>/ is attributed to its umbrella
 %       subsystem for call, export, SCC, and database-write checks
 %       [tested: consulted_source_units_are_attributed_to_their_umbrella; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+%     - the spaces lifecycle may retire module-owned translator registrations
+%       before clearing the module that supplies their bodies
+%       [tested: translator_rule_module_home, engine_layering; commit=WORKTREE]
 % Fails when:
 %     - a call is assembled at run time from a term no analysis can see. That
 %       is the residue this shares with every other static walk in the tree.
@@ -340,6 +343,7 @@ reaches(spaces, metta, 'a space write reaches the core\'s registries, contract a
 reaches(spaces, specializer, 'a changed function invalidates the specializations built over it').
 reaches(spaces, support_graph, 'a cleared space forgets the support edges of its module').
 reaches(spaces, translator, 'storing an equation compiles it').
+reaches(spaces, translator_rules, 'a release retires global translator registrations before clearing their owning module').
 reaches(spaces, type_rules, 'equation compilation holds the typing policy stable while installing translated clauses').
 reaches(specializer, filereader, 'records and forgets the assertion of a generated specialization').
 reaches(specializer, metta, 'reads the module and space context and the type declarations it specializes over').

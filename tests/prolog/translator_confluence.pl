@@ -18,7 +18,7 @@
 %     reduces the narrowing question to a rewriting one, and not from
 %     engine/trs.pl's order directly.
 %     `add-translator-rule!` registers a NAME (engine/translator_rules.pl's
-%     translator_rule/2 keeps the registry), and the rules themselves arrive through
+%     translator_rule/3 keeps the registry), and the rules themselves arrive through
 %     two doors, the space's own (= Lhs Rhs) atoms and the engine's
 %     prelude_equation/2 register for the shipped tier
 %     whose left-hand side is rooted at one of those names, plus every equation
@@ -907,7 +907,7 @@ translator_confluence_selftest :-
 % meaning the shipped tier was never read.
 planted_collection_seen :-
     setup_call_cleanup(
-        ( assertz(user:translator_rule('$cfl_fixture', [])),
+        ( assertz(user:translator_rule('$cfl_fixture', [], user)),
           assertz(user:prelude_equation('$cfl_fixture', ['=', ['$cfl_fixture', _], one])),
           assertz(user:prelude_equation('$cfl_fixture', ['=', ['$cfl_fixture', _], two])) ),
         ( compile_time_rules('&self', _, Names, _, PreludeRules),
@@ -917,7 +917,7 @@ planted_collection_seen :-
           join_bound(Fuel),
           confluence_check(Two, Fuel, Verdicts),
           include(verdict_is(counterexample), Verdicts, [_|_]) ),
-        ( retractall(user:translator_rule('$cfl_fixture', _)),
+        ( retractall(user:translator_rule('$cfl_fixture', _, _)),
           retractall(user:prelude_equation('$cfl_fixture', _)) )),
     !.
 planted_collection_seen :-
@@ -934,7 +934,7 @@ fixture_rule(L ==> _) :- functor(L, '$cfl_fixture', _).
 % termination and critical-pair analysis.
 planted_masked_payloads_stay_out_of_closure :-
     setup_call_cleanup(
-        ( assertz(user:translator_rule('$cfl_masks', [])),
+        ( assertz(user:translator_rule('$cfl_masks', [], user)),
           assertz(user:prelude_equation(
                       '$cfl_masks',
                       ['=', ['$cfl_masks', _],
@@ -956,7 +956,7 @@ planted_masked_payloads_stay_out_of_closure :-
           \+ memberchk('$cfl_noeval_payload', Names),
           \+ memberchk('$cfl_quote_payload', Names),
           \+ memberchk('$cfl_error_payload', Names) ),
-        ( retractall(user:translator_rule('$cfl_masks', _)),
+        ( retractall(user:translator_rule('$cfl_masks', _, _)),
           retractall(user:prelude_equation('$cfl_masks', _)),
           retractall(user:prelude_equation('$cfl_noeval_payload', _)),
           retractall(user:prelude_equation('$cfl_quote_payload', _)),
@@ -973,14 +973,14 @@ planted_masked_payloads_stay_out_of_closure :-
 % critical-pair criterion says nothing about.
 planted_refusing_rule_seen :-
     setup_call_cleanup(
-        ( assertz(user:translator_rule('$cfl_guard', [])),
+        ( assertz(user:translator_rule('$cfl_guard', [], user)),
           assertz(user:prelude_equation('$cfl_guard',
                                         ['=', ['$cfl_guard', _],
                                          [refuse, "planted"]])) ),
         ( compile_time_rules('&self', _, _, _, PreludeRules),
           guarded_rules([], PreludeRules, Guarded, _),
           Guarded >= 1 ),
-        ( retractall(user:translator_rule('$cfl_guard', _)),
+        ( retractall(user:translator_rule('$cfl_guard', _, _)),
           retractall(user:prelude_equation('$cfl_guard', _)) )),
     !.
 planted_refusing_rule_seen :-

@@ -30,6 +30,10 @@
 %     decided about every head pattern position that is not plain structure
 %     [tested: translator_rule_matching, translator_head_pattern_notes;
 %     commit=4465fc492071932eab0b2818a4ccd46f01f0d6aa].
+%   - translator rules retain the execution module that owns their body,
+%     compile from sibling spaces, and retire before release-time repair can
+%     re-enter a half-cleared home [tested: translator_rule_module_home;
+%     commit=WORKTREE].
 %   - bulk and single-atom ingestion apply the same definition-local type mask
 %     while an equation is arriving [tested:
 %     translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask;
@@ -1497,10 +1501,10 @@ test(an_in_place_annotation_is_still_a_constraint) :-
                                               [plus, A, B, Out]] ) )),
                         assertz(( user:plunit_x4_quoted(Out, Gs) :-
                                      Gs = [quote, [plunit_inert, Out, 42]] )),
-                        assertz(user:translator_rule(plunit_x4_add, [])),
-                        assertz(user:translator_rule(plunit_x4_quoted, [])) )),
-                 cleanup(( retractall(user:translator_rule(plunit_x4_add, _)),
-                           retractall(user:translator_rule(plunit_x4_quoted, _)),
+                        assertz(user:translator_rule(plunit_x4_add, [], user)),
+                        assertz(user:translator_rule(plunit_x4_quoted, [], user)) )),
+                 cleanup(( retractall(user:translator_rule(plunit_x4_add, _, _)),
+                           retractall(user:translator_rule(plunit_x4_quoted, _, _)),
                            abolish(user:plunit_x4_add/4),
                            abolish(user:plunit_x4_quoted/2) )) ]).
 
@@ -1537,8 +1541,8 @@ test(a_quoted_seam_expansion_is_refused_like_a_bare_one,
      [ setup(( assertz(( user:plunit_x4_qseam(Out, Gs) :-
                             Gs = [quote, [translatePredicate,
                                           [=, Out, 42]]] )),
-               assertz(user:translator_rule(plunit_x4_qseam, [])) )),
-       cleanup(( retractall(user:translator_rule(plunit_x4_qseam, _)),
+               assertz(user:translator_rule(plunit_x4_qseam, [], user)) )),
+       cleanup(( retractall(user:translator_rule(plunit_x4_qseam, _, _)),
                  abolish(user:plunit_x4_qseam/2) )),
        throws(error(metta_seam_expansion_as_data(plunit_x4_qseam,
                                                  translatePredicate), _)) ]) :-
@@ -2981,6 +2985,106 @@ test(a_planted_guard_that_binds_a_pattern_variable_cannot_create_a_match,
     assertion(Known == [saw, 'plunit-planted']).
 
 :- end_tests(translator_rule_matching).
+
+:- begin_tests(translator_rule_module_home).
+
+quiet_rule_test :-
+    retractall(user:silent(_)),
+    assertz(user:silent(true)).
+
+cleanup_rule_test(Name, Spaces) :-
+    catch('remove-translator-rule!'(Name, _), _, true),
+    forall(member(Space, Spaces),
+           catch(metta_release_space(Space), _, true)),
+    retractall(user:silent(_)),
+    assertz(user:silent(false)).
+
+cross_rule_source(
+"(: plunit-tr-cross-pick (-> Atom Atom Atom Atom Atom %Undefined%))
+(= (plunit-tr-cross-pick $expression $head $tail $body $otherwise)
+   (quote
+     (if (== $expression ())
+         $otherwise
+         (let ($head $tail) (decons-atom $expression) $body))))
+!(add-translator-rule! plunit-tr-cross-pick)").
+
+cross_callsite_source(
+"(: plunit-tr-cross-uses (-> Expression %Undefined%))
+(= (plunit-tr-cross-uses $xs)
+   (plunit-tr-cross-pick $xs $h $t $h empty))
+!(println! (plunit-tr-cross-uses (1 2 3)))").
+
+test(a_rule_registered_in_one_space_runs_when_another_space_compiles_it,
+     [ setup(quiet_rule_test),
+       cleanup(cleanup_rule_test(
+           'plunit-tr-cross-pick',
+           ['&plunit-tr-cross-other', '&plunit-tr-cross-home'])) ]) :-
+    cross_rule_source(RuleSource),
+    process_metta_string(RuleSource, Registered, '&plunit-tr-cross-home'),
+    assertion(Registered == [true]),
+    cross_callsite_source(Callsite),
+    with_output_to(
+        string(Output),
+        process_metta_string(Callsite, Answers, '&plunit-tr-cross-other')),
+    assertion(Answers == [true]),
+    assertion(Output == "1\n"),
+    metta_exec_module_known('&plunit-tr-cross-home', HomeModule),
+    assertion(translator_rule_home('plunit-tr-cross-pick', HomeModule)).
+
+test(releasing_a_rule_home_repairs_its_live_cross_space_user,
+     [ setup(quiet_rule_test),
+       cleanup(cleanup_rule_test(
+           'plunit-tr-cross-pick',
+           ['&plunit-tr-live-other', '&plunit-tr-live-home'])) ]) :-
+    cross_rule_source(RuleSource),
+    process_metta_string(RuleSource, _, '&plunit-tr-live-home'),
+    cross_callsite_source(Callsite),
+    with_output_to(
+        string(Before),
+        process_metta_string(Callsite, _, '&plunit-tr-live-other')),
+    assertion(Before == "1\n"),
+    metta_release_space('&plunit-tr-live-home'),
+    assertion(\+ translator_rule('plunit-tr-cross-pick')),
+    process_metta_string(
+        "!(plunit-tr-cross-uses (1 2 3))",
+        After,
+        '&plunit-tr-live-other'),
+    assertion(After =
+              [['plunit-tr-cross-pick', [1, 2, 3], Head, Tail, Head, empty]]),
+    assertion(var(Head)),
+    assertion(var(Tail)).
+
+release_rule_source(
+"(: plunit-tr-release-pick (-> Atom Atom Atom Atom Atom %Undefined%))
+(= (plunit-tr-release-pick $expression $head $tail $body $otherwise)
+   (quote
+     (if (== $expression ())
+         $otherwise
+         (let ($head $tail) (decons-atom $expression) $body))))
+!(add-translator-rule! plunit-tr-release-pick)
+(: plunit-tr-release-uses (-> Expression %Undefined%))
+(= (plunit-tr-release-uses $xs)
+   (plunit-tr-release-pick $xs $h $t $h empty))
+!(println! (plunit-tr-release-uses (1 2 3)))").
+
+test(a_space_with_an_executed_translator_callsite_releases_cleanly,
+     [ setup(quiet_rule_test),
+       cleanup(cleanup_rule_test(
+           'plunit-tr-release-pick',
+           ['&plunit-tr-release'])) ]) :-
+    release_rule_source(Source),
+    with_output_to(
+        string(Output),
+        process_metta_string(Source, Answers, '&plunit-tr-release')),
+    %The rewrite must have run before release. A fix that disables translator
+    %rules would not print the first list element here.
+    assertion(Answers == [true, true]),
+    assertion(Output == "1\n"),
+    metta_release_space('&plunit-tr-release'),
+    assertion(\+ metta_exec_module_known('&plunit-tr-release', _)),
+    assertion(\+ translator_rule('plunit-tr-release-pick')).
+
+:- end_tests(translator_rule_module_home).
 
 :- begin_tests(translator_head_pattern_notes).
 

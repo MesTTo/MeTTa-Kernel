@@ -239,8 +239,8 @@ test(a_special_form_name_is_refused,
 %even though translator:translate_expr_dl/4 would always take the translator-rule branch
 %before function dispatch.
 test(test_registering_any_translator_compiled_head_is_refused_by_name,
-     [ setup(assertz(user:translator_rule('plunit-p119-translated', []))),
-       cleanup(( retractall(user:translator_rule('plunit-p119-translated', _)),
+     [ setup(assertz(user:translator_rule('plunit-p119-translated', [], user))),
+       cleanup(( retractall(user:translator_rule('plunit-p119-translated', _, _)),
                  forget_pi_name('plunit-p119-translated') )),
        throws(error(permission_error(register, metta_special_form,
                                       'plunit-p119-translated'), _)) ]) :-

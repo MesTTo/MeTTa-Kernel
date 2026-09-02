@@ -1060,10 +1060,10 @@ test(translated_let_rejects_an_impossible_comparison_output) :-
 :- end_tests(metta_builtin_outputs).
 
 :- begin_tests(metta_translator_rules,
-               [ setup((retractall(user:translator_rule(_, _)),
-                        assertz(user:translator_rule(first, [])),
-                        assertz(user:translator_rule(second, [])))),
-                 cleanup(retractall(user:translator_rule(_, _))) ]).
+               [ setup((retractall(user:translator_rule(_, _, _)),
+                        assertz(user:translator_rule(first, [], user)),
+                        assertz(user:translator_rule(second, [], user)))),
+                 cleanup(retractall(user:translator_rule(_, _, _))) ]).
 
 %The refusal NAMES the operation now. It used to be a bare
 %instantiation_error, which told a MeTTa program that a value was missing and

@@ -258,7 +258,7 @@ clear_fun_meta(Module, F) :-
 %per head argument, and the label position is decided by an inline `=`/`atom`
 %test inside the walk rather than by a helper call. And the only test of
 %emptiness is the caller's `Positions == []`, written the way
-%apply_translator_rule_dl/6 writes its declaration tests: `==/2` compiles to an
+%apply_translator_rule_dl/7 writes its declaration tests: `==/2` compiles to an
 %inline instruction, so an equation with nothing to report reaches neither this
 %predicate nor the module lookup under it. An early-return clause here could
 %not do that job, because the cost being avoided is paid BEFORE the call.
@@ -322,7 +322,7 @@ record_head_pattern_notes(F, Positions) :-
 head_pattern_reason(_, _, _, _, _, functional_pattern, functional_pattern).
 %THE LABEL QUESTION FIRST, and the order is what the two questions cost rather
 %than taste. head_meaning_route/3 reads Prolog facts, metta_special_form/1,
-%translator_rule/2 and fun/1, and fails at once for a label that means nothing,
+%translator_rule/3 and fun/1, and fails at once for a label that means nothing,
 %which is what most compound head arguments hold. unevaluated_head_argument/4
 %reads a TYPE DECLARATION, and a name the prelude has not declared falls
 %through to a match against &self, so asking it first paid a space query for
@@ -1378,7 +1378,7 @@ translation_skeleton(Term, Skeleton) :-
 %it (engine/translator/special_forms.pl).
 %
 %A TRANSLATOR RULE is the other kind, and it is a registry rather than a list
-%because a program adds to it. A rule is a MACRO: apply_translator_rule_dl/6
+%because a program adds to it. A rule is a MACRO: apply_translator_rule_dl/7
 %calls the rule's own compiled predicate at compile time and takes its answer
 %as the expansion, so an expansion COMPUTED from the arguments is computed
 %from whatever the skeleton put there. Abstracting a literal hands the rule an
@@ -1390,7 +1390,7 @@ translation_skeleton(Term, Skeleton) :-
 %[measured 2026-08-30;
 % fixture=extensions/python/examples/gallery/symbolic_tensors.py].
 literal_sensitive_form(Head) :- variable_capturing_form(Head), !.
-literal_sensitive_form(Head) :- translator_rule(Head, _).
+literal_sensitive_form(Head) :- translator_rule(Head, _, _).
 
 translation_skeleton_argument(Term, Skeleton) :-
     (   var(Term)
