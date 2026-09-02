@@ -15,10 +15,12 @@ the REAL spec (see check_spec_status.py's own module docstring for the three
 rounds). Planted fixtures catch the same class of mistake without needing
 175 real items to happen to exercise it.
 
-The tree is written from scratch under a temporary directory, laid out
-exactly like this repository's own workspace -- `<T>/workspace/repo` is
-ROOT, `<T>/workspace/ai-spec-execution.md` is the spec, `<T>/Sibling/` is an
-arbiter-corpus-shaped sibling one level further out -- because
+The tree is written from scratch under a temporary directory, laid out below
+an intentionally transient-named parent exactly like this repository's own
+workspace -- `<T>/ai-tmp/workspace/repo` is ROOT,
+`<T>/ai-tmp/workspace/ai-spec-execution.md` is the spec, and
+`<T>/ai-tmp/Sibling/` is an arbiter-corpus-shaped sibling one level further
+out -- because
 check_spec_status.py derives WORKSPACE and SEARCH_ROOTS from ROOT's own
 position, and a fixture that collapses that nesting would not exercise the
 code path that matters (P2.13's `LeaTTa/...` citation, resolved one
@@ -30,13 +32,12 @@ itself scans would have its own docstring, or this file's fixture data, read
 as claims about a tree it is only visiting.
 Guarantees:
   - every planted FIXED, OPEN and UNKNOWN case is reported as such, and nothing
-    unplanted is reported FIXED or OPEN [assumed 2026-08-18: this file's
-    own main() IS the proof, run by hand since neither this file nor
-    check_spec_status.py is wired into check.sh yet, single-owner]
+    unplanted is reported FIXED or OPEN [tested:
+    tests/checks/check_spec_status_selftest.py; commit=WORKTREE]
   - the same item id reports FIXED when its file exists and is gated, OPEN
     once that exact file is removed, and FIXED again once it returns,
     across three runs of the same checker against the same tree
-    [assumed 2026-08-18: same run as above]
+    [tested: tests/checks/check_spec_status_selftest.py; commit=WORKTREE]
 Fails when:
   - run against a tree it did not write; it asserts exact ids, verdicts and
     reason substrings in a fixture it generates itself, like
@@ -254,7 +255,7 @@ def main() -> int:
     complaints: list[str] = []
 
     with tempfile.TemporaryDirectory() as directory:
-        workspace = Path(directory) / "workspace"
+        workspace = Path(directory) / "ai-tmp" / "workspace"
         root = workspace / "repo"
         root.mkdir(parents=True)
         build(root)
@@ -321,7 +322,7 @@ def main() -> int:
     # FIXED one depends on" demonstration, made permanent and automatic
     # rather than a one-off manual check.
     with tempfile.TemporaryDirectory() as directory:
-        workspace = Path(directory) / "workspace"
+        workspace = Path(directory) / "ai-tmp" / "workspace"
         root = workspace / "repo"
         root.mkdir(parents=True)
         build(root)
