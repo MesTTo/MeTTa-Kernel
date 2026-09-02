@@ -2,7 +2,7 @@
 
 Source: `extensions/python/metta/spaces.py`.
 
-> Space views and combinators on the public seam. Object views,
+> Space views and combinators on the public interface. Object views,
 > union, readonly, mapped, and overlay are ordinary SpaceProvider instances;
 > the same engine route therefore matches a live object or composes existing
 > spaces without hardcoded integration paths.

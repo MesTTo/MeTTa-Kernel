@@ -1,10 +1,13 @@
 % Purpose: declare each engine extension seam, its direction and its cut
 %   semantics, and publish the predicates extensions and host bindings may call.
 % Guarantees:
-%   - host query carriers enter the engine-owned algebra scope and read its
-%     effective carrier and identity only through declared host services
+%   - host query carriers enter the engine-owned algebra scope, read its
+%     effective carrier and identity, and compose operation-answer weights
+%     only through declared host services
 %     [tested: a_host_binding_calls_only_published_surface,
-%     test_the_host_service_scoreboard_matches_the_tree; commit=c7468b2789746bcf95c4bacc0e2d517ec4d972fa].
+%     test_the_host_service_scoreboard_matches_the_tree,
+%     test_two_annotated_operation_calls_multiply_all_four_joint_weights;
+%     commit=fc0f512887da08a19a0ec8422a3a8d5716262a64].
 %   - atom events raised inside an observation frame are retained in write
 %     order, merged into an enclosing frame on nested commit, published only
 %     after the outer commit, and discarded on rollback [tested:
@@ -936,6 +939,8 @@ kind(metta_deprecation/3, host_service).
 kind(metta_with_under/2, host_service).
 kind(metta_effective_algebra/2, host_service).
 kind(metta_algebra_one/2, host_service).
+kind(metta_annotation/2, host_service).
+kind(metta_k_extend/4, host_service).
 %The host run and load surface: the grouped runner (with the
 %using-substitution folded in as Bindings), the status runner, the load
 %lifecycle and the manifest read, plus the reducible-head test the status

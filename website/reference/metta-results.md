@@ -34,7 +34,7 @@ def raise_error_answers(
 
 > Raise the first `(Error ...)` member of answers, if any.
 >
-> The check every single-value door runs before decoding: an error
+> The check every single-value accessor runs before decoding: an error
 > among the answers is the evaluation reporting failure, and failure
 > outranks a count. The target rides as a note, so the traceback names
 > the call without the message growing.
@@ -133,7 +133,7 @@ def raise_for_errors(self) -> Self:
 >     m.match(pattern).raise_for_errors()
 >
 > Query rows are BINDINGS, not evaluation answers, so a stored
-> error record stays data through every Rows door, one() and
+> error record stays data through every Rows method, one() and
 > first() included; this is the explicit bridge for callers who
 > want the raise_for_status reading. One error raises it plainly,
 > several raise one ExceptionGroup carrying each.
@@ -150,7 +150,7 @@ def why(self) -> str:
 > has nothing to explain, and a manually constructed or transformed
 > Rows has no query to inspect, so both uses fail loudly.
 >
-> One of nine observability doors: metta.derivation answers HOW a
+> One of nine observability methods: metta.derivation answers HOW a
 > result was derived, and prepare(...).explain() answers what a
 > query will do before it runs; the guide's observability page maps
 > the family.
@@ -164,7 +164,7 @@ def build(self, column: str | type, cls: type | None = None) -> list:
 > Rebuild constructor atoms through the two-way translator.
 >
 > ``build(column, cls)`` projects a named column. ``build(cls)`` is the
-> query reconstruction door when exactly one column holds complete
+> query reconstruction form when exactly one column holds complete
 > constructor expressions.
 
 ### `Rows.into`
@@ -179,7 +179,7 @@ def into(self, cls: type) -> list:
 > conversion was only ever reachable through that keyword, so a
 > prepared query's solve(), or any other Rows, could not ask for it
 > even though rows_into() never cared where the rows came from
-> . build(cls) is the neighbouring door and a
+> . build(cls) is the neighbouring method and a
 > different question: it rebuilds ONE column of complete constructor
 > expressions, where this maps every column onto a field.
 
@@ -241,7 +241,7 @@ def rows_into(rows: Rows, cls: type) -> list:
 > row_factory reading, over the existing conversion machinery. A field
 > annotated with a registered class builds through the two-way
 > translator; a primitive annotation decodes and is CHECKED, so a
-> symbol landing in an int field is an error at the door rather than
+> symbol landing in an int field is an error at the boundary rather than
 > a surprise downstream; an unannotated field decodes plainly.
 
 ## `Answers`

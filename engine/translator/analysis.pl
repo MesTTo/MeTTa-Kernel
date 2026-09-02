@@ -6,6 +6,12 @@
 %   spaces_deferred_translation:a_bulk_local_shadow_retains_no_inherited_order_types,
 %   translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask;
 %   commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
+%   A tracked equation carries its arrival-order governing chains into body
+%   translation, while an untracked translation disables every static
+%   contract shortcut [tested:
+%   translator_literal_type_checks:a_repeated_parameter_contract_has_a_live_static_proof,
+%   translator_literal_type_checks:an_untracked_clause_retains_static_and_intrinsic_contracts;
+%   commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/translator/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -41,6 +47,9 @@
 %flag set, so the walk comes back and the answer stays right; nothing reads
 %the flag for anything but skipping work.
 record_fun_meta(F, Args, Body) :-
+    record_fun_meta(F, Args, Body, _).
+
+record_fun_meta(F, Args, Body, Types) :-
     current_metta_module(Module),
     (   metta_seq_present(Args)
     ->  (   metta_any_segment_equation
@@ -585,6 +594,8 @@ seam:engine_emitted(control_exception/1).
 seam:engine_emitted(foldall/4).
 seam:engine_emitted(has_type/2).
 seam:engine_emitted(check_argument_type/3).
+seam:engine_emitted(check_argument_type_under_policy/3).
+seam:engine_emitted(check_argument_type_under_live_policy/3).
 seam:engine_emitted(include/3).
 seam:engine_emitted(letstar_runtime/3).
 seam:engine_emitted(metta_ensure_duals/1).
@@ -803,24 +814,58 @@ super_defines(Module, Fun, Arity) :-
 %Flatten (= Head Body) MeTTa function into Prolog Clause:
 
 %% translate_clause(+Equation, -Clause) is semidet.
-translate_clause(Input, (Head :- BodyConj)) :- translate_clause(Input, (Head :- BodyConj), true).
+translate_clause(Input, Clause) :-
+    translate_clause(Input, Clause, true).
 
 %% translate_clause(+Equation, -Clause, +ConstrainArgs:boolean) is semidet.
-translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
+translate_clause(Input, Clause, ConstrainArgs) :-
+    with_static_contract_shortcuts(
+        disabled,
+        translate_clause_impl(Input, Clause, ConstrainArgs)).
+
+%% translate_tracked_clause(+Equation, -Clause) is semidet.
+translate_tracked_clause(Input, Clause) :-
+    translate_tracked_clause(Input, Clause, true).
+
+%% translate_tracked_clause(+Equation, -Clause, +ConstrainArgs:boolean) is semidet.
+translate_tracked_clause(Input, Clause, ConstrainArgs) :-
+    with_static_contract_shortcuts(
+        enabled,
+        translate_clause_impl(Input, Clause, ConstrainArgs)).
+
+:- meta_predicate with_static_contract_shortcuts(+, 0).
+with_static_contract_shortcuts(Mode, Goal) :-
+    (   nb_current('$metta_static_contract_shortcuts', Previous)
+    ->  Restore = previous(Previous)
+    ;   Restore = absent
+    ),
+    setup_call_cleanup(
+        nb_setval('$metta_static_contract_shortcuts', Mode),
+        call(Goal),
+        restore_static_contract_shortcuts(Restore)).
+
+restore_static_contract_shortcuts(previous(Previous)) :-
+    nb_setval('$metta_static_contract_shortcuts', Previous).
+restore_static_contract_shortcuts(absent) :-
+    nb_delete('$metta_static_contract_shortcuts').
+
+translate_clause_impl(Input, (Head :- BodyConj), ConstrainArgs) :-
     Input = [=, [F|Args0], BodyExpr],
     metta_seq_present(Args0),
     !,
     translate_equation_head(F, Args0, ConstrainArgs, Args1, GoalsPrefix),
-    record_fun_meta(F, Args1, BodyExpr),
+    record_fun_meta(F, Args1, BodyExpr, ArrivalTypes),
     metta_seq_head_plan(Args1, HeadPlan),
-    translate_segment_body_plan(F, BodyExpr, GoalsPrefix, BodyPlan),
+    current_metta_module(Module),
+    with_static_parameter_environment(
+        Module, F, Args1, ArrivalTypes,
+        translate_segment_body_plan(F, BodyExpr, GoalsPrefix, BodyPlan)),
     same_length(Args1, CallArgs),
     append(CallArgs, [Out], FinalArgs),
     compiled_function_name(F, Predicate),
     Head =.. [Predicate|FinalArgs],
     length(FinalArgs, CompiledArity),
     register_arity(F, CompiledArity),
-    current_metta_module(Module),
     RawBody = metta_segment_rule_result(Module, F, HeadPlan, BodyPlan,
                                         CallArgs, RawOut),
     append(CallArgs, [RawOut], RawFinalArgs),
@@ -834,13 +879,18 @@ translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
     ->  quantify_negations(Head, BodyConj)
     ;   true
     ).
-translate_clause(Input, (Head :- BodyConj), ConstrainArgs) :-
+translate_clause_impl(Input, (Head :- BodyConj), ConstrainArgs) :-
                                                Input = [=, [F|Args0], BodyExpr],
                                                translate_equation_head(F, Args0, ConstrainArgs,
                                                                        Args1, GoalsPrefix),
-                                               record_fun_meta(F, Args1, BodyExpr),
-                                               translate_equation_body_result(F, BodyExpr,
-                                                                              GoalsBody, ExpOut),
+                                               record_fun_meta(F, Args1, BodyExpr,
+                                                               ArrivalTypes),
+                                               current_metta_module(Module),
+                                               with_static_parameter_environment(
+                                                   Module, F, Args1, ArrivalTypes,
+                                                   translate_equation_body_result(
+                                                       F, BodyExpr, GoalsBody,
+                                                       ExpOut)),
                                                (  nonvar(ExpOut) , ExpOut = partial(Base,Bound)
                                                -> length(Bound, N),
                                                   MinimumArity is N + 1,

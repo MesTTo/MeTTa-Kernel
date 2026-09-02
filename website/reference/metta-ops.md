@@ -9,6 +9,14 @@ Source: `extensions/python/metta/ops.py`.
 
 The entries below reproduce the source signatures and docstrings.
 
+## `EffectPlan`
+
+```python
+class EffectPlan:
+```
+
+> Named operations reachable from one target and their lattice join.
+
 ## `class_declarations`
 
 ```python

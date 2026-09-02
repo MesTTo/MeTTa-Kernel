@@ -5,6 +5,11 @@
 %   active, including new-state and change-state!, while reads remain valid
 %   [tested: test_speculative_state_write_is_fenced,
 %   test_world_eval_fences_state_and_emits_nothing; commit=3ded7552797b66d78e666141eb51f3bc14686bd2].
+%   A fuel-triggered recompile starts under the typing-policy mutex before its
+%   transaction, so retained type shortcuts survive the instrumentation pass
+%   without crossing a concurrent policy change [tested:
+%   translator_literal_type_checks:a_fuel_recompile_keeps_intrinsic_type_shortcuts;
+%   commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -748,8 +753,9 @@ metta_fuel_ensure_charges :-
         metta_fuel_chargeless(_)
     ->  findall(F, metta_fuel_chargeless(F), Fs),
         retractall(metta_fuel_chargeless(_)),
-        forall(member(F, Fs),
-               transaction(recompile_function_impl(F)))
+        with_typing_policy_stable(
+            forall(member(F, Fs),
+                   transaction(recompile_function_impl(F))))
     ;   true
     ).
 

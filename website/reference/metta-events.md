@@ -176,7 +176,7 @@ def publish(self, action: str, space: str, atom: Any) -> None:
 def stream(runtime: Any) -> EventStream:
 ```
 
-> The event stream of one engine; `MeTTa.events()` is the usual door.
+> The event stream of one engine; `MeTTa.events()` is the usual method.
 
 ## `publish`
 
@@ -192,7 +192,7 @@ def publish(action: str, space: str, wire: list) -> bool:
 ## `atom_added`
 
 ```python
-def atom_added(space: str, wire: list) -> bool:
+def atom_added(space: str, wire: list, sequence: int = -1) -> bool:
 ```
 
 > The shim's added-atom hook.

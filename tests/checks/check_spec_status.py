@@ -92,17 +92,14 @@ Assumes:
 Guarantees:
   - every P<phase>.<n> id the spec's item tables define is reported exactly
     once, as FIXED, OPEN or UNKNOWN, with the anchor(s) that decided it
-    [assumed 2026-08-18: verified by hand running
-    tests/checks/check_spec_status_selftest.py, which is not yet wired into
-    check.sh (single-owner) and so cannot be cited as "tested" until it
-    is; the exact line is in this tool's own report]
+    [tested: tests/checks/check_spec_status_selftest.py; commit=fcf89d61661bf4bf2367dac84fb14d45e79a3774]
   - an id the spec itself defines more than once with different row content
     is reported UNKNOWN and flagged ambiguous, never silently resolved to
-    one of its rows [assumed 2026-08-18: same run as above]
+    one of its rows [tested: tests/checks/check_spec_status_selftest.py;
+    commit=fcf89d61661bf4bf2367dac84fb14d45e79a3774]
   - a FIXED verdict flips to OPEN the moment the file or lane it names stops
     existing or stops being GATE-tier, and flips back the moment it returns
-    [assumed 2026-08-18: same run as above, plus a live A/B against
-    tests/shell/test_worktree_configuration.sh on the real tree]
+    [tested: tests/checks/check_spec_status_selftest.py; commit=fcf89d61661bf4bf2367dac84fb14d45e79a3774]
 Fails when:
   - an acceptance criterion states its target only in prose, with no
     backticked name. P9.3's own row is one such case: "a script asks the
@@ -741,7 +738,7 @@ def _locate_file(token: str) -> list[Path]:
         return []
     return [
         p for p in ROOT.rglob(token)
-        if not p.is_symlink() and not _transient(p.parts)
+        if not p.is_symlink() and not _transient(p.relative_to(ROOT).parts)
     ]
 
 

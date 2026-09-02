@@ -8,6 +8,13 @@
 %   compiled calls [tested:
 %   test_an_inherited_arrow_does_not_veto_a_local_definition;
 %   commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
+%   A generated contract can request the policy-strict relation without
+%   taxing the global numeric type fast path; default unannotated Python
+%   operators therefore retain parity with their ordinary MeTTa twin while a
+%   later user refusal remains decisive [tested:
+%   test_extension_cost_rows_are_marginal,
+%   test_a_static_parameter_proof_yields_to_a_later_typing_rule;
+%   commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -188,7 +195,12 @@ typing_refusal_actual(Module, Family, Argument, Actual) :-
 %accepted by a pair of types that agree.
 metta_call_accepted(Operation, Arguments) :-
     metta_operation_parameters(Operation, Arguments, ParameterTypes, Origins),
-    metta_arguments_match(ParameterTypes, Origins, Arguments),
+    current_metta_module(Module),
+    (   type_rules:typing_policy_is_default(Module)
+    ->  metta_arguments_match(ParameterTypes, Origins, Arguments)
+    ;   metta_arguments_match_under_policy(
+            ParameterTypes, Origins, Arguments)
+    ),
     !.
 
 %A compile-time refusal may use only the immediate types the shallow reader
@@ -228,6 +240,12 @@ metta_arguments_match([Expected|Rest], [Origin|Origins],
                       [Argument|Arguments]) :-
     check_argument_type(Argument, Expected, Origin),
     metta_arguments_match(Rest, Origins, Arguments).
+
+metta_arguments_match_under_policy([], [], []).
+metta_arguments_match_under_policy([Expected|Rest], [Origin|Origins],
+                                   [Argument|Arguments]) :-
+    check_argument_type_under_policy(Argument, Expected, Origin),
+    metta_arguments_match_under_policy(Rest, Origins, Arguments).
 
 metta_arguments_match_in(_, [], [], []).
 metta_arguments_match_in(Module, [Expected|Rest], [Origin|Origins],
@@ -343,6 +361,44 @@ check_argument_type(Argument, Expected, metatype) :-
 check_argument_type(Argument, Expected, Origin) :-
     current_metta_module(Module),
     check_argument_type_in(Module, Argument, Expected, Origin).
+
+% A generated check whose static shortcut was invalidated must bypass only
+% the global grounded-number shortcut. The derived relation below still uses
+% the exact and widening witnesses, but under a user policy each witness also
+% needs an ordinary acceptance, so an explicit refusal remains decisive.
+% Keeping this as a separate entry point is what leaves unrelated has_type/2
+% clients, including Python's live numeric protocol, on their established
+% zero-registry-probe path.
+check_argument_type_under_policy(Argument, Expected, Origin) :-
+    current_metta_module(Module),
+    check_argument_type_under_policy_in(
+        Module, Argument, Expected, Origin).
+
+check_argument_type_under_policy_in(Module, Argument, Expected, Origin) :-
+    Origin \== metatype,
+    Origin \== derived_variable,
+    Origin \== variable,
+    !,
+    (   metta_evaluating_type_rule
+    ->  metta_argument_types_in(Module, Argument, Types),
+        member(Actual, Types),
+        metta_types_match_in(Module, Actual, Expected)
+    ;   has_type_under_policy(Module, Argument, Expected)
+    ).
+check_argument_type_under_policy_in(Module, Argument, Expected, Origin) :-
+    check_argument_type_in(Module, Argument, Expected, Origin).
+
+% Runnable and untracked translations have no retained support record to
+% invalidate between translation and execution, so they select the strict
+% fallback against the live policy. Retained clauses make this choice once at
+% translation time while holding the policy mutex.
+check_argument_type_under_live_policy(Argument, Expected, Origin) :-
+    current_metta_module(Module),
+    (   type_rules:typing_policy_is_default(Module)
+    ->  check_argument_type_in(Module, Argument, Expected, Origin)
+    ;   check_argument_type_under_policy_in(
+            Module, Argument, Expected, Origin)
+    ).
 
 check_argument_type_in(Module, Argument, Expected, metatype) :-
     metatype_argument_admitted(Module, Argument, Expected, reporting).

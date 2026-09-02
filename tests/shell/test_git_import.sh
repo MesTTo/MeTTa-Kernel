@@ -7,7 +7,7 @@
 #   - a repeat is idempotent and does not rebuild; a transition does
 #   - refusals are named and leave nothing behind: dirty state, an abbreviated
 #     or non-SHA revision, an unreachable SHA, a non-Git or wrong-origin target,
-#     and a build that fails
+#     a target nested inside another checkout, and a build that fails
 #   - two processes racing one fresh target serialize
 #   - every arity answers the same unit
 # Assumes:
@@ -125,7 +125,13 @@ fi
 grep -q "fetch requested commit" "$fixture/unreachable.log"
 test ! -e "$fixture/unreachable/fixture"
 
-# Existing non-Git and wrong-origin targets are rejected.
+# An existing directory nested inside another checkout is not itself a Git
+# checkout. Git commands run there can see the parent, so this case must compare
+# the reported worktree root rather than merely ask whether the path is inside
+# one [tested: this script;
+# commit=60b4e5a39f2274ad5d207dd9ce7b948b74a299ab].
+mkdir -p "$fixture/non-git"
+git -C "$fixture/non-git" init -q
 mkdir -p "$fixture/non-git/fixture"
 if run_import "$remote" '' "$fixture/non-git" "$first" >"$fixture/non-git.log" 2>&1; then
     echo "non-Git target unexpectedly succeeded" >&2

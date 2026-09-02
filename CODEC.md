@@ -231,13 +231,12 @@ crosses; handing the reference back reaches the very same object, so
 identity, mutation and accessor calls all see one thing. Only an in-process
 encoding can carry it, which is why it is outside the core profile.
 
-`["h", ...]` carries a native engine value, a C blob, the same way. It is
-the one asymmetric term: the engine writes `["h", id, text]`, three
-elements, so the host can print the value it is holding opaquely, and the
-host writes `["h", id]` back, two elements, because the engine needs only
-the registry id. A stale id is an existence error naming it, never a fresh
-or empty value, because the release is explicit on the host side and
-silence would turn a released handle into a wrong answer.
+`["h", ...]` carries a native engine value, a C blob, the same way. Both
+sides preserve `["h", id, text]`: the registry id returns the value to the
+engine, and the text lets a host decode and print its opaque reference. The
+engine ignores the text when resolving the id. A stale id is an existence
+error naming it, never a fresh or empty value, because release is explicit
+on the host side and silence would turn a released handle into a wrong answer.
 
 ## The text seam
 

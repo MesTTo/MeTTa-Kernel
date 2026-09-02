@@ -1554,6 +1554,12 @@ add_equation(Space, Term, FAtom, W) :-
 %a_failed_local_redefinition_restores_the_repaired_inherited_call;
 %commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
 metta_add_function_transaction(Storage, Space, Module, Term, FAtom, W) :-
+    with_typing_policy_stable(
+        metta_add_function_transaction_stable(
+            Storage, Space, Module, Term, FAtom, W)).
+
+metta_add_function_transaction_stable(Storage, Space, Module, Term, FAtom,
+                                      W) :-
     length(W, InputArity),
     PredArity is InputArity + 1,
     (   '$metta_repaired_shadow_import'(Module, FAtom, PredArity, _)

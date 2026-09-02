@@ -16,10 +16,14 @@ Guarantees:
   - a path claim naming nothing, a roster omitting a shipped library, a roster
     naming an absent one, a count disagreeing with lib/, and a language-surface
     name the engine does not know are each caught, and a clean text of the same
-    shape reports nothing [tested: this file is its own test, run by the gate]
+    shape reports nothing [tested: this file is its own test, run by the gate;
+    commit=b089d4309f34b205c5fdaee46960d1fcd9c1ac42]
+  - Python methods are checked on the class named by their receiver, including
+    calls in compact unlabelled API blocks [tested: this file is its own test,
+    run by the gate; commit=b089d4309f34b205c5fdaee46960d1fcd9c1ac42]
   - the real sheets are read by the lane itself, never edited here, so a
     planted fault cannot race the lane reading the shipped file [tested:
-    tests/checks/check_llms_names.py; commit=c6a40460b1db341198a6150e3600f502831a6e83]
+    tests/checks/check_llms_names.py; commit=b089d4309f34b205c5fdaee46960d1fcd9c1ac42]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -37,13 +41,14 @@ if str(HERE) not in sys.path:
 
 from check_llms_names import (  # noqa: E402  -- HERE must be on the path first
     REPO,
-    door_findings,
     head_findings,
     library_findings,
+    method_findings,
     path_findings,
 )
 
 SHEET = REPO / "llms.txt"
+PYTHON_SHEET = REPO / "extensions/python/llms.txt"
 
 
 def _shipped() -> list[str]:
@@ -172,29 +177,81 @@ def main() -> int:
         "a seat sheet without a surface block was reported",
     )
 
-    # DOORS: a code block teaches, prose discusses. `m.query` sat in three
-    # python blocks of the seat sheet and existed on no tier.
+    # METHODS: a code block teaches, while prose can discuss or deny a name.
     block = "```python\nm.query(pattern)\n```"
     expect(
-        any("m.query" in finding for finding in door_findings(SHEET, block)),
-        "a door the library does not have was NOT reported",
+        any("m.query" in finding for finding in method_findings(SHEET, block)),
+        "a method the library does not have was NOT reported",
     )
     expect(
-        door_findings(SHEET, "```python\nm.match(pattern)\nkb.remove(a)\n```") == [],
-        "real doors were reported",
+        method_findings(SHEET, "```python\nm.match(pattern)\nkb.remove(a)\n```")
+        == [],
+        "real methods were reported",
     )
     expect(
-        door_findings(SHEET, "prose saying there is no `metta.matching` here") == [],
-        "prose DENYING a door was read as teaching it",
+        method_findings(SHEET, "prose saying there is no `metta.matching` here")
+        == [],
+        "prose DENYING a method was read as teaching it",
     )
     expect(
-        door_findings(SHEET, "```ts\nm.dispose()\n```") == [],
-        "another language's block was read as this package's doors",
+        method_findings(SHEET, "```ts\nm.dispose()\n```") == [],
+        "another language's block was read as this package's methods",
+    )
+    expect(
+        any(
+            "m.query" in finding
+            for finding in method_findings(PYTHON_SHEET, "```\nm.query(pattern)\n```")
+        ),
+        "an unlabelled Python API block was NOT inspected",
+    )
+    expect(
+        any(
+            "m._register_space" in finding
+            for finding in method_findings(
+                PYTHON_SHEET,
+                "```python\nm._register_space(provider, '&crm')\n```",
+            )
+        ),
+        "a Space-only method written on a MeTTa context was NOT reported",
+    )
+    expect(
+        any(
+            "kb.close" in finding
+            for finding in method_findings(
+                PYTHON_SHEET, "```python\nkb.close()\n```"
+            )
+        ),
+        "a MeTTa-only method written on a Space was NOT reported",
+    )
+    expect(
+        any(
+            "context.answers" in finding
+            for finding in method_findings(
+                SHEET, "```python\ncontext.answers(term)\n```"
+            )
+        ),
+        "an invalid method on the named context receiver was NOT reported",
+    )
+    expect(
+        method_findings(
+            SHEET,
+            "```python\nm.answers(term)\ncontext.close()\n```",
+        )
+        == [],
+        "valid methods were reported on the root sheet's Space and context",
+    )
+    expect(
+        method_findings(
+            PYTHON_SHEET,
+            "```python\nm.close()\nkb.answers(term)\nkb._register_space(provider, '&crm')\n```",
+        )
+        == [],
+        "valid methods were reported on the Python sheet's context and Space",
     )
 
     for failure in failures:
         print(failure, file=sys.stderr)
-    print(f"llms selftest: 20 planted case(s), {len(failures)} failure(s)")
+    print(f"llms selftest: 26 planted case(s), {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

@@ -9,9 +9,11 @@ The runnable definitions example starts with factorial:
 ```python
 @m.define
 def fact(n):                      # -> (= (fact $n)
-    if n == 0:                    # ->      (if (py-eq $n 0)
+    if fn.eq(n, 0):               # ->      (if (== $n 0)
         return 1                  # ->          1
-    return n * fact(n - 1)        # ->          (* $n (fact (- $n 1)))))
+    return fn.mul(                # ->          (* $n
+        n, fact(fn.sub(n, 1))     # ->             (fact (- $n 1)))))
+    )
 
 
 check("equations run", m.run("!(fact 6)"), [[720]])
@@ -21,9 +23,15 @@ check("S builds the term", str(S.fact(6)), "(fact 6)")
 ```
 
 The comment is the equation this body becomes, and you can read it back out
-of the space with `m.self.atoms()` rather than take it on trust. Python's `==`
-lowers to `py-eq` because Python's equality is not MeTTa's: `1 == 1.0` is True
-in Python and False in MeTTa, where the numeric kinds stay apart.
+of the space with `m.self.atoms()` rather than take it on trust. `fn.eq`,
+`fn.mul`, and `fn.sub` explicitly name engine relations, which is what a
+stored factorial equation needs.
+
+An ordinary `n == 0` or `n * value` instead invokes Python's live operator
+protocol at engine application time. That spelling is right for strings,
+lists, custom reflected methods, and any other Python value. It is not a
+relational arithmetic spelling: use `fn.*` when the equation must stay
+matchable or run backwards.
 
 Calling `fact(6)` runs the compiled equation and returns all engine answers. `S.fact(6)` builds `(fact 6)` as data, and `fact.py(6)` runs the Python reference directly. Inside an `@rules` generator, calls to defined objects stage scope-locally so `equation(lhs).to(fact(x))` still produces an ordinary equation atom.
 

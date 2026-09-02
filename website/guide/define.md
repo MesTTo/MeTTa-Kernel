@@ -1,14 +1,14 @@
 <!--
 Purpose: teach Python-authored equations, rule sets, and lowering declarations.
 Guarantees: examples use Space.define and Rules.lower.
-[tested: npm run docs:build; commit=5fe3175632a6b60b3b54ca9125b75607ac82401a]
+[tested: npm run docs:build; commit=e3787593132a7ece2d300397045f7415709847c9]
 Purpose: teach Python-authored equations, rule sets, effect propagation, and
 lowering declarations.
 Guarantees: examples use Space.define and Rules.lower, and describe
 definition effects as a strongest-member join.
 [tested: npm run docs:build and
 test_a_definition_joins_every_called_operations_effect;
-commit=3cfbe0d7417b1c453c2dc12d47e2e47e7de461f7]
+commit=e3787593132a7ece2d300397045f7415709847c9]
 -->
 
 # Write MeTTa in Python
@@ -21,9 +21,9 @@ explicitly.
 ```python
 @m.define
 def fact(n):
-    if n == 0:
+    if fn.eq(n, 0):
         return 1
-    return n * fact(n - 1)
+    return fn.mul(n, fact(fn.sub(n, 1)))
 
 
 check("equations run", m.run("!(fact 6)"), [[720]])
@@ -46,8 +46,26 @@ def fib(n=1):
 
 @m.define
 def fib(n):
-    return fib(n - 1) + fib(n - 2)   # m.run("!(fib 10)") -> [[55]]
+    return fn.add(fib(fn.sub(n, 1)), fib(fn.sub(n, 2)))
+    # m.run("!(fib 10)") -> [[55]]
 ```
+
+Python operators and engine relations are two deliberate spellings. Generic
+`left + right`, `left < right`, `abs(value)`, `sum(values)`, and their sibling
+forms invoke Python's live data model at engine application time. Reflected
+methods, container result types, rich-comparison objects, and in-place methods
+therefore behave exactly as they do in the `.py` twin. Such a call is
+`oracleIO`: an arbitrary dunder may observe or mutate host state.
+
+Use `fn.add(left, right)`, `fn.lt(left, right)`, `fn.abs_math(value)`, and the
+other `fn` names when the body means an engine relation. Those terms stay
+matchable, reversible where the engine relation is reversible, and eligible
+for structural caching. The factorial and Fibonacci examples use this form
+because they are translations of MeTTa equations rather than calls into an
+unknown Python type. An exact built-in `int` or `float` annotation also lets
+the compiler retain a Python-equivalent native numeric head for basic
+arithmetic and ordering; protocol-sensitive operations still take the live
+Python path.
 
 The subset includes rebinding, `while`, `for`, nested definitions,
 generators, lambdas, comprehensions, indexing, slicing, formatted strings,
@@ -101,10 +119,9 @@ yields `(double $value)`); a defined call with ground arguments runs at
 construction and embeds its single result (`fib(10)` embeds `55`, constant
 folding by construction; a ground call answering several results keeps its
 call term, preserving multiplicity). A registered operation follows the same
-split. A ground op call runs now, firing its effect exactly once. An op call
-carrying a rule variable stages the op-call term instead, so the law crosses
-into the host once per application and no host code ever runs on a variable.
-The result is a
+split: a ground op call runs now, firing its effect exactly once, while an op
+call carrying a rule variable stages the op-call term, so the law crosses the
+host per application and no host code runs on a variable. The result is a
 list of ordinary equation atoms you can inspect, match, and add:
 
 ```python
@@ -116,7 +133,7 @@ def arithmetic(value):
 m.add(*arithmetic)
 ```
 
-A rule set can also declare its rewrite strategy and required backend in
+A rule set can also declare its rewrite strategy and required backend through
 one call:
 
 ```python
@@ -175,7 +192,8 @@ The same facts are ordinary data in `&metta`:
 There is one source span per stacked clause and one free-variable fact per
 captured name. Each clause joins the effects of the operations it calls, and
 stacked clauses join again. The result is the strongest member of
-`pureStructural < readOnlyLookup < nondeterministicReadOnly < writesState < oracleIO`, the same law `EffectClass.compose` exposes for any operation plan.
+`pureStructural < readOnlyLookup < nondeterministicReadOnly < writesState <
+oracleIO`, the same law `EffectClass.compose` exposes for any operation plan.
 An unclassified or host-observable call is classified conservatively rather
 than making the fact disappear. Replacing a clause replaces these facts, and
 clearing the definition space removes them.
@@ -190,8 +208,8 @@ engine already has:
 - The try body runs under `catch`, which reifies a host exception and passes
   every other value through.
 - `if-error` splits the lanes.
-- Each arm asks `except`, the class test that walks MRO names, so a custom
-  hierarchy matches exactly as `isinstance` would.
+- Each arm asks `except`, which compares the carried live classes by identity
+  and inheritance, so two unrelated classes with the same name stay distinct.
 - An unmatched error re-throws past the rest, which is how Python skips it.
 
 `raise ValueError("why")` stays data,
@@ -238,10 +256,10 @@ a compiled write is visible to the module and a module rebind is visible
 to the next application. `type X = int` is a rewrite rule, exactly as it
 reads: the alias becomes an equation on its own name (a union alias
 becomes several clauses, the language's own nondeterministic rewrite),
-and annotations after it mention the alias. The bitwise operators and
-`//` lower to the engine's exact integer family (`bit-and`, `bit-or`,
-`bit-xor`, `bit-not`, `bit-shift-left`, `bit-shift-right`, `floor-div`),
-so none of them crosses into Python at all. And `alpha(x, y)` is the
-`=alpha` test under the nearest name Python can spell, the same shortening
-`eq()` takes for `==`; `Atom.alpha()` builds the same term on the atom
-tier, and `fn["=alpha"]` still spells the head exactly.
+and annotations after it mention the alias. Generic `&`, `|`, `^`, `~`,
+`<<`, `>>`, and `//` follow Python's corresponding operator protocols. Use
+`fn.bit_and`, `fn.bit_or`, `fn.bit_xor`, `fn.bit_not`,
+`fn.bit_shift_left`, `fn.bit_shift_right`, and `fn.floor_div` when the body
+means the engine's exact integer family. And `alpha(x, y)` is the `=alpha`
+test under the nearest name Python can spell; `Atom.alpha()` builds the same
+term on the atom tier, and `fn["=alpha"]` still spells the head exactly.

@@ -1,7 +1,11 @@
 <!--
 Purpose: document Space execution, querying, controls, diagnostics, and result handling.
 Guarantees: examples use the narrow core and satellite-qualified specialist APIs;
-all public lint kinds and the named-intent convention are catalogued here.
+all public lint kinds and the named-intent convention are catalogued here;
+variadic and sequence-valued guard composition names the same binary engine
+semantics [tested: test_variadic_boolean_builders_fold_to_binary_terms_and_filter_rows,
+test_guard_sequences_conjoin_without_changing_positional_patterns;
+commit=8a04841952ec6cf7f4eb4e418efcbf4519f16f34].
 [tested: npm run docs:build and
 test_every_lint_kind_is_named_on_the_page_its_findings_link_to;
 commit=acb40f1912f131ae088083d1af29b4b283019bea]
@@ -29,10 +33,14 @@ grand.solve()
 # Rows[x, y, z]([Row(x=Symbol('Tom'), y=Symbol('Bob'), z=Symbol('Ann'))])
 ```
 
-`where=` is evaluated by the engine for each match. `limit=` stops the
-engine at the requested count. `assuming(...)` adds facts only for the
-`with` block. `prepare(...)` fixes the query shape once, and
-`solve(given=...)` can add facts for one solve without leaving them behind.
+`where=` is evaluated by the engine for each match. `metta.and_(first, second, *more)` and `metta.or_(first, second, *more)` left-fold guards
+through the engine's binary connectives. A tuple or list in `where=` is an
+implicit conjunction, so `where=[V.n.ge(60), V.n.le(70)]` is the same
+filter. Additional positional arguments to `match` remain stored-atom
+patterns. `limit=` stops the engine at the requested count. `assuming(...)`
+adds facts only for the `with` block. `prepare(...)` fixes the query shape
+once, and `solve(given=...)` can add facts for one solve without leaving
+them behind.
 
 ## Bounds, stats, and captured output
 
@@ -144,9 +152,9 @@ inferences for the same three rows, and the gap grows with the space. Reach for
 ## Explain a query
 
 `prepare(...).explain()` answers the query's plan without running it,
-polars' `LazyFrame.explain` and SQL's `EXPLAIN` pointed at a space.
-When a query over a Python-backed space is slow, the first question is what
-pushed down, and this is that answer:
+polars' `LazyFrame.explain` and SQL's `EXPLAIN` pointed at a space. When a
+query over a Python-backed space is slow, the first question is what pushed
+down, and this is that answer:
 
 ```python
 sp = metta.space("&db")
@@ -376,7 +384,8 @@ by search:
 !(let 20 (#* (#+ $a 1) 4) $a)    ; 4, solved through two constraints
 ```
 
-`(+ $x 2)` with `$x` unbound raises `Arguments are not sufficiently instantiated`. `(#+ $x 2)` posts a constraint and waits, so the same expression
+`(+ $x 2)` with `$x` unbound raises `Arguments are not sufficiently
+instantiated`. `(#+ $x 2)` posts a constraint and waits, so the same expression
 is a definition in one direction and a question in the other.
 
 The family is `#+ #- #* #div #// #mod #min #max` for arithmetic and
@@ -493,14 +502,14 @@ evaluations. `run()` mirrors the CLI and stays two-valued; evaluate through
 ## Strings and regular expressions
 
 Structural match reads terms; strings stay opaque to it. `lib_regex` opens
-them with the engine's own PCRE2. `(re-match pat text)` answers a boolean,
-so it guards queries. `(re-find pat text)` answers every match
-nondeterministically. `(re-captures pat text)` answers the first match's
-groups as `((key value) ...)` pairs, where a `_I` name suffix means the
-value is an integer. `(re-split ...)`, `(re-replace ...)` and
-`(re-replace-all ...)` do what they say. Flags ride the pattern inline,
-PCRE2's `(?i)` style, and a MeTTa string reads a doubled backslash as one,
-so `"\\d"` spells the digit class, Python's own non-raw convention.
+them with the engine's own PCRE2: `(re-match pat text)` answers a boolean
+and therefore guards queries, `(re-find pat text)` answers every match
+nondeterministically, `(re-captures pat text)` answers the first match's
+groups as `((key value) ...)` pairs with a `_I` name suffix answering an
+integer, and `(re-split ...)`, `(re-replace ...)`, `(re-replace-all ...)` do
+what they say. Flags ride the pattern inline, PCRE2's `(?i)` style, and a
+MeTTa string reads a doubled backslash as one, so `"\\d"` spells the digit
+class, Python's own non-raw convention.
 
 ```python
 def test_regex_guards_queries(rx, metta):
@@ -708,7 +717,7 @@ acknowledgement is retained as data in `&metta`, not discarded as a comment:
 ```metta
 (lint-intent &space operation-crossing-in-loop
              "module.py" 12 4 13 13
-             "L9Z1-06; ai-python-first-revamp-discussion.md:5613-5618")
+             "L9Z1-06; https://github.com/MesTTo/MeTTa-Kernel/blob/7de3d32d25a7166b12f7c68c179e9cbb931ac044/website/guide/run-query.md#lint-a-space")
 ```
 
 Source-observed events likewise appear as `(lint-evidence Space Kind Subject Path Line Column Authority)`. `clear()` retires both records with the owning
@@ -736,22 +745,22 @@ no single form wrote stays unanchored rather than guessed.
 
 "Known" there means known to the engine, and the engine gives a head meaning
 two ways. A function is one, and `fun/1` answers for it. A special form is
-the other. `if`, `case`, `collapse`, `unify`, `chain`, `once` and 20 more
-are compiled by the translator rather than defined by equations. 29 of the
-47 answer `False` to `fun/1`, as do the six stream rewrites `trace!`,
+the other: `if`, `case`, `collapse`, `unify`, `chain`, `once` and 20 more
+are compiled by the translator instead of being defined by equations, and 29
+of the 47 answer `False` to `fun/1`, as do the six stream rewrites `trace!`,
 `unique`, `alpha-unique`, `union`, `intersection` and `subtraction`. The
 linter asks `metta_translated_head/1` as well, which reads the translator's
 clause heads rather than keeping a list, so a form added to the engine is
 known to the linter the day it is added.
 
 `tabled-answer-order-read` is the one that catches a program working today
-for a reason that will not last. Tabling preserves the answer *set*, not its
-order. So `(car-atom (collapse (pick a)))` over a tabled `pick` answers
+for a reason that will not last. Tabling preserves the answer *set* and not
+its order, so `(car-atom (collapse (pick a)))` over a tabled `pick` answers
 whatever the trie happens to hold first, and that moves when something
-unrelated moves. Adding three facts that nothing calls, to another engine
-file entirely, flipped one result from `(one two)` to `(two one)`; removing
-them flipped it back. Wrapping the collapse in `sort-atom` fixes it and
-silences the finding, which is what the tabling examples do.
+unrelated moves: adding three facts nothing calls to another engine file
+flipped one from `(one two)` to `(two one)`, and removing them flipped it
+back. Wrapping the collapse in `sort-atom` fixes it and silences the
+finding, which is what the tabling examples do.
 
 `declaration-types-the-symbol` only reaches the linter from `add_atom`,
 because a source file is refused outright: see [types and
@@ -763,12 +772,12 @@ source cannot refuse a single write.
 ## Cast a value
 
 MeTTa's type discipline is checked, not asserted. `m.cast(value, type)` runs
-that check natively from Python. It is the exact acceptance the engine
-compiles for a typed argument position, with `(: name Type)` declarations
-from the space and `&self` in scope. It answers the value narrowed to its
-most Python spelling, so a ground atom unwraps to its Python value. What a
-typed call refuses silently (the mismatched call just reduces to nothing),
-`cast` refuses loudly:
+that check natively from Python: the exact acceptance the engine compiles
+for a typed argument position, with `(: name Type)` declarations from the
+space and `&self` in scope, answering the value narrowed to its Python-most
+spelling, so a ground atom unwraps to its Python value. What a typed call
+refuses silently (the mismatched call just reduces to nothing), `cast`
+refuses loudly:
 
 ```python
     m.run("(: Ann Person)")
@@ -780,10 +789,9 @@ typed call refuses silently (the mismatched call just reduces to nothing),
 
 The check is duck-typed the way the engine already is. A protocol registered
 with `register_object_type` makes any object satisfying its predicate cast
-to the protocol's name. A Python type as the target spells its MeTTa
+to the protocol's name, and a Python type as the target spells its MeTTa
 reading: `bool` is `Bool` before `int` is `Number`, `str` is `String`, and
-any other class is its own name. These are the names `get-type` itself
-answers:
+any other class is its own name, the names `get-type` itself answers:
 
 ```python
     integrate.register_object_type(lambda x: hasattr(x, "quack"), "Ducky")

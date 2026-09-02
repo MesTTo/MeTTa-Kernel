@@ -12,9 +12,24 @@
 %     defer continues to the next rule [tested:
 %     test_a_user_typing_rule_participates_like_a_shipped_one;
 %     commit=0d90e628b1f90c4b4464a2907efcb357d74b13d3].
+%   - typing_policy_is_default/1 identifies the exact module in which a
+%     statically proved contract may be discharged, and an ordinary or
+%     widening rule change recompiles that module's retained clauses through
+%     the support graph before the mutation returns [tested:
+%     test_a_static_parameter_proof_yields_to_a_later_typing_rule;
+%     commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
+%   - with_typing_policy_stable/1 permits static discharge only when it acquired
+%     the policy mutex before the surrounding transaction began. A caller that
+%     reaches it from an older transaction compiles the dynamic check instead
+%     [tested:
+%     translator_literal_type_checks:a_stale_transaction_keeps_the_dynamic_contract;
+%     commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Decides:
 %   - rules are tried in registration order, user tier before shipped tier;
 %     the shared overlap reporter names every ordering-sensitive intersection.
+% Guarded by:
+%   - '$metta_typing_policy' serializes each registry mutation with translation
+%     and publication of clauses that reuse a static parameter proof.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -33,10 +48,17 @@
             typing_rule_decision/7,
             typing_rule_expected/3,
             typing_rule_refusal/6,
-            registered_typing_rule/7
+            registered_typing_rule/7,
+            typing_policy_is_default/1,
+            typing_policy_shortcuts_allowed/1,
+            with_typing_policy_stable/1,
+            typing_rule_reference_module/2
           ]).
 
 :- dynamic typing_rule_entry/7.
+:- meta_predicate typing_rule_transaction(0).
+:- meta_predicate with_typing_policy_stable(0).
+:- thread_local typing_policy_snapshot/1.
 
 % The shipped tier is data in exactly the relation add-typing-rule! extends.
 % Actual and expected patterns are ordinary Prolog terms, so repeating Same in
@@ -119,16 +141,25 @@ valid_typing_rule_outcome([refuse, Reason]) :- nonvar(Reason).
     require_typing_rule_family(Family),
     require_typing_rule_outcome(Outcome),
     current_metta_module(Module),
+    with_typing_policy_stable(
+        typing_rule_transaction(
+            ( add_typing_rule_locked(
+                  Module, Name, Family, Actual, Expected, Outcome, Change),
+              apply_typing_rule_change(Module, Change) ))).
+
+add_typing_rule_locked(Module, Name, Family, Actual, Expected, Outcome,
+                       Changed) :-
     findall(F-A-E-O,
             typing_rule_entry(user, Module, Name, F, A, E, O),
             Existing),
     (   Existing == []
-    ->  assertz(typing_rule_entry(user, Module, Name, Family, Actual,
-                                  Expected, Outcome), Ref),
+    ->  assertz(typing_rule_entry(
+                    user, Module, Name, Family, Actual, Expected,
+                    Outcome), Ref),
         record_source_assertion(Ref),
-        clear_translation_cache
+        typing_policy_change_kind(Family, Changed)
     ;   member(Old, Existing), Old =@= Family-Actual-Expected-Outcome
-    ->  true
+    ->  Changed = unchanged
     ;   throw(error(metta_duplicate_typing_rule(Name, Existing),
                     context('add-typing-rule!'/6,
                             'a rule name identifies one declaration')))
@@ -139,12 +170,84 @@ valid_typing_rule_outcome([refuse, Reason]) :- nonvar(Reason).
 'remove-typing-rule!'(Name, true) :-
     must_be(atom, Name),
     current_metta_module(Module),
-    findall(Ref,
-            clause(typing_rule_entry(user, Module, Name, _, _, _, _),
+    with_typing_policy_stable(
+        typing_rule_transaction(
+            ( remove_typing_rule_locked(Module, Name, Change),
+              apply_typing_rule_change(Module, Change) ))).
+
+remove_typing_rule_locked(Module, Name, Changed) :-
+    findall(Family-Ref,
+            clause(typing_rule_entry(
+                       user, Module, Name, Family, _, _, _),
                    true, Ref),
-            Refs),
-    maplist(erase, Refs),
+            Entries),
+    maplist(erase_typing_rule_entry, Entries),
+    (   member(Family-_, Entries),
+        typing_policy_fast_path_family(Family)
+    ->  Changed = policy
+    ;   Entries == []
+    ->  Changed = unchanged
+    ;   Changed = registry
+    ).
+
+erase_typing_rule_entry(_-Ref) :- erase(Ref).
+
+typing_policy_fast_path_family(ordinary).
+typing_policy_fast_path_family(widening).
+
+typing_policy_change_kind(Family, policy) :-
+    typing_policy_fast_path_family(Family),
+    !.
+typing_policy_change_kind(_, registry).
+
+apply_typing_rule_change(Module, policy) :-
+    !,
+    typing_policy_changed(Module).
+apply_typing_rule_change(_, registry) :-
+    !,
     clear_translation_cache.
+apply_typing_rule_change(_, unchanged).
+
+typing_rule_transaction(Goal) :-
+    ( current_transaction(_) -> call(Goal) ; transaction(Goal) ).
+
+% A transaction reads the dynamic database at the generation at which it
+% began. If it starts before waiting for the mutex, it can therefore observe a
+% policy that a preceding owner has already replaced. Such a caller may still
+% compile while holding the mutex, but it must retain every dynamic check.
+% Acquiring the mutex before transaction/1 begins marks the ordinary safe path.
+with_typing_policy_stable(Goal) :-
+    typing_policy_snapshot(_),
+    !,
+    call(Goal).
+with_typing_policy_stable(Goal) :-
+    (   current_transaction(_)
+    ->  Snapshot = conservative
+    ;   Snapshot = stable
+    ),
+    with_mutex(
+        '$metta_typing_policy',
+        setup_call_cleanup(
+            asserta(typing_policy_snapshot(Snapshot), Ref),
+            call(Goal),
+            erase(Ref))).
+
+% A static proof is valid only under the shipped ordinary/widening relation.
+% Other rule families do not participate in an argument contract.
+typing_policy_is_default(Module) :-
+    \+ ( typing_rule_entry(user, Module, _, Family, _, _, _),
+         typing_policy_fast_path_family(Family) ).
+
+typing_policy_shortcuts_allowed(Module) :-
+    typing_policy_snapshot(stable),
+    typing_policy_is_default(Module).
+
+% Source rollback owns only clause references. This projection lets it recover
+% the module whose compiled clauses must be rebuilt after the referenced rule
+% has been erased.
+typing_rule_reference_module(Ref, Module) :-
+    clause(typing_rule_entry(user, Module, _, Family, _, _, _), true, Ref),
+    typing_policy_fast_path_family(Family).
 
 require_typing_rule_family(Family) :-
     (   nonvar(Family), typing_rule_family(Family)

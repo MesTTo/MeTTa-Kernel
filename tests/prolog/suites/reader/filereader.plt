@@ -19,6 +19,11 @@
 %     filereader_import_lifecycle:
 %     a_receipt_tracks_the_liveness_of_its_exact_stored_outputs;
 %     commit=b77e3ce5233e5f6032cfc8546ff83ecf4dc3de87].
+%   - A typing rule asserted by a failed source load is erased with that load,
+%     and the affected retained clauses regain their static proofs
+%     [tested:
+%     filereader_source_rollback:a_failed_source_rule_restores_discharged_contracts;
+%     commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -302,6 +307,66 @@ test(failed_late_definition_does_not_recompile_existing_callers,
         ( retractall(filereader:compiled_metta_source(Path)),
           retractall(user:imported_metta_source(_, Path)),
           delete_file(Path) )).
+
+source_policy_fixture :-
+    filereader:process_metta_string(
+        "(: PLUnitPolicyPayload Type)\n\c
+         (: plunit-policy-id (-> PLUnitPolicyPayload PLUnitPolicyPayload))\n\c
+         (= (plunit-policy-id $x) $x)\n\c
+         (: plunit-policy-forward \c
+            (-> PLUnitPolicyPayload PLUnitPolicyPayload))\n\c
+         (= (plunit-policy-forward $x) (plunit-policy-id $x))\n\c
+         (: plunit-policy-value PLUnitPolicyPayload)\n\c
+         !(plunit-policy-forward plunit-policy-value)", _).
+
+source_policy_proof_present :-
+    user:compiled_function_name('plunit-policy-forward', Predicate),
+    functor(Head, Predicate, 2),
+    user:current_metta_module(Module),
+    clause(Module:Head, Body),
+    sub_term(Guard, Body),
+    nonvar(Guard),
+    Guard = nb_current('$metta_module', Module).
+
+cleanup_source_policy_fixture :-
+    user:current_metta_module(Module),
+    (   type_rules:registered_typing_rule(
+            user, Module, 'plunit-source-rule', _, _, _, _)
+    ->  filereader:process_metta_string(
+            "!(remove-typing-rule! plunit-source-rule)", _)
+    ;   true
+    ),
+    forall(member(Function, ['plunit-policy-id', 'plunit-policy-forward']),
+           ( user:'remove-atom'('&self', [':', Function, _], _),
+             user:'remove-atom'('&self', [=, [Function|_], _], _),
+             cleanup_test_function(Function) )),
+    user:'remove-atom'('&self', [':', 'plunit-policy-value', _], _),
+    user:'remove-atom'('&self', [':', 'PLUnitPolicyPayload', _], _).
+
+test(a_failed_source_rule_restores_discharged_contracts,
+     [ setup(( cleanup_source_policy_fixture,
+               filereader:metta_host_set_silent(true),
+               source_policy_fixture )),
+       cleanup(( cleanup_source_policy_fixture,
+                 filereader:metta_host_set_silent(false) )) ]) :-
+    assertion(once(source_policy_proof_present)),
+    catch(
+        filereader:with_source_load(
+            'plunit-source-rule-rollback', '&self',
+            ( filereader:process_metta_string(
+                  "!(add-typing-rule! plunit-source-rule ordinary \c
+                    PLUnitPolicyPayload PLUnitPolicyPayload \c
+                    (refuse source-failed))", _),
+              assertion(
+                  \+ plunit_filereader_source_rollback:
+                         source_policy_proof_present),
+              throw(plunit_source_rule_failed) )),
+        Error,
+        true),
+    assertion(Error == plunit_source_rule_failed),
+    assertion(\+ type_rules:registered_typing_rule(
+                     user, _, 'plunit-source-rule', _, _, _, _)),
+    assertion(once(source_policy_proof_present)).
 
 :- end_tests(filereader_source_rollback).
 

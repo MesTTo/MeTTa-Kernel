@@ -12,6 +12,12 @@
 % declarations with a local equation [tested:
 % spaces_deferred_translation:a_bulk_local_shadow_retains_no_inherited_order_types;
 % commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
+% Guarantees: each retained equation is compiled through
+% translate_tracked_clause/2 while the typing policy is stable until its clause
+% and support record are published [tested:
+% translator_literal_type_checks:a_repeated_parameter_contract_has_a_live_static_proof,
+% translator_literal_type_checks:a_stale_transaction_keeps_the_dynamic_contract;
+% commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % [tested: tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%%% Who owns a space name: the claim door %%%%
@@ -620,6 +626,10 @@ translate_metta_equation(Module, Term, Clause, Ref) :-
 %where the eager load read one [measured 2026-08-24:
 %examples/ch18-performance/18-02-memoisation-and-tabling/12-tabling_statistics.metta].
 assert_translated_equation(Module, Term, Clause, Ref) :-
+    with_typing_policy_stable(
+        assert_translated_equation_stable(Module, Term, Clause, Ref)).
+
+assert_translated_equation_stable(Module, Term, Clause, Ref) :-
     Term = [=, [F|Inputs], _],
     %Mainline's shadow-repair pre-step is CLAUSE-level: under deferral the
     %assert can run in a later module life than the arrival, and the weak
@@ -629,7 +639,8 @@ assert_translated_equation(Module, Term, Clause, Ref) :-
     PredArity is InputArity + 1,
     metta_prepare_function_predicate(Module, F, PredArity),
     without_runnable_name_context(
-        once(with_metta_module(Module, translate_clause(Term, RawClause)))),
+        once(with_metta_module(
+                 Module, translate_tracked_clause(Term, RawClause)))),
     metta_instrument_recursive_clause(Term, RawClause, Clause),
     assert_function_clause(Module, Clause, Ref),
     record_source_assertion(Ref),
@@ -943,6 +954,12 @@ translate_deferred_pairs(F, Shapes) :-
 %name answers its written form under both doors, and the pinned corpus pins
 %that answer.
 translate_deferred_equations(Space, Module, F, InputArities, Budgeted) :-
+    with_typing_policy_stable(
+        translate_deferred_equations_stable(
+            Space, Module, F, InputArities, Budgeted)).
+
+translate_deferred_equations_stable(Space, Module, F, InputArities,
+                                    Budgeted) :-
     findall([=, [F|W], Body],
             ( get_native_atom(Space, [=, [F|W], Body]),
               is_list(W),

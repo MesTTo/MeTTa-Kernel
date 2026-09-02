@@ -6,8 +6,17 @@
 %   [tested: test_an_inherited_arrow_does_not_veto_a_local_definition,
 %   lib_strategy:an_inherited_arrow_does_not_veto_a_local_definition;
 %   commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
+%   A parameter's checked governing type discharges the same contract in a
+%   retained body only when every arrival-order chain proves it; gradual
+%   consistency, computed values, and untracked clauses keep the runtime
+%   check [tested:
+%   test_a_consistent_chain_is_not_a_static_type_proof,
+%   translator_literal_type_checks:an_untracked_clause_retains_static_and_intrinsic_contracts;
+%   commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/translator/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
+
+:- meta_predicate with_static_parameter_environment(+, +, +, +, 0).
 
 %Type function call generation, returns function call plus typechecks for input and output:
 %Translate a call against every type declaration that fits it.
@@ -556,7 +565,9 @@ translate_args_by_type_dl([A|As], [T|Ts], [Origin|Origins],
       %two refusals: `(: p (-> Expression %Undefined%))` answered 3 for
       %`(p (+ 1 2))` where upstream refuses, and atom-subst stopped refusing a
       %second operand that is not a variable [measured 2026-08-30].
-      ( ( T == '%Undefined%' ; T == '_' ; statically_typed_literal(AV, T))
+      ( ( T == '%Undefined%' ; T == '_'
+        ; statically_typed_literal(AV, T),
+          retained_static_type_shortcuts_allowed )
         -> AfterCheck = Checks0
       ; type_check_goal(AV, T,
                         check_argument_type(AV, T, Origin),
@@ -615,6 +626,85 @@ unchecked_parameter_type(Type) :-
     nonvar(Type),
     catch_recover(type_declaration(Type, 'DontEvalType'), fail).
 
+%The body of a declared function may reuse only a check its own call boundary
+%already performed. Every governing chain at this arity must name the same
+%ground ordinary type at the position, and only the head variable itself is
+%tracked. A merely consistent %Undefined% chain, a metatype, and a value
+%computed from the parameter all retain their runtime checks.
+%
+%The environment keeps variable identity through nb_linkval/2. Translation can
+%force another function recursively, so the previous environment is restored
+%rather than deleted unconditionally. The chain group is the exact
+%arrival-order group retained for this equation, rather than every compatible
+%declaration currently visible for the function.
+%
+%This is soft-contract verification: discharge a contract only when the
+%enclosing checked boundary proves it, and keep the dynamic check for an
+%unknown. A later policy change recompiles this module through
+%filereader:typing_policy_changed/1; there is no per-call cache probe.
+%[source: Nguyen et al., Soft Contract Verification, POPL 2014,
+%DOI 10.1145/2628136.2628156; commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd]
+with_static_parameter_environment(Module, Function, Arguments, Chains, Goal) :-
+    static_parameter_entries(Module, Function, Arguments, Chains, Entries),
+    (   nb_current('$metta_static_parameter_environment', Previous)
+    ->  Restore = previous(Previous)
+    ;   Restore = absent
+    ),
+    setup_call_cleanup(
+        nb_linkval('$metta_static_parameter_environment', Entries),
+        call(Goal),
+        restore_static_parameter_environment(Restore)).
+
+restore_static_parameter_environment(previous(Previous)) :-
+    nb_linkval('$metta_static_parameter_environment', Previous).
+restore_static_parameter_environment(absent) :-
+    nb_delete('$metta_static_parameter_environment').
+
+static_parameter_entries(Module, Function, Arguments, Chains, Entries) :-
+    length(Arguments, Arity),
+    presented_type_chains(Chains, Arity, Presented),
+    static_parameter_entries(Arguments, Presented, Module, Function, Arity,
+                             1, Entries).
+
+static_parameter_entries([], _, _, _, _, _, []).
+static_parameter_entries([Argument|Arguments], Chains, Module, Function,
+                         Arity, Position, Entries) :-
+    (   var(Argument),
+        static_checked_parameter_type(Chains, Position, Type)
+    ->  Entries = [static_parameter(Argument, Module, Function, Arity,
+                                    Position, Type)|Rest]
+    ;   Entries = Rest
+    ),
+    Next is Position + 1,
+    static_parameter_entries(Arguments, Chains, Module, Function, Arity,
+                             Next, Rest).
+
+static_checked_parameter_type(Chains, Position, Type) :-
+    Chains = [_|_],
+    findall(Candidate-Origin,
+            ( member([->|Types], Chains),
+              append(Parameters, [_], Types),
+              metta_argument_type_origins(Parameters, Origins),
+              nth1(Position, Parameters, Candidate),
+              nth1(Position, Origins, Origin) ),
+            [Type-ordinary|Rest]),
+    ground(Type),
+    \+ unchecked_parameter_type(Type),
+    forall(member(Other-OtherOrigin, Rest),
+           ( OtherOrigin == ordinary, Other =@= Type )).
+
+static_parameter_proof_goal(Value, Type, Goal) :-
+    ground(Type),
+    static_contract_shortcuts_enabled,
+    nb_current('$metta_static_parameter_environment', Entries),
+    member(static_parameter(Parameter, Owner, _, _, _, Known),
+           Entries),
+    Parameter == Value,
+    Known =@= Type,
+    type_rules:typing_policy_shortcuts_allowed(Owner),
+    !,
+    Goal = nb_current('$metta_module', Owner).
+
 %A check that cannot be DROPPED can still be SPECIALISED. Three types are
 %decided by a single Prolog builtin, and when the declared type is one of them
 %the compiler knows so, because the type is a compile-time constant. Putting
@@ -650,11 +740,60 @@ unchecked_parameter_type(Type) :-
 %trap intrinsic_literal_type/2 below carries a note about, from the same shape.
 %[tested: translator_literal_type_checks:an_intrinsic_type_check_is_specialised].
 type_check_goal(Value, Type, General, Goal) :-
+    contract_fallback_goal(General, Fallback),
+    % Number, String, and Bool lead because SWI compiles their tests to VM
+    % instructions. Replacing one with the inherited-clause owner guard kept
+    % the same two-inference residual and measured 0.240us rather than
+    % 0.231us per proved Number call over 100,000 calls, min of seven
+    % [measured 2026-09-02: 0.231us intrinsic-first versus 0.240us static-first;
+    % command=python -m benchmarks.declared_contracts --calls 100000
+    % --reflective-calls 2000 --rounds 7; fixture=compiled-proved-number;
+    % commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
     (   nonvar(Type),
-        intrinsic_type_test(Type, Value, Fast)
-    ->  Goal = ( Fast -> true ; General )
-    ;   Goal = General
+        intrinsic_type_test(Type, Value, Fast),
+        intrinsic_type_shortcut_goal(Fast, Fallback, Goal)
+    ->  true
+    ;   static_parameter_proof_goal(Value, Type, Proof)
+    ->  Goal = ( Proof -> true ; Fallback )
+    ;   Goal = Fallback
     ).
+
+% Only generated argument checks need the policy-strict fallback. Arbitrary
+% goals passed by translator tests and other internal users retain their exact
+% meaning.
+contract_fallback_goal(check_argument_type(Value, Type, Origin), Goal) :-
+    !,
+    (   nb_current('$metta_static_contract_shortcuts', enabled),
+        current_metta_module(Module)
+    ->  (   type_rules:typing_policy_is_default(Module)
+        ->  Goal = check_argument_type(Value, Type, Origin)
+        ;   Goal = check_argument_type_under_policy(Value, Type, Origin)
+        )
+    ;   Goal = check_argument_type_under_live_policy(Value, Type, Origin)
+    ).
+contract_fallback_goal(General, General).
+
+intrinsic_type_shortcut_goal(Fast, General, Goal) :-
+    nb_current('$metta_static_contract_shortcuts', enabled),
+    current_metta_module(Module),
+    type_rules:typing_policy_shortcuts_allowed(Module),
+    !,
+    Goal = ( Fast -> true ; General ).
+intrinsic_type_shortcut_goal(Fast, General, Goal) :-
+    nb_current('$metta_static_contract_shortcuts', guarded),
+    current_metta_module(Module),
+    type_rules:typing_policy_is_default(Module),
+    Goal = ( ( type_rules:typing_policy_is_default(Module), Fast )
+             -> true
+             ;  General ).
+
+retained_static_type_shortcuts_allowed :-
+    static_contract_shortcuts_enabled,
+    current_metta_module(Module),
+    type_rules:typing_policy_shortcuts_allowed(Module).
+
+static_contract_shortcuts_enabled :-
+    nb_current('$metta_static_contract_shortcuts', enabled).
 
 intrinsic_type_test('Number', V, number(V)).
 intrinsic_type_test('String', V, string(V)).

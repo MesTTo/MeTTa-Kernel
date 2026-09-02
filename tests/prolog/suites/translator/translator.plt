@@ -34,6 +34,13 @@
 %     while an equation is arriving [tested:
 %     translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask;
 %     commit=7b238053d2907cd514e3fd9a29927d43a53c5a3c].
+%   - only clauses retained by the support graph may discharge or specialise
+%     a contract statically; an untracked translation keeps both dynamic
+%     checks, including a retained translation whose transaction predates a
+%     typing-policy mutation [tested:
+%     translator_literal_type_checks:an_untracked_clause_retains_static_and_intrinsic_contracts,
+%     translator_literal_type_checks:a_stale_transaction_keeps_the_dynamic_contract;
+%     commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -1649,7 +1656,7 @@ typed_call_goal(TypeChain, Goal) :-
         ( assertz(user:fun(plunit_free_types)),
           assertz(user:arity(plunit_free_types, 3)),
           add_sexp('&self', [':', plunit_free_types, TypeChain]) ),
-        ( translate_expr([plunit_free_types, 1, 2], Goals, _),
+        ( translate_runnable_expr([plunit_free_types, 1, 2], Goals, _),
           translator:goals_list_to_conj(Goals, Goal) ),
         ( retractall(user:fun(plunit_free_types)),
           retractall(user:arity(plunit_free_types, _)),
@@ -1658,7 +1665,7 @@ typed_call_goal(TypeChain, Goal) :-
 test(a_singleton_type_variable_generates_no_check) :-
     typed_call_goal([->, _A, _B, 'Bool'], Goal),
     findall(Type, ( sub_term(S, Goal), nonvar(S),
-                    S = check_argument_type(_, Type, _) ),
+                    S = check_argument_type_under_live_policy(_, Type, _) ),
             Checked),
     %Singleton input variables constrain neither argument, so neither is
     %checked. The RESULT is, because it is concrete: upstream emits a result
@@ -1671,26 +1678,29 @@ test(a_singleton_type_variable_generates_no_check) :-
 test(a_repeated_type_variable_keeps_its_checks) :-
     typed_call_goal([->, A, A, 'Bool'], Goal),
     findall(x, ( sub_term(S, Goal), nonvar(S),
-                 S = check_argument_type(_, T, variable), var(T) ),
+                 S = check_argument_type_under_live_policy(_, T, variable),
+                 var(T) ),
             Kept),
     length(Kept, Count),
     Count =:= 2.
 
-test(concrete_literals_discharge_their_argument_checks) :-
+test(concrete_literals_keep_policy_guarded_argument_checks) :-
     typed_call_goal([->, 'Number', 'Number', 'Bool'], Goal),
     findall(Type, ( sub_term(S, Goal), nonvar(S),
-                    S = check_argument_type(_, Type, _) ),
+                    S = check_argument_type_under_live_policy(_, Type, _) ),
             Checked),
-    %Both ARGUMENT checks are discharged at compile time by the literals
-    %themselves; the one that remains is the result's.
-    Checked == ['Bool'].
+    %A runnable has no retained support record connecting translation to
+    %execution. Its literal fast tests therefore keep the dynamic fallback in
+    %case a typing policy changes between those two moments.
+    Checked == ['Number', 'Number', 'Bool'].
 
 %A variable nested inside a structured type is not a bare singleton argument
 %type, so its check stays.
 test(a_type_variable_inside_a_structure_keeps_its_check) :-
     typed_call_goal([->, ['List', _C], 'Number', 'Bool'], Goal),
     findall(Type, ( sub_term(S, Goal), nonvar(S),
-                    S = check_argument_type(_, Type, ordinary),
+                    S = check_argument_type_under_live_policy(
+                            _, Type, ordinary),
                     nonvar(Type), Type = ['List'|_] ),
             Kept),
     Kept \== [].
@@ -2396,6 +2406,12 @@ test(two_spaces_compiling_the_same_lambda_do_not_share_it,
 literal_check_source("
 (: tlc-sq (-> Number Number))
 (= (tlc-sq $x) (* $x $x))
+(: TLCPayload Type)
+(: tlc-payload-id (-> TLCPayload TLCPayload))
+(= (tlc-payload-id $x) $x)
+(: tlc-forward (-> TLCPayload TLCPayload))
+(= (tlc-forward $x) (tlc-payload-id $x))
+(= (tlc-untyped-forward $x) (tlc-payload-id $x))
 (: tlc-tag (-> String Number Bool))
 (= (tlc-tag $s $n) true)
 (: tlc-flag (-> Bool Bool))
@@ -2406,33 +2422,196 @@ literal_check_source("
 
 setup_literal_checks :-
     retractall(silent(_)), assertz(silent(true)),
+    remove_tlc_typing_rule,
     literal_check_source(Source),
     process_metta_string(Source, _).
 
 cleanup_literal_checks :-
-    forall(member(F, ['tlc-sq', 'tlc-tag', 'tlc-flag', 'tlc-id']),
+    remove_tlc_typing_rule,
+    forall(member(F, ['tlc-sq', 'tlc-payload-id', 'tlc-forward',
+                      'tlc-untyped-forward',
+                      'tlc-unretained-probe',
+                      'tlc-tag', 'tlc-flag', 'tlc-id']),
            ( 'remove-atom'('&self', [':', F, _], _),
              'remove-atom'('&self', [=, [F|_], _], _),
              forget_test_function(F) )),
     'remove-atom'('&self', [':', 'tlc-sym', _], _),
+    'remove-atom'('&self', [':', 'TLCPayload', _], _),
     retractall(silent(_)), assertz(silent(false)).
 
-%Every literal a type is decided for, and one of each that is not.
-dropped_check("(tlc-sq 4)").
-dropped_check("(tlc-tag \"a\" 1)").
-dropped_check("(tlc-flag true)").
-dropped_check("(tlc-flag false)").
+remove_tlc_typing_rule :-
+    current_metta_module(Module),
+    (   type_rules:registered_typing_rule(
+            user, Module, 'tlc-deny-payload', _, _, _, _)
+    ->  process_metta_string(
+            "!(remove-typing-rule! tlc-deny-payload)", _)
+    ;   true
+    ).
 
-test(a_literal_argument_compiles_no_type_check,
-     [ forall(dropped_check(Call)),
+tlc_forward_body(Body) :-
+    compiled_function_name('tlc-forward', Predicate),
+    functor(Head, Predicate, 2),
+    current_metta_module(Module),
+    clause(Module:Head, Body).
+
+tlc_static_parameter_proof(Body) :-
+    current_metta_module(Module),
+    sub_term(OwnerGuard, Body),
+    nonvar(OwnerGuard),
+    OwnerGuard = nb_current('$metta_module', Module).
+
+test(a_repeated_parameter_contract_has_a_live_static_proof,
+     [setup(setup_literal_checks), cleanup(cleanup_literal_checks)]) :-
+    tlc_forward_body(Body),
+    once(tlc_static_parameter_proof(Body)),
+    term_string(Body, Spaced),
+    split_string(Spaced, " ", " ", Pieces),
+    atomic_list_concat(Pieces, Text),
+    once(sub_atom(Text, ProofAt, _, _, nb_current)),
+    once(sub_atom(Text, CheckAt, _, _, check_argument_type)),
+    assertion(ProofAt < CheckAt).
+
+test(a_static_parameter_proof_yields_to_a_later_typing_rule,
+     [setup(setup_literal_checks), cleanup(cleanup_literal_checks)]) :-
+    tlc_forward_body(DefaultBody),
+    once(tlc_static_parameter_proof(DefaultBody)),
+    process_metta_string(
+        "!(add-typing-rule! tlc-deny-payload ordinary TLCPayload TLCPayload \c
+          (refuse changed-policy))", _),
+    tlc_forward_body(CheckedBody),
+    assertion(\+ tlc_static_parameter_proof(CheckedBody)),
+    term_string(CheckedBody, CheckedText),
+    once(sub_string(CheckedText, _, _, _, "check_argument_type")),
+    process_metta_string("!(remove-typing-rule! tlc-deny-payload)", _),
+    tlc_forward_body(RestoredBody),
+    once(tlc_static_parameter_proof(RestoredBody)).
+
+test(an_untyped_parameter_retains_only_the_runtime_check,
+     [setup(setup_literal_checks), cleanup(cleanup_literal_checks)]) :-
+    compiled_function_name('tlc-untyped-forward', Predicate),
+    functor(Head, Predicate, 2),
+    current_metta_module(Module),
+    clause(Module:Head, Body),
+    assertion(\+ ( sub_term(OwnerGuard, Body),
+                    nonvar(OwnerGuard),
+                    OwnerGuard = nb_current('$metta_module', Module) )),
+    term_string(Body, Text),
+    once(sub_string(Text, _, _, _, "check_argument_type")).
+
+test(an_untracked_clause_retains_static_and_intrinsic_contracts,
+     [setup(setup_literal_checks), cleanup(cleanup_literal_checks)]) :-
+    sread("(= (tlc-forward $x) (tlc-payload-id $x))", StaticTerm),
+    translate_clause(StaticTerm, (_ :- StaticBody)),
+    assertion(\+ tlc_static_parameter_proof(StaticBody)),
+    term_string(StaticBody, StaticText),
+    once(sub_string(StaticText, _, _, _, "check_argument_type")),
+    sread("(= (tlc-unretained-probe $x) (tlc-sq $x))", IntrinsicTerm),
+    translate_clause(IntrinsicTerm, (_ :- IntrinsicBody)),
+    term_string(IntrinsicBody, IntrinsicText),
+    assertion(\+ sub_string(IntrinsicText, _, _, _, "number(")),
+    once(sub_string(IntrinsicText, _, _, _, "check_argument_type")).
+
+translate_after_policy_change(Module, Ready, Continue, Result) :-
+    transaction(
+        ( thread_send_message(Ready, ready),
+          thread_get_message(Continue, continue),
+          sread("(= (tlc-forward $x) (tlc-payload-id $x))", Term),
+          with_metta_module(
+              Module,
+              translate_tracked_clause(Term, (_ :- Body))),
+          thread_send_message(Result, Body) )).
+
+test(a_stale_transaction_keeps_the_dynamic_contract,
+     [setup(setup_literal_checks), cleanup(cleanup_literal_checks)]) :-
+    current_metta_module(Module),
+    message_queue_create(Ready),
+    message_queue_create(Continue),
+    message_queue_create(Result),
+    setup_call_cleanup(
+        thread_create(
+            translate_after_policy_change(Module, Ready, Continue, Result),
+            Thread,
+            []),
+        ( thread_get_message(Ready, ready),
+          process_metta_string(
+              "!(add-typing-rule! tlc-deny-payload ordinary TLCPayload \c
+                TLCPayload (refuse changed-policy))", _),
+          thread_send_message(Continue, continue),
+          thread_get_message(Result, Body),
+          thread_join(Thread, true),
+          assertion(\+ tlc_static_parameter_proof(Body)),
+          term_string(Body, Text),
+          once(sub_string(Text, _, _, _, "check_argument_type")) ),
+        ( catch(thread_signal(Thread, throw(plunit_cleanup)), _, true),
+          catch(thread_join(Thread, _), _, true),
+          message_queue_destroy(Ready),
+          message_queue_destroy(Continue),
+          message_queue_destroy(Result) )).
+
+setup_fuel_type_shortcut :-
+    setup_literal_checks,
+    set_metta_pragma('max-stack-depth', none),
+    process_metta_string(
+        "(: tlc-fuel (-> Number Number))\n(= (tlc-fuel $n) (if (> $n 0) (tlc-fuel (- $n 1)) $n))",
+        _),
+    metta_ensure_compiled('tlc-fuel').
+
+cleanup_fuel_type_shortcut :-
+    set_metta_pragma('max-stack-depth', none),
+    'remove-atom'('&self', [':', 'tlc-fuel', _], _),
+    'remove-atom'('&self', [=, ['tlc-fuel'|_], _], _),
+    forget_test_function('tlc-fuel'),
+    cleanup_literal_checks.
+
+test(a_fuel_recompile_keeps_intrinsic_type_shortcuts,
+     [ setup(setup_fuel_type_shortcut),
+       cleanup(cleanup_fuel_type_shortcut) ]) :-
+    set_metta_pragma('max-stack-depth', 100000),
+    current_metta_module(Module),
+    clause(Module:'tlc-fuel'(_, _), Body),
+    once(sub_term(number(_), Body)),
+    findall(1,
+            ( sub_term(Check, Body),
+              nonvar(Check),
+              Check = check_argument_type(_, 'Number', ordinary) ),
+            Checks),
+    findall(1,
+            ( sub_term(Fast, Body),
+              nonvar(Fast),
+              Fast = ( number(_) -> true
+                     ; check_argument_type(_, 'Number', ordinary) ) ),
+            FastChecks),
+    assertion(Checks \== []),
+    assertion(same_length(Checks, FastChecks)).
+
+%Every literal a type is decided for, and one of each that is not.
+guarded_literal_check("(tlc-sq 4)", "number(").
+guarded_literal_check("(tlc-tag \"a\" 1)", "string(").
+guarded_literal_check("(tlc-flag true)", "==true").
+guarded_literal_check("(tlc-flag false)", "==false").
+
+test(a_literal_argument_uses_a_policy_guarded_intrinsic_check,
+     [ forall(guarded_literal_check(Call, Fast)),
        setup(setup_literal_checks), cleanup(cleanup_literal_checks) ]) :-
     sread(Call, Term),
     translate_runnable_expr(Term, Goals, _),
-    term_string(Goals, Text),
-    \+ sub_string(Text, _, _, _, "has_type(4"),
-    \+ sub_string(Text, _, _, _, "has_type(\"a\""),
-    \+ sub_string(Text, _, _, _, "has_type(true"),
-    \+ sub_string(Text, _, _, _, "has_type(false").
+    term_string(Goals, Spaced),
+    split_string(Spaced, " ", " ", Pieces),
+    atomic_list_concat(Pieces, Text),
+    once(sub_atom(Text, _, _, _, Fast)),
+    once(sub_atom(Text, _, _, _, "typing_policy_is_default")),
+    once(sub_atom(Text, _, _, _, "check_argument_type")).
+
+test(a_runnable_intrinsic_shortcut_yields_to_a_later_policy,
+     [setup(setup_literal_checks), cleanup(cleanup_literal_checks)]) :-
+    translator:with_static_contract_shortcuts(
+        guarded,
+        translator:type_check_goal(1, 'Number', Outcome = dynamic, Goal)),
+    process_metta_string(
+        "!(add-typing-rule! tlc-deny-payload ordinary Number Number \c
+          (refuse changed-policy))", _),
+    call(Goal),
+    assertion(Outcome == dynamic).
 
 test(an_unknown_argument_keeps_its_check,
      [setup(setup_literal_checks), cleanup(cleanup_literal_checks)]) :-

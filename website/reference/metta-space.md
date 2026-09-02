@@ -156,8 +156,8 @@ def run(
 > after reading, before anything runs. It is a BLOCK rather than a
 > keyword because a binding mapping is the kind of value that grows,
 > and a block grows down the page where a keyword has to fit beside
-> everything else on the call. Every target door reads the same scope,
-> so one block covers a run(), an eval() and an answers() together.
+> everything else on the call. Every call that accepts a target reads the
+> same scope, so one block covers run(), eval(), and answers() together.
 >
 > `timeout` (seconds) and `inferences` (engine steps) bound the call
 > with the engine's own guards; passing either raises TimeLimitError
@@ -300,7 +300,7 @@ def load(
 > A load that raises leaves the previous definitions standing, so a
 > broken edit costs nothing but the error.
 >
-> `!(import! &self path)` is the other door and loads a file that is
+> `!(import! &self path)` is the other form and loads a file that is
 > new or edited, skipping one that is neither. The two agree on what
 > a reload means and differ only in whether an unchanged file runs
 > again, which is SWI's consult/1 against its if(changed).
@@ -368,7 +368,7 @@ def add(self, *atoms: Any) -> None:
 > spelling. That is the right property for a logic engine and it is the
 > one thing about storage that surprises everybody once.
 >
-> A library IS knowledge, so the same door imports it: ``m += lib.he``
+> A library IS knowledge, so the same operator imports it: ``m += lib.he``
 > performs ``!(import! <m> (library lib_he))`` with this space as the
 > target. An import is an effect, so it refuses to hide inside an atom
 > batch or share a call with stored atoms.
@@ -393,16 +393,16 @@ def remove(self, atom: Any, *more: Any) -> bool | int:
 > subtracts the multiplicity given rather than clearing the key.
 > That is the only reading under which the operators are inverses,
 > so `s += a; s -= a` leaves the space it found. `-=` classifies its
-> operand exactly as `+=` does, so the fact stream one door stores
-> the other subtracts, one occurrence per element, in one
+> operand exactly as `+=` does, so `-=` subtracts the same fact stream
+> `+=` stores, one occurrence per element, in one
 > transactional crossing.
 >
-> The DRAIN is the pattern-shaped door: `del m[pattern]` takes every
+> `del m[pattern]` is the draining form: it takes every
 > unifying occurrence in one crossing and raises when nothing
 > matched, as Python's `del` does, and MeTTa spells it `remove-atom`
 > .
 > MeTTa spells this method's grain `subtract-atom`. This is the one
-> door that reports absence.
+> method that reports absence.
 >
 > A bare variable is the remove-everything reading a multiset space
 > gives it, each atom leaving through its own proper path, equations
@@ -504,6 +504,19 @@ def lint(self):
 > Answers metta.lint.Finding records, empty when nothing looks
 > wrong.
 
+### `Space.effect_plan`
+
+```python
+def effect_plan(self, target: Any) -> _ops_module.EffectPlan:
+```
+
+> Return operations the target may execute and their joined effect.
+>
+> The engine translates the same atom or source form ``eval`` accepts,
+> follows nested compiled calls, and reads current operation metadata.
+> It does not execute the target. A later registration change is visible
+> on the next call. This is the analysis reified-world admission uses.
+
 ### `Space.copy`
 
 ```python
@@ -511,7 +524,7 @@ def copy(self) -> Space:
 ```
 
 > This space's contents in a new anonymous space, cloned through
-> the bulk door, so equations copy as equations and keep running:
+> one bulk write, so equations copy as equations and keep running:
 > "a scratch space set up like production" is one line. The handle
 > is ``space()``'s kind, so drop it, or use it as a context
 > manager, to return the name. copy.copy(m) answers the same
@@ -656,7 +669,7 @@ def stream(
 > name, because a counting fold is ONE number over the whole answer
 > set and a cursor exists not to have one.
 >
-> What this door does NOT take is match()'s `into=`, the same kind of
+> What this method does NOT take is match()'s `into=`, the same kind of
 > difference: `into` builds a container out of every row.
 
 ### `Space.assuming`
@@ -838,9 +851,9 @@ def batch(self) -> _Batch:
 >             m.add(edge)          # collected, no crossing yet
 >     # one add_many crossing happened here
 >
-> The write ladder reads: add one; add(*atoms) several; batch a
-> region; transaction all-or-nothing; a provider's own bulk door
-> underneath. A batch is a transport economy and must not invent
+> The write forms are add for one or several atoms, batch for a region,
+> transaction for all-or-nothing work, and a provider's bulk method
+> underneath them. A batch is a transport economy and must not invent
 > semantics, so the sharp edges are stated and enforced: reads
 > inside the block see the space WITHOUT the pending adds; a
 > remove() or clear() on this space inside the block refuses,
@@ -906,7 +919,7 @@ def eval(
 >
 > Variadic, and that is how evaluation BATCHES: several terms ride
 > one engine crossing and the answer is one group per term in call
-> order, run()'s own grouping carried to the term door. One term
+> order, run()'s own grouping carried to the term form. One term
 > keeps its flat list, so the scalar reading never changes shape.
 >
 > Every answer carries its truth: an answer that is undefined under
@@ -922,15 +935,15 @@ def eval(
 > exactly as it does for run(): inside `with m.bind({"x": tensor})`,
 > `m.eval("(decide x)")` hands the tensor itself to the rule, by
 > identity, rather than a printed form of it. The name is the SYMBOL x
-> and not the variable $x, on this door and the source door alike. The evaluation doors take the same
-> vocabulary the source door takes, so reaching for a term instead
-> of source text costs no change of spelling.
+> and not the variable $x, in this call and the source form alike. The
+> evaluation calls take the same vocabulary as the source form, so using
+> a term instead of source text costs no change of spelling.
 >
 > A key may be a NAME or an ATOM. A name means the symbol of that name,
 > which is what the engine's own substitution matches and what run()
 > takes. An atom means exactly that atom, so `bind({V.x: 5})` fills a
 > VARIABLE hole -- the one substitution `unify` reports and the one no
-> door could apply, because a variable crosses the wire as ['v', 'x']
+> evaluation call could apply, because a variable crosses the wire as ['v', 'x']
 > where a symbol crosses as ['s', 'x'] and the engine matches names.
 >
 > `timeout` (seconds) and `inferences` (engine steps) bound the call,
@@ -938,7 +951,7 @@ def eval(
 > `capture()` scope collects printed text without changing the list.
 >
 > `under`, `theory` and `interpreter` are answers()' three, and mean
-> exactly what they mean there; this door is that one materialised. A
+> exactly what they mean there; `eval()` materialises that query as a list. A
 > surrounding `with metta.under(carrier)` reaches here too, which it did
 > not before: match() and answers() both honoured such a scope while
 > eval() ignored it in silence.
@@ -1078,7 +1091,7 @@ def reducible(self, target: Any) -> bool:
 > nothing applies to is its own answer, which is ordinary MeTTa and how
 > `!(hello world)` works, so there is no scope here that refuses one.
 >
-> The Node surface has had m.reducible() since it existed; Python had
+> The Node extension has had m.reducible() since it existed; Python had
 > only eval_status(), which evaluates to tell you.
 
 ### `Space.eval_status`
@@ -1117,7 +1130,7 @@ def eval_status(
 > keys mean themselves, so `bind({V.x: 5})` fills a variable hole.
 >
 > `theory` and `interpreter` are eval()'s own, and mean the same here.
-> This is the door that says which evaluation path produced an answer, so
+> This is the method that says which evaluation path produced an answer, so
 > being unable to point it at an alternative evaluation relation was the
 > sharpest form of the gap: `m.eval_status(target, interpreter=my_eval)`
 > is how you see whether an explicit interpreter reduced a term or handed
@@ -1792,8 +1805,8 @@ def define(
 >     def add_one(n):
 >         return n + 1
 >
-> This is rung 4 of the naming ladder applied to the definition door
-> itself: ``def not_provable`` lands as ``not-provable``. An authored
+> The same attribute mapping applies to the definition name itself:
+> ``def not_provable`` lands as ``not-provable``. An authored
 > MeTTa underscore therefore uses explicit ``name="not_provable"``.
 >
 > A generator compiles to nondeterminism (each yield one answer), a
@@ -1816,7 +1829,7 @@ def rules(self, fn: Callable[..., Any]) -> _Rules:
 def pre_add(self, fn: Defined[..., Any] | Callable[..., Any]) -> Defined[..., Any]:
 ```
 
-> Compile or accept one unary judge and claim this space's write door.
+> Compile or accept one unary judge and claim this space's write hook.
 >
 > The common decorator stack places ``@pre_add`` above ``@define``, so
 > an existing Defined keeps the module that owns its equations. A raw
@@ -2149,7 +2162,7 @@ def admits(self, type_name: str) -> Atom:
 > Type a pool's membership: only TYPE-carrying atoms enter.
 >
 > A thread pool is a space whose atoms are spaces, and this is its
-> door: (admits &pool Space) plus per-atom (: &lt;space> Space)
+> declaration: (admits &pool Space) plus per-atom (: &lt;space> Space)
 > declarations make membership a type judgement the ontology
 > already knows how to make.
 
@@ -2207,8 +2220,8 @@ def events(
 
 > Return the event stream, or declare what this context promises.
 >
-> Subscribability is a promise about the context, not something the
-> seam reads off its methods. A native space needs no declaration:
+> Subscribability is a promise about the context, not something its
+> methods alone establish. A native space needs no declaration:
 > every write into it runs the engine's own hooks, so it delivers
 > per-write-exactly and ordered by construction. A FOREIGN context
 > declares, and one that declares nothing refuses a subscription
@@ -2237,9 +2250,9 @@ def metta(self) -> MeTTa:
 ```
 
 > The owning evaluation context, so a handle can reach every
-> context-level door: ``m.metta.space(S.kb)`` creates a sibling space
+> context-level method: ``m.metta.space(S.kb)`` creates a sibling space
 > in THIS handle's own context rather than the process default, which
-> is the creation door the twins' known-issue asked for. The context
+> is the creation method the twins' known-issue asked for. The context
 > BORROWS this handle's space as its home, so answering it mints
 > nothing, and two answers compare equal because they share the
 > runtime and the home.
@@ -2419,8 +2432,8 @@ def run(
 > after reading, before anything runs. It is a BLOCK rather than a
 > keyword because a binding mapping is the kind of value that grows,
 > and a block grows down the page where a keyword has to fit beside
-> everything else on the call. Every target door reads the same scope,
-> so one block covers a run(), an eval() and an answers() together.
+> everything else on the call. Every call that accepts a target reads the
+> same scope, so one block covers run(), eval(), and answers() together.
 >
 > `timeout` (seconds) and `inferences` (engine steps) bound the call
 > with the engine's own guards; passing either raises TimeLimitError
@@ -2464,7 +2477,7 @@ def load(
 > A load that raises leaves the previous definitions standing, so a
 > broken edit costs nothing but the error.
 >
-> `!(import! &self path)` is the other door and loads a file that is
+> `!(import! &self path)` is the other form and loads a file that is
 > new or edited, skipping one that is neither. The two agree on what
 > a reload means and differ only in whether an unchanged file runs
 > again, which is SWI's consult/1 against its if(changed).
@@ -2558,7 +2571,7 @@ def add(self, *atoms: Any) -> None:
 > spelling. That is the right property for a logic engine and it is the
 > one thing about storage that surprises everybody once.
 >
-> A library IS knowledge, so the same door imports it: ``m += lib.he``
+> A library IS knowledge, so the same operator imports it: ``m += lib.he``
 > performs ``!(import! <m> (library lib_he))`` with this space as the
 > target. An import is an effect, so it refuses to hide inside an atom
 > batch or share a call with stored atoms.
@@ -2584,16 +2597,16 @@ def remove(self, atom: Any, *more: Any) -> bool | int:
 > subtracts the multiplicity given rather than clearing the key.
 > That is the only reading under which the operators are inverses,
 > so `s += a; s -= a` leaves the space it found. `-=` classifies its
-> operand exactly as `+=` does, so the fact stream one door stores
-> the other subtracts, one occurrence per element, in one
+> operand exactly as `+=` does, so `-=` subtracts the same fact stream
+> `+=` stores, one occurrence per element, in one
 > transactional crossing.
 >
-> The DRAIN is the pattern-shaped door: `del m[pattern]` takes every
+> `del m[pattern]` is the draining form: it takes every
 > unifying occurrence in one crossing and raises when nothing
 > matched, as Python's `del` does, and MeTTa spells it `remove-atom`
 > .
 > MeTTa spells this method's grain `subtract-atom`. This is the one
-> door that reports absence.
+> method that reports absence.
 >
 > A bare variable is the remove-everything reading a multiset space
 > gives it, each atom leaving through its own proper path, equations
@@ -2623,7 +2636,7 @@ def eval(
 >
 > Variadic, and that is how evaluation BATCHES: several terms ride
 > one engine crossing and the answer is one group per term in call
-> order, run()'s own grouping carried to the term door. One term
+> order, run()'s own grouping carried to the term form. One term
 > keeps its flat list, so the scalar reading never changes shape.
 >
 > Every answer carries its truth: an answer that is undefined under
@@ -2639,15 +2652,15 @@ def eval(
 > exactly as it does for run(): inside `with m.bind({"x": tensor})`,
 > `m.eval("(decide x)")` hands the tensor itself to the rule, by
 > identity, rather than a printed form of it. The name is the SYMBOL x
-> and not the variable $x, on this door and the source door alike. The evaluation doors take the same
-> vocabulary the source door takes, so reaching for a term instead
-> of source text costs no change of spelling.
+> and not the variable $x, in this call and the source form alike. The
+> evaluation calls take the same vocabulary as the source form, so using
+> a term instead of source text costs no change of spelling.
 >
 > A key may be a NAME or an ATOM. A name means the symbol of that name,
 > which is what the engine's own substitution matches and what run()
 > takes. An atom means exactly that atom, so `bind({V.x: 5})` fills a
 > VARIABLE hole -- the one substitution `unify` reports and the one no
-> door could apply, because a variable crosses the wire as ['v', 'x']
+> evaluation call could apply, because a variable crosses the wire as ['v', 'x']
 > where a symbol crosses as ['s', 'x'] and the engine matches names.
 >
 > `timeout` (seconds) and `inferences` (engine steps) bound the call,
@@ -2655,7 +2668,7 @@ def eval(
 > `capture()` scope collects printed text without changing the list.
 >
 > `under`, `theory` and `interpreter` are answers()' three, and mean
-> exactly what they mean there; this door is that one materialised. A
+> exactly what they mean there; `eval()` materialises that query as a list. A
 > surrounding `with metta.under(carrier)` reaches here too, which it did
 > not before: match() and answers() both honoured such a scope while
 > eval() ignored it in silence.
@@ -2753,8 +2766,8 @@ def define(
 >     def add_one(n):
 >         return n + 1
 >
-> This is rung 4 of the naming ladder applied to the definition door
-> itself: ``def not_provable`` lands as ``not-provable``. An authored
+> The same attribute mapping applies to the definition name itself:
+> ``def not_provable`` lands as ``not-provable``. An authored
 > MeTTa underscore therefore uses explicit ``name="not_provable"``.
 >
 > A generator compiles to nondeterminism (each yield one answer), a

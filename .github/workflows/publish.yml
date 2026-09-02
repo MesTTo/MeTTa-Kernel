@@ -32,6 +32,35 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version-file: "pyproject.toml"
+      - name: Verify the public lint authority
+        run: |
+          python - <<'PY'
+          import ast
+          import urllib.request
+          from pathlib import Path
+          from urllib.parse import urlsplit
+
+          module = ast.parse(Path("extensions/python/metta/_lint_events.py").read_text())
+          assignment = next(
+              node
+              for node in module.body
+              if isinstance(node, ast.Assign)
+              and any(
+                  isinstance(target, ast.Name) and target.id == "_LINT_CATALOGUE"
+                  for target in node.targets
+              )
+          )
+          authority = ast.literal_eval(assignment.value)
+          parsed = urlsplit(authority)
+          owner, repository, marker, commit, *path = parsed.path.strip("/").split("/")
+          if parsed.netloc != "github.com" or marker != "blob" or len(commit) != 40:
+              raise SystemExit(f"invalid public lint authority: {authority}")
+          raw = f"https://raw.githubusercontent.com/{owner}/{repository}/{commit}/{'/'.join(path)}"
+          with urllib.request.urlopen(raw) as response:
+              catalogue = response.read().decode()
+          if "## Lint a space" not in catalogue or "operation-crossing-in-loop" not in catalogue:
+              raise SystemExit(f"lint catalogue is absent from {raw}")
+          PY
       - name: Build the source archive and the wheel
         run: |
           python -m pip install --upgrade pip build

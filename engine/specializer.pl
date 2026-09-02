@@ -39,8 +39,15 @@
 %     against the 17.0 the yall lambda it replaced cost; command=cd
 %     tests/prolog && swipl -g "set_test_options([format(log)]), run_tests"
 %     -t halt specializer.plt; commit=7e7cac85fee08c117032b2efa5a58a40f3b21365].
-% Guarded by: '$metta_specializer' serializes the existence check and the
-%   transaction that publishes a specialization.
+%   - A generated specialization uses translate_tracked_clause/3 because its
+%     source and dependencies are published in the support graph immediately
+%     afterward [tested:
+%     translator_literal_type_checks:a_repeated_parameter_contract_has_a_live_static_proof;
+%     commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
+% Guarded by: '$metta_typing_policy' is acquired before '$metta_specializer'
+%   and before the publication transaction, so a specialization cannot retain
+%   a static type proof across a concurrent policy change. '$metta_specializer'
+%   then serializes the existence check and publication.
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -364,15 +371,22 @@ skip_same_binding(Pairs, _, _, Pairs).
 % key. MetaList already carries the explicit per-clause bindings.
 specialize_call(HV, AVs, Out, Goal, CleanBindSet, MetaList,
                 HasDirectBenefit, SpecName, Arity) :-
+    with_typing_policy_stable(
+        specialize_call_stable(
+            HV, CleanBindSet, MetaList, HasDirectBenefit, SpecName, Arity,
+            Outcome)),
+    Outcome == ready, !,
+    specialization_goal(SpecName, AVs, Out, Goal).
+
+specialize_call_stable(HV, CleanBindSet, MetaList, HasDirectBenefit,
+                       SpecName, Arity, Outcome) :-
     %The mutex must be acquired before transaction/1 takes its snapshot. If
     %the order is reversed, a waiting transaction can still see the database
     %from before the first worker committed and publish a duplicate.
     with_mutex('$metta_specializer',
                transaction(specialize_call_locked(
                    HV, CleanBindSet, MetaList, HasDirectBenefit,
-                   SpecName, Arity, Outcome))),
-    Outcome == ready, !,
-    specialization_goal(SpecName, AVs, Out, Goal).
+                   SpecName, Arity, Outcome))).
 
 %Keyed by module as well as by call shape. Keyed by shape alone, a named
 %space reused the specialization &self had already published, so the same
@@ -427,7 +441,7 @@ specialize_call_locked(HV, CleanBindSet, MetaList, HasDirectBenefit,
                                       _SourceMeta,StoredMeta),
                           clause_info(StoredInput,Clause)]>>
               ( CompiledInput = [=,[SpecName|ArgsNorm],BodyExpr],
-                translate_clause(CompiledInput,Clause,false),
+                translate_tracked_clause(CompiledInput, Clause, false),
                 specialization_storage_input(SpecName, StoredMeta,
                                              StoredInput) ),
               MetaList, ClauseInfos),

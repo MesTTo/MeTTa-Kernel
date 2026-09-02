@@ -11,11 +11,13 @@ Source: `extensions/python/metta/testing.py`.
 > symbol spellings canonicalize, and that `_` is the anonymous variable,
 > fresh at every occurrence.
 >
-> The conformance surfaces live here too, one rung per audience:
+> The conformance surfaces live here too, one layer per audience:
 > check_space_provider and check_codec run in process against an author's own
 > object, SpaceComplianceSuite and GatewayComplianceSuite are pytest classes
 > that run the engine's own expectations against a provider or a URL.
 > .
+>   - check_twin compares encoded atoms, preserving integer, float, and boolean
+>     grounded species
 >   - minted-space conformance recognizes decoded Space handles in provider
 >     answers
 >   - numpy_scalars generates non-primitive scalar objects whose identity and
@@ -173,9 +175,10 @@ def check_space_provider(provider, *, atoms_to_store=None, source='repeated') ->
 > operation whose method is absent, which is a registration-time mistake
 > that otherwise surfaces as an AttributeError inside an engine callback.
 >
-> **Match over-approximates rather than under-approximates.** The seam's
-> central soundness claim is that a provider may yield more than the pattern
-> asks for, because the engine keeps unification, and may never yield less.
+> **Match over-approximates rather than under-approximates.** The provider
+> contract's central soundness claim is that a provider may yield more than
+> the pattern asks for, because the engine keeps unification, and may never
+> yield less.
 > Every stored atom vouches for a whole pattern family, itself, each
 > position opened to a variable, and repeated-variable folds, and the
 > provider's answers for each are compared with a brute-force unification
@@ -196,13 +199,13 @@ def check_space_provider(provider, *, atoms_to_store=None, source='repeated') ->
 > Raises AssertionError on the first violation, naming the provider class,
 > the operation and the atom.
 >
-> THE DOOR IS UNIVERSAL: a provider is any foreign substrate, not only a
-> Python object, and every substrate sits behind the space seam. Handed a
-> ``Space`` handle, this runs the engine's own checker
+> THE CHECK IS UNIVERSAL: a provider is any foreign substrate, not only a
+> Python object, and every substrate implements the space-provider protocol.
+> Handed a ``Space`` handle, this runs the engine's own checker
 > (lib/lib_conformance/lib_conformance.pl's ``check-space-provider``), which holds the
 > same laws (capability reachability, the match pattern family, the
 > declared source discipline, the canary round trip, the pushdown claim)
-> asked through the seam, so a provider written in Prolog, C, or anything
+> asked through that protocol, so a provider written in Prolog, C, or anything
 > else is held to one contract. The object form stays the
 > pre-registration half for Python authors; ``source=`` applies to it
 > alone, because a registered space carries its declared ``(source ...)``
