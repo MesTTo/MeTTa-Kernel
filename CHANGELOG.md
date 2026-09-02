@@ -6,6 +6,93 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-09-02
+
+The `pymetta` line, which is versioned separately from the inherited
+upstream tags above it. Published to PyPI as `pymetta` 0.6.0.
+
+### Fixed
+
+- **A remote gateway authorized one space and executed against another.** A
+  request that omitted `space` was checked against the served context's name
+  and then run against `&self`, so an authorization callback could approve a
+  write that landed somewhere else. Both paths now resolve the same name.
+- **A recycled thread identifier could crash the process.** `Runtime` recorded
+  its owning thread as `threading.get_ident()`, an operating-system number the
+  kernel reuses after a thread exits. A newly spawned thread could inherit a
+  dead thread's number, be mistaken for the engine's owner, and take the Janus
+  fast path on an engine it did not hold. Ownership is now the live `Thread`
+  object, which cannot collide.
+- **Compiled Python operators follow Python's data model.** `a + b` in a
+  `@m.define` body assumed numbers, so string and list concatenation, set
+  difference, percent formatting, and every reflected or in-place dunder
+  answered an error atom that then flowed on as data. Untyped operands now
+  dispatch through the live protocol. An `int` or `float` annotation keeps the
+  pure engine head, so `def f(x: int) -> int` compiles exactly as before.
+  Equality stays on the protocol path even when annotated, because `1 == 1.0`,
+  `nan == nan` and `-0.0 == 0.0` disagree with the engine relation.
+- **A `for` loop over a string, bytes, or dict answered nothing.** The loop
+  peeled with `decons-atom`, which has no answer for a grounded String, and
+  compared emptiness against the empty Expression. The comprehension form of
+  the same iteration was correct, so the two disagreed inside one function.
+- **`space |= atom` shredded a built atom into its children.** `Atom` was
+  missing from the refusal list while `Expression` registers as a `Sequence`,
+  so `space |= S.f(S.a, S.b)` stored three atoms instead of one.
+- **A compiled `except` matched on the class name.** An unrelated class that
+  merely shared a name was caught, and `Timeout`, `Error`, `ValidationError`
+  and `ConnectionError` are all shared names. Arms now compare class identity.
+- **`limit=0` ran unbounded** at four query entry points and, separately, in
+  `metta.algebra.count_tagged`, whose own validator advertised zero as legal
+  before collapsing it into the engine's no-limit sentinel. Zero is now
+  refused everywhere with one message.
+- **`speculative()` kept writes taken lazily**, and `Space.derivation` escaped
+  it entirely: its proof search ran outside the shared capture, so a
+  diagnostic inside a speculative block left its writes in the engine-global
+  space.
+- **A batch write bypassed the provider's policy gate.** `foreign_add_many`
+  consulted the gate for the first atom only, so an atom a provider declines
+  landed whenever it was batched behind another.
+- **One raising watcher starved every later subscription** of the event that
+  had already committed.
+- **A blocking engine call on a bare thread froze every other Python thread**,
+  including the one that would have unblocked it.
+- **A failed async landing left its future pending forever.** A publication
+  failure was logged and discarded while the context was released, so an
+  awaiting caller had nothing to wake it. Failures now settle the future as an
+  error, and process controls propagate instead of being swallowed.
+- Subscriptions outliving their event loop, abandoned channel queues,
+  `py-atom` declarations, and timed-out remote worker requests all release now
+  rather than accumulate. `assuming()` removes every hypothetical even when
+  one removal fails.
+- A rejected guarded event no longer ends a blocking stream early, native
+  handles round-trip through the public wire codec, and `resolve()` reports a
+  module that exists but fails to import instead of blaming its prefix.
+
+### Changed
+
+- **Declaring a type costs almost nothing now.** A declared compiled call paid
+  46 extra inferences and 1.76 microseconds per call, because the engine
+  re-checked what the compiler could already prove. Checks the translator can
+  discharge statically are now omitted, under support-graph invalidation so a
+  typing rule added later still wins. The same call costs 2 inferences and
+  0.25 microseconds. Unknown arguments and reflective calls keep their checks.
+- **Several operations changed complexity class rather than constant factor.**
+  Stacking K clauses fell from O(K squared) engine crossings to O(K); proof
+  projection from O(N squared) to O(N), which is 3.8 seconds to half a
+  millisecond at four thousand facts; per-iteration source-position lookup
+  from a stack scan to a cached one; `FutureSpace` iteration from a full
+  re-snapshot per poll to a watermarked delta; import resolution from a prefix
+  search to an amortized constant. Deep atom ordering and proof traversal run
+  on a constant Python stack instead of failing at depth 500 and 330.
+- The documentation site was rewritten. The API reference publishes prose
+  rather than the file-local contract headers it had been reproducing, which
+  removed 149 commit hashes and 142 test citations from pages a reader opens.
+
+### Added
+
+- `Space.effect_plan` answers what a call would write, without running it.
+
+
 ### Fixed
 
 - **A trailing underscore now escapes a keyword instead of becoming a
@@ -6948,5 +7035,6 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 - Released PeTTa v1.0 with smart dispatch, two-stage compilation, function
   specialization, modular libraries, and MORK, MM2, and FAISS integration.
 
-[Unreleased]: https://github.com/trueagi-io/PeTTa/compare/v1.0.5...HEAD
+[Unreleased]: https://github.com/MesTTo/MeTTa-Kernel/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/MesTTo/MeTTa-Kernel/releases/tag/v0.6.0
 [1.0.5]: https://github.com/trueagi-io/PeTTa/releases/tag/v1.0.5
