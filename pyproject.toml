@@ -520,8 +520,5 @@ ignore_imports = [
     "metta._space -> metta._world",
     # Space.saga defers the recovery runner until that method is called.
     "metta._space -> metta._saga",
-    # evaluate_answers.stream imports algebra only for annotated answers, so
-    # ordinary evaluation keeps the optional algebra satellite unloaded.
-    "metta._space_execution -> metta.algebra",
 ]
 unmatched_ignore_imports_alerting = "error"
