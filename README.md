@@ -138,13 +138,13 @@ from metta import space
 m = space()
 
 @m.define
-def fact(n):
+def fact(n: int) -> int:
     if n == 0:
         return 1
     return n * fact(n - 1)
 
 assert str(fact.head) == "(fact $n)"
-assert str(fact.body) == "(if (py-eq $n 0) 1 (* $n (fact (- $n 1))))"
+assert str(fact.body) == "(if (py-truthy (py-operator eq $n 0)) 1 (* $n (fact (- $n 1))))"
 assert fact(5) == [120]
 ```
 
@@ -170,7 +170,7 @@ from metta import S, V, space
 m = space()
 
 @m.define
-def double(x):
+def double(x: int) -> int:
     return 2 * x
 
 assert double(5) == [10]                  # forwards, and callable from Python
