@@ -10,6 +10,8 @@
 %     - every call from one engine subsystem into another, and every call from
 %       lib_tabling into an engine subsystem, is named in the contract below,
 %       or the lane exits nonzero naming caller, callee and the missing line
+%       [tested: test_the_engine_layering_contract_holds_and_a_violation_is_named;
+%       commit=WORKTREE]
 %     - a contract line no call needs any more is reported, so the allow-list
 %       cannot silently widen the surface as the engine changes
 %     - a cross-subsystem call into a subsystem that declares a module reaches
@@ -316,6 +318,7 @@ reaches(filereader, parser, 'reading a source file is parsing it').
 reaches(filereader, spaces, 'a load writes atoms and compiles equations into a space').
 reaches(filereader, support_graph, 'a load records what its assertions support so a reload can invalidate them').
 reaches(filereader, translator, 'a load compiles the forms it read').
+reaches(filereader, type_rules, 'source compilation and rollback hold the typing policy stable while rebuilding affected clauses').
 reaches(kernel, metta, 'the kernel builtins are typed and refuse through the core\'s own vocabulary').
 reaches(kernel, spaces, 'the kernel builtins ask spaces about their atoms').
 reaches(lib_tabling, ext_points, 'declared ownership and event seams route tabled calls and retire their registrations').
@@ -337,12 +340,14 @@ reaches(spaces, metta, 'a space write reaches the core\'s registries, contract a
 reaches(spaces, specializer, 'a changed function invalidates the specializations built over it').
 reaches(spaces, support_graph, 'a cleared space forgets the support edges of its module').
 reaches(spaces, translator, 'storing an equation compiles it').
+reaches(spaces, type_rules, 'equation compilation holds the typing policy stable while installing translated clauses').
 reaches(specializer, filereader, 'records and forgets the assertion of a generated specialization').
 reaches(specializer, metta, 'reads the module and space context and the type declarations it specializes over').
 reaches(specializer, parser, 'a minted specialization name must be a symbol the reader reads back').
 reaches(specializer, spaces, 'a specialization is stored and compiled into the space it belongs to').
 reaches(specializer, support_graph, 'a specialization is a derived artifact with support edges').
 reaches(specializer, translator, 'a specialization is a translated clause').
+reaches(specializer, type_rules, 'specialization holds the typing policy stable while deriving a compiled clause').
 reaches(support_graph, filereader, 'the loader owns the assertion records the graph tracks').
 reaches(support_graph, scc, 'the support graph classifies recursive call components').
 reaches(support_graph, specializer, 'invalidating a support node runs the specializer\'s invalidation action').
