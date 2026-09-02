@@ -745,7 +745,7 @@ type_check_goal(Value, Type, General, Goal) :-
     % instructions. Replacing one with the inherited-clause owner guard kept
     % the same two-inference residual and measured 0.240us rather than
     % 0.231us per proved Number call over 100,000 calls, min of seven
-    % [measured: 0.231us intrinsic-first versus 0.240us static-first;
+    % [measured 2026-09-02: 0.231us intrinsic-first versus 0.240us static-first;
     % command=python -m benchmarks.declared_contracts --calls 100000
     % --reflective-calls 2000 --rounds 7; fixture=compiled-proved-number;
     % commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
