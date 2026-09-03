@@ -818,8 +818,8 @@ prolog:error_message(metta_platform_required(Form, Capability, Requires,
 %status, and every reader of that status runs after it - the two digest
 %providers in that file and lib_crypto on import. Probing it twice cost 697
 %inferences at every boot for an answer already established
-%[tested: platform_capabilities:sha_hashing_survives_without_crypto,
-%platform_capabilities:crypto_only_operations_refuse_by_name_without_crypto,
+%[tested: platform_capabilities_reduced:sha_hashing_survives_without_crypto,
+%platform_capabilities_reduced:crypto_only_operations_refuse_by_name_without_crypto,
 %both on a genuinely reduced build; commit=96c4df52838ef5ee3a19af4bbe99a28f73445c46].
 :- metta_platform_load(redis, []).
 %library(pcre), the HOST TIER re-export the block above this file's imports

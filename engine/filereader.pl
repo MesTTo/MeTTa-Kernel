@@ -419,7 +419,7 @@ source_load_assertion(LoadId, Ref) :-
 %true where metta_platform/4 fails. Crypto is declared beside the others with no
 %guard, and the roster is asserted whole, so the row cannot leave quietly
 %[tested: platform_capabilities:the_census_agrees_with_what_resolves,
-%platform_capabilities:sha_hashing_survives_without_crypto].
+%platform_capabilities_reduced:sha_hashing_survives_without_crypto].
 metta_text_digest(Text, Digest) :-
     (   \+ metta_platform_absent(crypto)
     ->  crypto_data_hash(Text, Digest, [algorithm(sha256)])
