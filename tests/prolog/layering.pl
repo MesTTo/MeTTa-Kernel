@@ -321,6 +321,7 @@ reaches(filereader, parser, 'reading a source file is parsing it').
 reaches(filereader, spaces, 'a load writes atoms and compiles equations into a space').
 reaches(filereader, support_graph, 'a load records what its assertions support so a reload can invalidate them').
 reaches(filereader, translator, 'a load compiles the forms it read').
+reaches(filereader, translator_rules, 'a fast-cache image is a whole program and a program includes its translator rules, so capture, restore and the rollback of a failed restore all cross here').
 reaches(filereader, type_rules, 'source compilation and rollback hold the typing policy stable while rebuilding affected clauses').
 reaches(kernel, metta, 'the kernel builtins are typed and refuse through the core\'s own vocabulary').
 reaches(kernel, spaces, 'the kernel builtins ask spaces about their atoms').
