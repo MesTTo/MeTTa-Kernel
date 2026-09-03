@@ -8,6 +8,18 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Three repository lanes that had been red are green, and one of them was
+  hiding another. `test_the_ruff_configuration_enables_every_family_or_records_why_not`
+  failed on a `# noqa: ARG002,D102` written without the comma-space its
+  canonical form requires; that assertion fires before the suppression
+  burn-down, so the ledger's `D` maximum had been four behind since 9ee20573
+  and nothing said so. Respelling the one comment revealed it, and the maximum
+  is recorded at 2201 with what accounts for the difference.
+  `test_no_tracked_file_cites_an_absolute_workspace_path` failed on an
+  interpreter path spelled absolutely inside a `command=` evidence tag in
+  `benchmarks/baseline.json`; it reads `$CHECK_PY` now, which is what every
+  other `command=` in that file uses.
+
 - The C seat's sanitizer matrix finishes, so `GATE_ONLY=1 sh check.sh` can
   reach its end on this class of machine. `make -C extensions/cmetta sanitize`
   did not terminate: every sanitizer diagnostic is symbolized by
