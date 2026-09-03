@@ -8,6 +8,10 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The native-handle round-trip benchmark now loads the chapter-19 shared
+  object that `worktree.sh` builds. The benchmark had kept the example tree's
+  pre-reorganisation path and silently skipped since the directory moved.
+
 - The `ledger`, `aio-mirror` and `reference` gates are green again. Each had
   been failing on a different commit: `6229e43c` removed the `self.clear()`
   call from `Space.drop` without removing the shrink-ledger row that reaching a
