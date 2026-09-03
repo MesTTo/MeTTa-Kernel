@@ -22,7 +22,7 @@
 %   - execution-module mappings carry monotone generations whose last value
 %     survives release, so lifecycle consumers can distinguish a recycled
 %     module name from its former occupant [tested: translator_rule_module_home;
-%     commit=WORKTREE].
+%     commit=a5c34eb71ea5b078c55023ed988dd20b2c675323].
 %   - Every native space stores its atoms in a private data module that does
 %     not inherit user predicates [tested: spaces_storage_modules].
 %   - subscribe follows the (events ...) declaration rather than what a host

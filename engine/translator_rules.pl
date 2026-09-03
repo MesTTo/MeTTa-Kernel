@@ -29,7 +29,7 @@
 %     addressing a recycled module name, while a rule registered in one space
 %     still has one body module that every compiling space can resolve
 %     [tested: translator_rule_module_home;
-%     commit=WORKTREE].
+%     commit=a5c34eb71ea5b078c55023ed988dd20b2c675323].
 %   - a bidirectional declaration is ONE declaration: the inverse equation is
 %     derived, added to the space as an ordinary atom, and registered, and
 %     removing the rule removes it again

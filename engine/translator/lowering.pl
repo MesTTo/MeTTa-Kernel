@@ -6,7 +6,7 @@
 %   a deferred body before invoking it, and therefore neither addresses a
 %   recycled module life nor relies on SWI's undefined-predicate hook after a
 %   predicate was abolished [tested: translator_rule_module_home;
-%   commit=WORKTREE].
+%   commit=a5c34eb71ea5b078c55023ed988dd20b2c675323].
 %   Typed compilation resolves declarations from the nearest space that binds
 %   the head while type reporting remains additive across visible spaces
 %   [tested: test_an_inherited_arrow_does_not_veto_a_local_definition,

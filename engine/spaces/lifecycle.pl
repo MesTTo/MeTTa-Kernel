@@ -15,7 +15,7 @@
 %   Every execution-module life receives a monotone generation, retained as a
 %   tombstone after release so a registry row from an earlier occupant cannot
 %   address a recycled module name [tested: translator_rule_module_home;
-%   commit=WORKTREE].
+%   commit=a5c34eb71ea5b078c55023ed988dd20b2c675323].
 %   The engine-owned &self and &metta roots refuse clear and release before
 %   teardown starts, directing callers to their own context or a named space
 %   [tested: base_space_lifecycle; commit=6229e43cb68cc3685360810d462d992874992f6c].

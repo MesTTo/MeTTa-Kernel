@@ -34,7 +34,8 @@
 %     compile from sibling spaces, and retire before release-time repair can
 %     re-enter a half-cleared home. A recycled module life receives a new
 %     generation and a planted old row is refused [tested:
-%     translator_rule_module_home; commit=WORKTREE].
+%     translator_rule_module_home;
+%     commit=a5c34eb71ea5b078c55023ed988dd20b2c675323].
 %   - bulk and single-atom ingestion apply the same definition-local type mask
 %     while an equation is arriving [tested:
 %     translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask;
