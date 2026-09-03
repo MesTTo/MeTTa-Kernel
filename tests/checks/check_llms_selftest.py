@@ -29,7 +29,7 @@ Guarantees:
     own test, run by the gate; commit=2c376be0bca6f85920288863ac89f09a44e6c0c7]
   - the planted library-table count uses the directory roster that includes
     both MeTTa and Prolog implementations [tested: this file is its own test,
-    run by the gate; commit=WORKTREE]
+    run by the gate; commit=1bfad3db85807fff774cad370ff8e57f7400ae99]
 Open Obligations:
   To Do: None
   Hacks: None

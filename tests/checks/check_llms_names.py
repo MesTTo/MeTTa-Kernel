@@ -49,7 +49,8 @@ Guarantees:
     [tested: tests/checks/check_llms_selftest.py; commit=2c376be0bca6f85920288863ac89f09a44e6c0c7]
   - the library count is attached to the shipped directories rather than a
     `.metta`-only glob that omits a Prolog-only implementation [tested:
-    tests/checks/check_llms_selftest.py; commit=WORKTREE]
+    tests/checks/check_llms_selftest.py;
+    commit=1bfad3db85807fff774cad370ff8e57f7400ae99]
 Open Obligations:
   To Do: None
   Hacks: None
