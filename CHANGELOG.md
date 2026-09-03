@@ -8,6 +8,22 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Four gate lanes the fast-cache equation-world work left red are green again:
+  the `filereader` to `translator_rules` reach a cache image needs is declared
+  in the layering contract, a tuple whose two branches disagreed is annotated,
+  a cycle guard that bound its variable in only one arm is restructured so the
+  analyser can see the other is unreachable, and the identity twin is re-pinned
+  from 3575 to 3564 after `76690d84` gave back most of what `translator_rule/3`
+  had cost.
+
+- `test_c_handle_crossing.py` runs its five tests again. It was the third
+  consumer left holding the directory `b54dea73` renamed on 2026-08-27, after
+  the two finding 26 repaired, and it skipped with "handle.so is not built"
+  while that file sat built at the path its own message printed. A new
+  `artifact-paths` gate now evaluates every file-relative path expression in
+  the tree rather than grepping for a literal, because the same word is stale
+  in one place and current in seven others.
+
 - `CHANGELOG.md` no longer ships 134 lines of unresolved merge conflict. They
   landed with the MORK seat merge on 2026-08-28 and survived every gate run
   until 2026-09-03, because `git diff --check` reports leftover markers in a

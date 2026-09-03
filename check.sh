@@ -398,6 +398,17 @@ run GATE provenance-pin-selftest "$PY" "$HERE/tests/checks/check_pin_provenance_
 run GATE conflict-markers "$PY" "$HERE/tests/checks/check_conflict_markers.py"
 run GATE conflict-markers-selftest "$PY" "$HERE/tests/checks/check_conflict_markers_selftest.py"
 
+# b54dea73 renamed the chapter-19 C artifacts on 2026-08-27 and left THREE
+# consumers holding the old directory. Each was found separately by somebody
+# noticing a test skip -- test_benchmarks.py and benchmarks/configuration.py
+# under finding 26, and tests/.../test_c_handle_crossing.py under finding 35,
+# which survived the repair of the other two because nothing asked in general.
+# A grep cannot: examples/integration/c_extension was renamed while
+# extensions/python/examples/integration/ still exists, so the same word is
+# stale once and current seven times. So each expression is EVALUATED instead.
+run GATE artifact-paths "$PY" "$HERE/tests/checks/check_artifact_paths.py"
+run GATE artifact-paths-selftest "$PY" "$HERE/tests/checks/check_artifact_paths_selftest.py"
+
 # KERNEL.md is the engine's ledger of which translator head is primitive and
 # which is derived, and it requires every derived form still fused into the
 # compiler to say why. The library had 110 public doors and no such ledger, so
