@@ -8,6 +8,11 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The example parity runner now closes every Python engine and compares test
+  verdicts and process exit status as well as answer groups. Teardown failures
+  and assertion-status disagreements can no longer be hidden by matching
+  answers printed earlier in the run.
+
 - Higher-order specialization now preserves the generic function's call
   arity when substituting a registered function exposes a partial application.
   Applying a variable that holds a native name therefore returns the same
