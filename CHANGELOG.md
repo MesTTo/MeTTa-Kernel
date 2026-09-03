@@ -8,6 +8,10 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `duplicate-binder` lint now follows clause-scoped variable identity across
+  both `let` and `let*`, including separate binding values. Reusing a plain
+  `let` name no longer fails silently without the existing diagnostic.
+
 - Prolog-only Python integrations now use their fully qualified module name as
   the SWI library alias. Distinct dotted modules with the same final component
   no longer share an ordered search path accidentally, while an explicitly
