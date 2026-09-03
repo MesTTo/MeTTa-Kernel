@@ -220,6 +220,8 @@
             metta_declare_restricted_space/2,
             metta_declare_space_parent/2,
             metta_declare_space_equation_home/2,
+            metta_mint_space_equation_child/2,
+            metta_space_equation_children/2,
             metta_space_world_home/1,
             metta_clear_space_for_release/1,
             metta_exec_module_known/2,

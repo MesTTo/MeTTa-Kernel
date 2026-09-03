@@ -20,6 +20,11 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Fast caches now persist complete equation-world images instead of only the
+  root atom list. Bound child spaces, their aliases, and translator rules are
+  restored under fresh runtime identities, repeat loads replace the prior
+  image, and binary payloads are no longer decoded as UTF-8 during reload.
+
 - Fast-cache restore now admits a program image through the existing bulk
   equation path and reconciles call-graph analysis once. Recursive content no
   longer turns restore into a growing per-atom analysis loop.

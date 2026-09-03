@@ -15,7 +15,12 @@
 %   reconciles program analysis once at the image boundary rather than once
 %   per atom [tested:
 %   test_fast_restore_batches_content_dependent_program_analysis;
-%   commit=83412e29ac271669b6ecc17cca1722832df2d892];
+%   commit=WORKTREE];
+%   a fast cache captures one consistent equation-world graph and restores its
+%   child spaces, space-valued token bindings, and translator registry through
+%   fresh runtime identities [tested:
+%   test_fast_cache_restores_translator_rules_and_bound_spaces;
+%   commit=WORKTREE];
 %   a failed load erases its typing rules and recompiles affected retained
 %   clauses under the restored policy [tested:
 %   filereader_source_rollback:a_failed_source_rule_restores_discharged_contracts;
@@ -44,7 +49,7 @@
 %sees a single payload byte.
 metta_host_fast_header(Header) :-
     current_prolog_flag(version_data, swi(Major, Minor, Patch, _)),
-    format(string(Header), 'METTA-CACHE\tMETTA-FAST\t2\t~d.~d.~d',
+    format(string(Header), 'METTA-CACHE\tMETTA-FAST\t3\t~d.~d.~d',
            [Major, Minor, Patch]).
 
 %A file whose path ends .gz reads and writes through zlib's stream; Python's
@@ -100,18 +105,16 @@ metta_host_atom_carries_object(Term) :-
 metta_host_save_fast(File, Space, Result) :-
     ( atom(File) -> FA = File ; atom_string(FA, File) ),
     metta_require_platform(FA, 'fast-cache'),
-    findall(Atom, 'get-atoms'(Space, Atom), Atoms),
-    (   member(ObjectAtom, Atoms),
-        metta_host_atom_carries_object(ObjectAtom)
+    snapshot(metta_host_fast_capture_image(Space, Image, Count, Problem)),
+    (   Problem = object(ObjectAtom)
     ->  Result = object(ObjectAtom)
-    ;   member(SymbolAtom, Atoms),
-        metta_unwritable_symbol(SymbolAtom, BadSymbol)
+    ;   Problem = symbol(BadSymbol)
     ->  Result = symbol(BadSymbol)
     ;   setup_call_cleanup(
             new_memory_file(MF),
             ( setup_call_cleanup(
                   open_memory_file(MF, write, PW, [encoding(octet)]),
-                  fast_write(PW, Atoms),
+                  fast_write(PW, Image),
                   close(PW)),
               metta_host_hash_memory_file(MF, Hash),
               metta_host_fast_header(Prefix),
@@ -126,9 +129,134 @@ metta_host_save_fast(File, Space, Result) :-
                         close(PR)) ),
                   close(Out)) ),
             free_memory_file(MF)),
-        length(Atoms, Count),
         Result = saved(Count)
     ).
+
+%The cache is a graph image rather than a bag of addresses. Runtime space and
+%module names are process-local; compact node IDs preserve aliasing and every
+%semantic term is relocated through the same table. snapshot/1 gives all
+%tables and atom stores one generation, the read-side counterpart of the
+%transaction that restores them.
+metta_host_fast_capture_image(Root, Image, Count, Problem) :-
+    metta_fast_capture_space_graph(Root, RawSpaces, NodeSpaces),
+    metta_token_snapshot(NodeSpaces, RawTokens),
+    translator_rules:translator_rule_snapshot(NodeSpaces, RawRules,
+                                                RawDerived),
+    Raw = fast_raw(RawSpaces, RawTokens, RawRules, RawDerived),
+    RawSpaces = [raw_space(0, root, Root, RootAtoms)|_],
+    length(RootAtoms, Count),
+    (   metta_fast_persisted_term(RawSpaces, RawTokens, Term),
+        metta_host_atom_carries_object(Term)
+    ->  Problem = object(Term)
+    ;   metta_fast_persisted_term(RawSpaces, RawTokens, Term),
+        metta_unwritable_symbol(Term, Bad)
+    ->  Problem = symbol(Bad)
+    ;   metta_fast_encode_image(Raw, NodeSpaces, Image),
+        Problem = none
+    ).
+
+metta_fast_persisted_term(RawSpaces, _, Term) :-
+    member(raw_space(_, _, _, Atoms), RawSpaces),
+    member(Term, Atoms).
+metta_fast_persisted_term(_, RawTokens, Value) :-
+    member(token(_, _, Value), RawTokens).
+
+metta_fast_capture_space_graph(Root, RawSpaces, NodeSpaces) :-
+    empty_assoc(Seen0),
+    metta_fast_capture_space_node(0, root, Root, 1, Seen0, _, _,
+                                  RawSpaces, [], NodeSpaces, []).
+
+metta_fast_capture_space_node(
+        Id, Parent, Space, Next0, Seen0, Seen, Next,
+        [raw_space(Id, Parent, Space, Atoms)|Rows0], Rows,
+        [Id-Space|NodeSpaces0], NodeSpaces) :-
+    (   get_assoc(Space, Seen0, _)
+    ->  throw(error(metta_fast_space_graph_cycle(Space),
+                    context(metta_host_save_fast/3,
+                            'an equation-world cache must be a tree')))
+    ;   put_assoc(Space, Seen0, true, Seen1)
+    ),
+    (   Id =\= 0,
+        seam:foreign_space(Space)
+    ->  throw(error(permission_error(snapshot, foreign_space, Space),
+                    context(metta_host_save_fast/3,
+                            'a foreign child needs a provider restore \c
+                             contract before it can enter a fast cache')))
+    ;   true
+    ),
+    findall(Atom, 'get-atoms'(Space, Atom), Atoms),
+    metta_space_equation_children(Space, Children),
+    metta_fast_capture_space_children(Children, Id, Next0, Seen1, Seen, Next,
+                                      Rows0, Rows, NodeSpaces0, NodeSpaces).
+
+metta_fast_capture_space_children([], _, Next, Seen, Seen, Next,
+                                  Rows, Rows, NodeSpaces, NodeSpaces).
+metta_fast_capture_space_children(
+        [Child|Children], Parent, Next0, Seen0, Seen, Next,
+        Rows0, Rows, NodeSpaces0, NodeSpaces) :-
+    ChildId = Next0,
+    ChildNext is Next0 + 1,
+    metta_fast_capture_space_node(ChildId, Parent, Child, ChildNext,
+                                  Seen0, Seen1, Next1,
+                                  Rows0, Rows1, NodeSpaces0, NodeSpaces1),
+    metta_fast_capture_space_children(Children, Parent, Next1, Seen1,
+                                      Seen, Next, Rows1, Rows,
+                                      NodeSpaces1, NodeSpaces).
+
+metta_fast_encode_image(fast_raw(RawSpaces, RawTokens, RawRules, RawDerived),
+                        NodeSpaces,
+                        metta_fast_image(Spaces, Tokens, Rules, Derived)) :-
+    metta_fast_space_id_index(NodeSpaces, SpaceIds),
+    maplist(metta_fast_encode_space(SpaceIds), RawSpaces, Spaces),
+    maplist(metta_fast_encode_token(SpaceIds), RawTokens, Tokens),
+    maplist(metta_fast_encode_rule(SpaceIds), RawRules, Rules),
+    maplist(metta_fast_encode_derived(SpaceIds), RawDerived, Derived).
+
+metta_fast_space_id_index(NodeSpaces, SpaceIds) :-
+    empty_assoc(Empty),
+    metta_fast_index_spaces(NodeSpaces, Empty, SpaceIds).
+
+metta_fast_index_spaces([], SpaceIds, SpaceIds).
+metta_fast_index_spaces([Id-Space|Rows], SpaceIds0, SpaceIds) :-
+    put_assoc(Space, SpaceIds0, Id, SpaceIds1),
+    metta_fast_index_spaces(Rows, SpaceIds1, SpaceIds).
+
+metta_fast_encode_space(SpaceIds, raw_space(Id, Parent, _, Atoms),
+                        space(Id, Parent, Encoded)) :-
+    maplist(metta_fast_encode_term(SpaceIds), Atoms, Encoded).
+
+metta_fast_encode_token(SpaceIds, token(Name, OwnerId, Value),
+                        token(Name, OwnerId, Encoded)) :-
+    metta_fast_encode_term(SpaceIds, Value, Encoded).
+
+metta_fast_encode_rule(SpaceIds,
+                       rule(Name, Declarations, HomeId, Override),
+                       rule(Name, Encoded, HomeId, Override)) :-
+    metta_fast_encode_term(SpaceIds, Declarations, Encoded).
+
+metta_fast_encode_derived(SpaceIds, derived(Name, SpaceId, Equation),
+                          derived(Name, SpaceId, Encoded)) :-
+    metta_fast_encode_term(SpaceIds, Equation, Encoded).
+
+metta_fast_encode_term(_, Term, _) :-
+    nonvar(Term),
+    compound(Term),
+    compound_name_arity(Term, '$metta_fast_space_ref', 1),
+    !,
+    throw(error(metta_fast_reserved_payload_term(Term),
+                context(metta_host_save_fast/3,
+                        'the cache relocation marker is engine-owned'))).
+metta_fast_encode_term(SpaceIds, Term, '$metta_fast_space_ref'(Id)) :-
+    ground(Term),
+    get_assoc(Term, SpaceIds, Id),
+    !.
+metta_fast_encode_term(_, Term, Term) :-
+    ( var(Term) ; atomic(Term) ),
+    !.
+metta_fast_encode_term(SpaceIds, Term, Encoded) :-
+    compound_name_arguments(Term, Name, Arguments),
+    maplist(metta_fast_encode_term(SpaceIds), Arguments, EncodedArguments),
+    compound_name_arguments(Encoded, Name, EncodedArguments).
 
 %One compact octet string, one C hash. Measured against the crypto
 %filter-stream route (copy through the filter into a null sink), which
@@ -149,12 +277,85 @@ metta_host_fast_expect_header([Expected|Rest], In) :-
     ;   throw(error(metta_fast_header_mismatch(Expected, Actual), none))
     ).
 
-metta_host_fast_read(In, File, Atoms) :-
+metta_host_fast_read(In, File, Image) :-
     catch(fast_read(In, Read), Caught,
           throw(error(metta_fast_read_failed(File, Caught), none))),
-    (   is_list(Read)
-    ->  Atoms = Read
-    ;   throw(error(metta_fast_payload_not_atom_list(File), none))
+    (   metta_fast_image_valid(Read)
+    ->  Image = Read
+    ;   throw(error(metta_fast_payload_invalid(File),
+                    context(metta_host_fast_read/3,
+                            'the cache payload is not a complete version-3 \c
+                             equation-world image')))
+    ).
+
+metta_fast_image_valid(Image) :-
+    acyclic_term(Image),
+    Image = metta_fast_image(Spaces, Tokens, Rules, Derived),
+    is_list(Spaces),
+    is_list(Tokens),
+    is_list(Rules),
+    is_list(Derived),
+    Spaces = [space(0, root, _)|_],
+    findall(Id, member(space(Id, _, _), Spaces), Ids),
+    length(Ids, Count),
+    Last is Count - 1,
+    numlist(0, Last, Ids),
+    maplist(metta_fast_space_row_valid(Last), Spaces),
+    maplist(metta_fast_token_row_valid(Last), Tokens),
+    maplist(metta_fast_rule_row_valid(Last), Rules),
+    findall(Name, member(token(Name, _, _), Tokens), TokenNames),
+    sort(TokenNames, UniqueTokenNames),
+    same_length(TokenNames, UniqueTokenNames),
+    findall(Name, member(rule(Name, _, _, _), Rules), RuleNames),
+    sort(RuleNames, UniqueRuleNames),
+    same_length(RuleNames, UniqueRuleNames),
+    maplist(metta_fast_derived_row_valid(Last, UniqueRuleNames), Derived),
+    \+ metta_host_atom_carries_object(Image).
+
+metta_fast_space_row_valid(Last, space(Id, Parent, Atoms)) :-
+    integer(Id),
+    is_list(Atoms),
+    (   Id =:= 0
+    ->  Parent == root
+    ;   integer(Parent), Parent >= 0, Parent < Id, Parent =< Last
+    ),
+    maplist(metta_fast_term_refs_valid(Last), Atoms).
+
+metta_fast_token_row_valid(Last, token(Name, OwnerId, Value)) :-
+    atom(Name),
+    metta_fast_node_id_valid(Last, OwnerId),
+    metta_fast_term_refs_valid(Last, Value).
+
+metta_fast_rule_row_valid(Last,
+                          rule(Name, Declarations, HomeId, Override)) :-
+    atom(Name),
+    is_list(Declarations),
+    metta_fast_node_id_valid(Last, HomeId),
+    ( Override == none ; Override = override(Kind), atom(Kind) ),
+    metta_fast_term_refs_valid(Last, Declarations).
+
+metta_fast_derived_row_valid(Last, RuleNames,
+                             derived(Name, SpaceId, Equation)) :-
+    atom(Name),
+    memberchk(Name, RuleNames),
+    metta_fast_node_id_valid(Last, SpaceId),
+    metta_fast_term_refs_valid(Last, Equation).
+
+metta_fast_node_id_valid(Last, Id) :-
+    integer(Id),
+    Id >= 0,
+    Id =< Last.
+
+metta_fast_term_refs_valid(Last, Term) :-
+    (   var(Term)
+    ->  true
+    ;   compound(Term),
+        compound_name_arity(Term, '$metta_fast_space_ref', 1)
+    ->  arg(1, Term, Id), metta_fast_node_id_valid(Last, Id)
+    ;   atomic(Term)
+    ->  true
+    ;   compound_name_arguments(Term, _, Arguments),
+        maplist(metta_fast_term_refs_valid(Last), Arguments)
     ).
 
 %After the version prefix: one tab, sixty-four hex digits, one newline.
@@ -220,26 +421,107 @@ metta_host_fast_add_atoms(FA, Space) :-
         metta_host_fast_open(FA, read, In),
         ( metta_host_fast_expect_header(PrefixCodes, In),
           metta_host_fast_expect_hash(In, FA, _),
-          metta_host_fast_read(In, FA, Atoms),
-          metta_host_fast_restore_atoms(Space, Atoms) ),
+          metta_host_fast_read(In, FA, Image),
+          metta_host_fast_restore_image(Space, Image) ),
         close(In)).
 
-%A cache is a program image, so restore uses the same batch boundary as a
-%parsed source. The old scalar loop fired function_call_graph_changed after
-%every equation while no active_source_program/1 existed; lib_memo therefore
-%rebuilt the growing SCC and effect plan once per atom. Recursive content made
-%that restore superlinear even though an equally large data-only image stayed
-%fast. This is the database bulk-load shape already solved by
-%metta_add_program_atoms/3: register and store the whole image, then rebuild
-%the derived indexes once. Names are collected before the batch because the
-%program-order context has to exist while its arrival events fire.
-metta_host_fast_restore_atoms(Space, Atoms) :-
-    findall(F, metta_fast_equation_name(Atoms, F), Names0),
+%Restore allocates fresh child identities first, then registries, program
+%atoms, and derived ownership. Translator rows precede compilation because a
+%rule changes what a call site means; derived equations are already in the
+%atom lists and only their removal associations land afterward. Every created
+%resource joins the active source journal before the next phase can fail.
+metta_host_fast_restore_image(Target,
+                              metta_fast_image(Spaces0, Tokens0, Rules0,
+                                               Derived0)) :-
+    metta_fast_allocate_space_nodes(Spaces0, Target, NodeSpaces),
+    ord_list_to_assoc(NodeSpaces, IdSpaces),
+    maplist(metta_fast_decode_space(IdSpaces), Spaces0, Spaces),
+    maplist(metta_fast_decode_token(IdSpaces), Tokens0, Tokens),
+    maplist(metta_fast_decode_rule(IdSpaces), Rules0, Rules),
+    maplist(metta_fast_decode_derived(IdSpaces), Derived0, Derived),
+    metta_restore_token_snapshot(Tokens, NodeSpaces, TokenRefs),
+    forall(member(Ref, TokenRefs), record_source_assertion(Ref)),
+    translator_rules:restore_translator_rule_snapshot(Rules, NodeSpaces,
+                                                       Installed),
+    forall(member(Rule, Installed), record_source_resource(Rule)),
+    metta_host_fast_restore_spaces(NodeSpaces, Spaces),
+    translator_rules:restore_translator_rule_derived_snapshot(
+        Derived, NodeSpaces, DerivedRefs),
+    forall(member(Ref, DerivedRefs), record_source_assertion(Ref)).
+
+metta_fast_allocate_space_nodes([space(0, root, _)|Rows], Target,
+                                [0-Target|NodeSpaces]) :-
+    empty_assoc(Empty),
+    put_assoc(0, Empty, Target, Known),
+    metta_fast_allocate_space_rows(Rows, Known, NodeSpaces).
+
+metta_fast_allocate_space_rows([], _, []).
+metta_fast_allocate_space_rows([space(Id, ParentId, _)|Rows], Known,
+                               [Id-Space|NodeSpaces]) :-
+    get_assoc(ParentId, Known, Parent),
+    metta_mint_space_equation_child(Parent, Space),
+    record_source_resource(owned_space(Space)),
+    put_assoc(Id, Known, Space, NextKnown),
+    metta_fast_allocate_space_rows(Rows, NextKnown, NodeSpaces).
+
+record_source_resource(Resource) :-
+    active_source_load(LoadId),
+    LoadId \= '$metta_owner_pin'(_),
+    assertz(source_load_resource(LoadId, Resource)).
+
+metta_fast_decode_space(IdSpaces, space(Id, Parent, Atoms),
+                        space(Id, Parent, Decoded)) :-
+    maplist(metta_fast_decode_term(IdSpaces), Atoms, Decoded).
+
+metta_fast_decode_token(IdSpaces, token(Name, OwnerId, Value),
+                        token(Name, OwnerId, Decoded)) :-
+    metta_fast_decode_term(IdSpaces, Value, Decoded).
+
+metta_fast_decode_rule(IdSpaces,
+                       rule(Name, Declarations, HomeId, Override),
+                       rule(Name, Decoded, HomeId, Override)) :-
+    metta_fast_decode_term(IdSpaces, Declarations, Decoded).
+
+metta_fast_decode_derived(IdSpaces, derived(Name, SpaceId, Equation),
+                          derived(Name, SpaceId, Decoded)) :-
+    metta_fast_decode_term(IdSpaces, Equation, Decoded).
+
+metta_fast_decode_term(IdSpaces, Term, Space) :-
+    nonvar(Term),
+    Term = '$metta_fast_space_ref'(Id),
+    !,
+    get_assoc(Id, IdSpaces, Space).
+metta_fast_decode_term(_, Term, Term) :-
+    ( var(Term) ; atomic(Term) ),
+    !.
+metta_fast_decode_term(IdSpaces, Term, Decoded) :-
+    compound_name_arguments(Term, Name, Arguments),
+    maplist(metta_fast_decode_term(IdSpaces), Arguments, DecodedArguments),
+    compound_name_arguments(Decoded, Name, DecodedArguments).
+
+%One program-order boundary covers every node. The old scalar loop fired
+%function_call_graph_changed after each equation and rebuilt the growing SCC
+%and effect plan once per atom. metta_add_program_atoms/3 stores each node as
+%one batch while the shared boundary rebuilds derived analyses once.
+metta_host_fast_restore_spaces(NodeSpaces, Spaces) :-
+    findall(F,
+            ( member(space(_, _, Atoms), Spaces),
+              metta_fast_equation_name(Atoms, F) ),
+            Names0),
     sort(Names0, Names),
     with_named_program_order(
         Names,
-        ( metta_add_program_atoms(Space, Atoms, Arrived),
+        ( metta_fast_restore_space_rows(Spaces, NodeSpaces, Arrived0),
+          sort(Arrived0, Arrived),
           forall(member(F, Arrived), source_definition_arrived(F)) )).
+
+metta_fast_restore_space_rows([], _, []).
+metta_fast_restore_space_rows([space(Id, _, Atoms)|Rows], NodeSpaces,
+                              Arrived) :-
+    memberchk(Id-Space, NodeSpaces),
+    metta_add_program_atoms(Space, Atoms, Here),
+    metta_fast_restore_space_rows(Rows, NodeSpaces, Rest),
+    append(Here, Rest, Arrived).
 
 metta_fast_equation_name(Atoms, F) :-
     member([=, [F|_], _], Atoms),
@@ -428,8 +710,27 @@ publish_source_load(CanonPath, Space, LoadId) :-
 %a 128-form 3,236-byte source, where loading it costs 95,165
 %[measured 2026-08-19, five runs each, no spread].
 metta_source_digest(CanonPath, Digest) :-
+    metta_fast_file_declared_digest(CanonPath, Digest),
+    !.
+metta_source_digest(CanonPath, Digest) :-
     read_source_text(CanonPath, Text),
     metta_text_digest(Text, Digest).
+
+%A fast image already declares the payload digest in its ASCII header. Reading
+%the complete binary as UTF-8 during a repeat load emitted `Illegal UTF-8
+%start` and then continued. The loader verifies the declared value against the
+%payload before applying it; change detection needs only the same identity key
+%and therefore reads one line, never binary payload through the text codec.
+metta_fast_file_declared_digest(CanonPath, Digest) :-
+    setup_call_cleanup(
+        metta_host_fast_open(CanonPath, read, In),
+        read_string(In, "\n", "", _, Header),
+        close(In)),
+    split_string(Header, "\t", "", ["METTA-CACHE", "METTA-FAST", _, _, Hash]),
+    string_length(Hash, 64),
+    forall(string_code(_, Hash, C),
+           ( C >= 0'0, C =< 0'9 ; C >= 0'a, C =< 0'f )),
+    atom_string(Digest, Hash).
 
 metta_source_changed(CanonPath) :-
     metta_source_load(CanonPath, _, _, Loaded), !,
@@ -572,6 +873,7 @@ forget_space_source_loads(Space) :-
     forall(retract(metta_source_load(_, Space, LoadId, _)),
            ( retractall(source_load_assertion(LoadId, _, _)),
              retractall(source_load_support_assertions(LoadId, _)),
+             retractall(source_load_resource(LoadId, _)),
              retractall(source_load_digest(LoadId, _, _)) )).
 
 %The marker is the CALLER's fact, so the caller's module has to travel with
@@ -755,15 +1057,34 @@ rollback_source_load_stable(LoadId) :-
     findall(Refs,
             retract(source_load_support_assertions(LoadId, Refs)),
             SupportGroups),
+    forall(retract(source_load_resource(
+                       LoadId, restored_rule(Name, Home, Generation))),
+           translator_rules:rollback_restored_translator_rule(
+               Name, Home, Generation)),
     forall(( member(Refs, SupportGroups), member(Ref, Refs) ),
            ( catch(erase(Ref), _, true) -> true ; true )),
     findall(Ref, retract(source_load_assertion(LoadId, _, Ref)), Asserted),
     reverse(Asserted, Refs),
     forall(member(Ref, Refs),
            ( catch(erase(Ref), _, true) -> true ; true )),
+    findall(Space,
+            retract(source_load_resource(LoadId, owned_space(Space))),
+            Owned0),
+    reverse(Owned0, Owned),
+    forall(member(Space, Owned), rollback_source_owned_space(Space)),
+    retractall(source_load_resource(LoadId, _)),
     forall(member(Module, PolicyModules), typing_policy_changed(Module)),
     support_prune_orphans,
     repair_after_source_rollback(Functions).
+
+rollback_source_owned_space(Space) :-
+    (   once('get-atoms'(Space, _))
+    ->  throw(error(permission_error(replace, fast_cache_owned_space, Space),
+                    context(rollback_source_load/1,
+                            'the cache child has caller-added atoms; remove \c
+                             them before replacing its source image')))
+    ;   metta_release_space(Space)
+    ).
 
 source_typing_policy_modules(LoadId, Modules) :-
     findall(Module,

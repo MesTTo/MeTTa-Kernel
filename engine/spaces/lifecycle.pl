@@ -19,7 +19,13 @@
 %   The engine-owned &self and &metta roots refuse clear and release before
 %   teardown starts, directing callers to their own context or a named space
 %   [tested: base_space_lifecycle; commit=6229e43cb68cc3685360810d462d992874992f6c].
+%   A fast-cache restore can enumerate one equation world and mint fresh
+%   children without reusing a persisted runtime identity [tested:
+%   test_fast_cache_restores_translator_rules_and_bound_spaces;
+%   commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
+% Guarded by: '$metta_metta_exec' serializes execution-module identity,
+%   relationship declarations, fresh cache-child minting, and release.
 % [tested: tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %The inverse of add_sexp_in/4, written here beside it for the same reason
@@ -912,6 +918,42 @@ metta_declare_space_parent(Child, Parent) :-
 %the recycling re-arm, with the same live-child drop refusal.
 :- dynamic space_equation_home/2.
 
+%The cache owns only this relationship. An inherited, restricted, parametric,
+%or foreign space needs a constructor contract of its own and is not silently
+%flattened into an equation-world child. Sorting makes the graph image stable
+%without assigning persistence meaning to the runtime names.
+metta_space_equation_children(Home, Children) :-
+    findall(Child, space_equation_home(Child, Home), Children0),
+    sort(Children0, Children).
+
+%A persisted child name is an address from another process, not an identity.
+%Mint under the relationship mutex, and test the complete set of ways a name
+%can already be live because gensym/2 excludes only names minted by gensym/2.
+%The declaration then installs storage, execution inheritance, and the world
+%edge through the ordinary lifecycle transaction.
+metta_mint_space_equation_child(Home, Child) :-
+    with_mutex('$metta_metta_exec',
+               metta_mint_space_equation_child_locked(Home, Child)).
+
+metta_mint_space_equation_child_locked(Home, Child) :-
+    repeat,
+    gensym('&metta-fast-space-', Candidate),
+    (   metta_space_identity_live(Candidate)
+    ->  fail
+    ;   Child = Candidate,
+        !
+    ),
+    metta_declare_space_equation_home_locked(Child, Home).
+
+metta_space_identity_live(Space) :- native_storage_module_cache(Space, _), !.
+metta_space_identity_live(Space) :- metta_exec_module_known(Space, _), !.
+metta_space_identity_live(Space) :- space_parent(Space, _), !.
+metta_space_identity_live(Space) :- space_parent(_, Space), !.
+metta_space_identity_live(Space) :- space_equation_home(Space, _), !.
+metta_space_identity_live(Space) :- space_equation_home(_, Space), !.
+metta_space_identity_live(Space) :- space_restricted(Space, _), !.
+metta_space_identity_live(Space) :- seam:foreign_space(Space).
+
 metta_declare_space_equation_home(Child, Home) :-
     metta_require_space_name('new-space', Child),
     metta_require_space_name('new-space', Home),
@@ -1131,7 +1173,8 @@ with_metta_space_releasing(Space, Goal) :-
     setup_call_cleanup(
         ( nb_setval('$metta_space_releasing', true),
           nb_setval('$metta_space_releasing_module', Module) ),
-        ( translator_rules:retire_translator_rules_in(Module),
+        ( retire_metta_tokens_in(Module),
+          translator_rules:retire_translator_rules_in(Module),
           Goal ),
         restore_metta_space_releasing(Prior)).
 

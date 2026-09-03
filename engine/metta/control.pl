@@ -10,7 +10,13 @@
 %   without crossing a concurrent policy change [tested:
 %   translator_literal_type_checks:a_fuel_recompile_keeps_intrinsic_type_shortcuts;
 %   commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
+%   Token bindings carry their creating execution-module generation, are
+%   retired with that module life, and can be rebased as part of a fast-cache
+%   world image [tested: test_fast_cache_restores_translator_rules_and_bound_spaces;
+%   commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
+% Guarded by: '$metta_token_registry' serializes token replacement, image
+%   restore, and execution-module retirement.
 % [tested: tests/prolog/suites/evaluation/metta.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%% Interpreter pragmas: %%%
@@ -978,10 +984,89 @@ metta_metta_result_is_final(Atom) :-
 %being registered at all, so a program that binds no token pays one indexed
 %lookup per form it parses and nothing else.
 :- dynamic metta_token/2.
+:- dynamic metta_token_owner/3.
+%metta_token_owner(Name, OwnerModule, OwnerGeneration)
 
 register_metta_token(Name, Value) :-
-    retractall(metta_token(Name, _)),
-    assertz(metta_token(Name, Value)).
+    current_metta_module(Owner),
+    metta_token_module_generation(Owner, Generation),
+    with_mutex('$metta_token_registry',
+               transaction(( retractall(metta_token(Name, _)),
+                             retractall(metta_token_owner(Name, _, _)),
+                             assertz(metta_token(Name, Value)),
+                             assertz(metta_token_owner(Name, Owner,
+                                                       Generation)) ))).
+
+metta_token_module_generation(Module, Generation) :-
+    (   metta_exec_module_generation(Module, Current)
+    ->  Generation = Current
+    ;   Generation = unmanaged
+    ).
+
+%Only bindings created by a space in the captured equation world belong to
+%that image. The value may itself name any node in the world; relocation is
+%the cache codec's job, while this registry supplies ownership and rejects a
+%row left from an earlier module generation.
+metta_token_snapshot(NodeSpaces, Tokens) :-
+    findall(token(Name, OwnerId, Value),
+            ( metta_token(Name, Value),
+              metta_token_owner(Name, Owner, Generation),
+              metta_exec_module_generation(Owner, Generation),
+              member(OwnerId-Space, NodeSpaces),
+              metta_exec_module_known(Space, Owner),
+              metta_token_value_names_space(Value, NodeSpaces) ),
+            Tokens).
+
+metta_token_value_names_space(Value, NodeSpaces) :-
+    nonvar(Value),
+    member(_-Space, NodeSpaces),
+    Value == Space,
+    !.
+metta_token_value_names_space(Value, NodeSpaces) :-
+    compound(Value),
+    compound_name_arguments(Value, _, Arguments),
+    member(Argument, Arguments),
+    metta_token_value_names_space(Argument, NodeSpaces),
+    !.
+
+%The complete collision check precedes the transaction, so a cache never
+%rebinds a process-global token belonging to another live world. Clause
+%references are handed to the source journal; an ordinary later bind retracts
+%them first, so withdrawal cannot erase the later value by name.
+metta_restore_token_snapshot(Tokens, NodeSpaces, Refs) :-
+    with_mutex('$metta_token_registry',
+               metta_restore_token_snapshot_locked(Tokens, NodeSpaces,
+                                                   Refs)).
+
+metta_restore_token_snapshot_locked(Tokens, NodeSpaces, Refs) :-
+    forall(member(token(Name, _, _), Tokens),
+           (   metta_token(Name, _)
+           ->  throw(error(metta_fast_token_conflict(Name),
+                           context(metta_restore_token_snapshot/3,
+                                   'the cache cannot replace a live token \c
+                                    binding owned outside this source load')))
+           ;   true
+           )),
+    transaction(metta_restore_token_rows(Tokens, NodeSpaces, Refs)).
+
+metta_restore_token_rows([], _, []).
+metta_restore_token_rows([token(Name, OwnerId, Value)|Rows], NodeSpaces,
+                         [ValueRef, OwnerRef|Refs]) :-
+    memberchk(OwnerId-Space, NodeSpaces),
+    space_module(Space, Owner),
+    metta_exec_module_generation(Owner, Generation),
+    assertz(metta_token(Name, Value), ValueRef),
+    assertz(metta_token_owner(Name, Owner, Generation), OwnerRef),
+    metta_restore_token_rows(Rows, NodeSpaces, Refs).
+
+%A token cannot meaningfully outlive the execution module that supplied its
+%binding. Retiring by owner also closes the ABA hole before a pooled module
+%name can acquire a new generation.
+retire_metta_tokens_in(Owner) :-
+    with_mutex('$metta_token_registry',
+               transaction(
+                   forall(retract(metta_token_owner(Name, Owner, _)),
+                          retractall(metta_token(Name, _))))).
 
 %ONE indexed lookup when no token is bound, which is what a token table costs
 %and all it costs. A program that binds none pays that per parsed form and

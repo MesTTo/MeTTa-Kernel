@@ -67,6 +67,11 @@
 %     file-load and the projection translator_rule/1 cost 50,004 on
 %     alpha-unique; command=extensions/python/bench.py --counter-only;
 %     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
+%   - fast-cache images persist current rules by snapshot-local space identity
+%     and restore registry state before compiling their stored equations, so
+%     a restored call site has the same translator meaning [tested:
+%     test_fast_cache_restores_translator_rules_and_bound_spaces;
+%     commit=WORKTREE].
 % Decides:
 %   - a rule read both ways is applied only in the direction that strictly
 %     lowers the form's cost, and cost defaults to the node count. Nothing
@@ -108,7 +113,11 @@
             note_translator_rule_refusal/3,
             forget_translator_rule/1,
             retire_translator_rule_in/2,
-            retire_translator_rules_in/1
+            retire_translator_rules_in/1,
+            translator_rule_snapshot/3,
+            restore_translator_rule_snapshot/3,
+            restore_translator_rule_derived_snapshot/3,
+            rollback_restored_translator_rule/3
           ]).
 
 %%%% The protected core %%%%
@@ -239,6 +248,114 @@ translator_rule_life_status(Name, Home, Status) :-
 %that removing the rule removes them too. Recording the atom rather than
 %rebuilding it means removal cannot drift from what was added.
 :- dynamic translator_rule_derived/3.   %translator_rule_derived(Source, Space, Equation)
+
+%A cache records logical space nodes, never execution-module addresses or
+%their process-local generations. Currentness is checked while the database
+%is under the caller's snapshot/1 view. Derived equations are already present
+%in the captured atom lists; their rows below are ownership associations only.
+translator_rule_snapshot(NodeSpaces, Rules, Derived) :-
+    findall(rule(Name, Declarations, HomeId, Override),
+            ( translator_rule_current(Name, Declarations, Home),
+              metta_module_space(Home, Space),
+              member(HomeId-Space, NodeSpaces),
+              translator_rule_override_snapshot(Name, Override) ),
+            Rules),
+    findall(derived(Source, SpaceId, Equation),
+            ( translator_rule_derived(Source, Space, Equation),
+              member(rule(Source, _, _, _), Rules),
+              member(SpaceId-Space, NodeSpaces) ),
+            Derived).
+
+translator_rule_override_snapshot(Name, override(Kind)) :-
+    translator_rule_override(Name, Kind),
+    !.
+translator_rule_override_snapshot(_, none).
+
+%Restore only the registry. Calling add-translator-rule! here would derive
+%inverse or conjunctive equations a second time; those equations are ordinary
+%stored atoms in the image and compile in the following phase. All names are
+%preflighted before the first row lands.
+restore_translator_rule_snapshot(Rules, NodeSpaces, Installed) :-
+    forall(member(rule(Name, Declarations, HomeId, Override), Rules),
+           preflight_restored_translator_rule(Name, Declarations, HomeId,
+                                              Override, NodeSpaces)),
+    transaction(restore_translator_rule_rows(Rules, NodeSpaces, Installed)),
+    translator:metta_rule_gates_refresh.
+
+preflight_restored_translator_rule(Name, Declarations, HomeId, Override,
+                                   NodeSpaces) :-
+    must_be(atom, Name),
+    must_be(list, Declarations),
+    refuse_protected_core_rule(Name),
+    memberchk(HomeId-Space, NodeSpaces),
+    space_module(Space, Home),
+    metta_exec_module_generation(Home, _),
+    (   Override == none
+    ;   Override = override(_)
+    ),
+    (   translator_rule(Name, Existing, ExistingHome)
+    ->  throw(error(metta_fast_translator_rule_conflict(
+                        Name, Existing, ExistingHome),
+                    context(restore_translator_rule_snapshot/3,
+                            'the cache cannot replace a live translator \c
+                             rule owned outside this source load')))
+    ;   true
+    ).
+
+restore_translator_rule_rows([], _, []).
+restore_translator_rule_rows(
+        [rule(Name, Declarations, HomeId, Override)|Rows], NodeSpaces,
+        [restored_rule(Name, Home, Generation)|Installed]) :-
+    memberchk(HomeId-Space, NodeSpaces),
+    space_module(Space, Home),
+    metta_exec_module_generation(Home, Generation),
+    assertz(translator_rule_generation(Name, Home, Generation)),
+    assertz(translator_rule(Name, Declarations, Home)),
+    restore_translator_rule_override(Name, Override),
+    restore_translator_rule_cost(Name, Declarations),
+    restore_translator_rule_rows(Rows, NodeSpaces, Installed).
+
+restore_translator_rule_override(_, none) :- !.
+restore_translator_rule_override(Name, override(Kind)) :-
+    assertz(translator_rule_override(Name, Kind)).
+
+restore_translator_rule_cost(Name, Declarations) :-
+    (   memberchk(direction(Direction), Declarations),
+        cost_ordered_direction(Direction)
+    ->  assertz(cost_ordered_translator_rule(Name))
+    ;   true
+    ).
+
+%Association rows land only after their equations have been restored. The
+%existence check prevents a structurally valid but semantically incomplete
+%image from publishing a removal receipt for an equation it did not contain.
+restore_translator_rule_derived_snapshot(Derived, NodeSpaces, Refs) :-
+    transaction(restore_translator_rule_derived_rows(Derived, NodeSpaces,
+                                                      Refs)).
+
+restore_translator_rule_derived_rows([], _, []).
+restore_translator_rule_derived_rows(
+        [derived(Source, SpaceId, Equation)|Rows], NodeSpaces, [Ref|Refs]) :-
+    translator_rule_current(Source, _, _),
+    memberchk(SpaceId-Space, NodeSpaces),
+    (   once(( 'get-atoms'(Space, Stored), Stored =@= Equation ))
+    ->  true
+    ;   throw(error(metta_fast_missing_derived_equation(Source, Space),
+                    context(restore_translator_rule_derived_snapshot/3,
+                            'the cache cannot restore a translator-rule \c
+                             removal receipt without its derived equation')))
+    ),
+    assertz(translator_rule_derived(Source, Space, Equation), Ref),
+    restore_translator_rule_derived_rows(Rows, NodeSpaces, Refs).
+
+%A later explicit removal or re-registration wins. Source cleanup retires only
+%the exact module generation installed from its cache image.
+rollback_restored_translator_rule(Name, Home, Generation) :-
+    (   translator_rule(Name, _, Home),
+        translator_rule_generation(Name, Home, Generation)
+    ->  forget_translator_rule(Name)
+    ;   true
+    ).
 
 %What a registration for an UNPROTECTED name that already means something did
 %to that meaning. It does not delete it: the older clause or special form is

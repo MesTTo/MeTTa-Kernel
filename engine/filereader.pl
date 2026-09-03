@@ -47,6 +47,11 @@
 %     the reduced seat boots and hashes with library(sha) [tested:
 %     platform_capabilities_reduced:sha_hashing_survives_without_crypto;
 %     commit=59792b524568755a2fbfe1c5f7cdb571bd78a3bf].
+%   - a fast cache is a versioned equation-world image: root and child atoms,
+%     space-valued token bindings, and current translator registries restore
+%     under fresh process identities and share the source reload lifecycle [tested:
+%     test_fast_cache_restores_translator_rules_and_bound_spaces;
+%     commit=WORKTREE].
 %   - Loader diagnostics contain ANSI escapes only on terminal streams
 %     [tested 2026-08-14: filereader_terminal_output].
 %   - A type declaration that cannot type a function the same source defines
@@ -290,7 +295,8 @@
 %different libraries; the widening reaches this module only, and a MeTTa
 %program's base chain ends at the engine's module rather than here.
 :- metta_platform_load('fast-cache').
-:- use_module(library(assoc), [ord_list_to_assoc/2, get_assoc/3]).
+:- use_module(library(assoc),
+              [empty_assoc/1, ord_list_to_assoc/2, get_assoc/3, put_assoc/4]).
 :- use_module(library(pairs)). % group_pairs_by_key/2
 %Every compiled clause's source equation; asserted here and by
 %add-atom/3, read by removal and the tracer, so it must exist before
@@ -345,6 +351,7 @@ metta_host_set_silent(Silent) :-
 :- thread_local active_source_load/1.
 :- dynamic source_load_assertion/3.
 :- dynamic source_load_support_assertions/2.
+:- dynamic source_load_resource/2.
 :- dynamic source_load_repair/2.
 :- thread_local source_recompile_owners/1.
 %What a file put where, so that loading it again can REPLACE that rather than
