@@ -15,24 +15,24 @@ re-runs them.
 
 | source | what it is | kept true by |
 |---|---|---|
-| `examples/**/*.metta` | 231 executable programs, the semantics documentation, in 22 numbered chapters whose order is the order a reader meets each construct. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/data/example_skips.txt` names the six that do not, each with its reason |
+| `examples/**/*.metta` | 238 executable programs, the semantics documentation, in 20 chapters numbered to 22 whose order is the order a reader meets each construct. Read these BEFORE writing down what MeTTa can express | every one runs in the `examples` gate lane; `tests/data/example_skips.txt` names the five that do not, each with its reason |
 | `tests/data/syntax_introductions.txt` | the construct each example chapter introduces, so a file uses nothing it has not met | the `cumulative-syntax` gate lane, which also carries a permanent negative control it must keep catching |
 | `website/reference/metta-*.md` | 24 pages reproducing source signatures and docstrings | `extensions/python/tools/reference.py` |
 | `website/reference/metta-libraries.md` | every library's own `(@doc ...)` atoms | `extensions/python/tools/libdoc.py` |
 | `tests/prolog/suites/*/*.plt` | plunit suites over the engine itself, grouped by the engine unit each one tests | the `plunit` gate lane |
-| `extensions/python/tests/*/test_*.py` | blackbox, hypothesis-fuzzed, in the same 22 chapters `examples/` uses, plus `conformance/` for the arbiters and `repository/` for the tests whose subject is this repository | the `pytest` gate lane |
+| `extensions/python/tests/*/test_*.py` | blackbox, hypothesis-fuzzed, in the same 20 chapters `examples/` uses, plus `conformance/` for the arbiters and `repository/` for the tests whose subject is this repository | the `pytest` gate lane |
 | `extensions/python/examples/language-feature-examples/**/*.py` | one Python file per shipped MeTTa example, written with no MeTTa source text, answering alpha-equal to its original or explicitly declining a structured-residue form, and pinned to an inference budget. Read these for how a MeTTa program is spelled in Python | the `twins` REPORT lane |
 | `CODEC.md` | the wire codec: the tagged form every atom crosses as, what a new binding implements | `extensions/python/tools/codecdoc.py`, whose tables come from `tests/codec/corpus.json` |
 | `extensions/python/metta/vocabularies.py` | the catalog's value vocabularies as StrEnum classes, one per `(vocabulary ...)` row; each member IS its wire word and encodes as its symbol, and bare words stay the runtime escape hatch | `extensions/python/tools/vocabgen.py`, the `vocab-sync` gate lane |
 | `README.md` | the tour, and the argument for the design | |
 | `CHANGELOG.md` | every user-facing change, with the reasoning | |
 | `website/guide/*.md` | 15 pages of prose: concepts, run-query, spaces, atoms-terms, python-functions, define, structures, threads, observability, notebook, contract, getting-started, where-code-runs, pettorch | |
-| `website/tutorials/*.md` | 8 numbered lessons, atoms through graph-view | |
+| `website/tutorials/*.md` | 9 numbered lessons, atoms through graph-view | |
 | `website/integrations/*.md` | dataframes, pydantic, duckdb, SQLite blobs, arrays and embeddings, http routes | |
 | `website/reasoning/*.md` | weighted relations, matchers and measure | |
-| `extensions/python/examples/*/*.py` | runnable Python programs, each printing checked claims; the six under `gallery/` also check adjacent emitted-MeTTa and output comments plus bilingual `@example` atoms | the `examples` and `gallery` gate lanes |
+| `extensions/python/examples/*/*.py` | runnable Python programs, each printing checked claims through `_common.py`: `check(label, got, expected)` raises `CheckFailed` rather than asserting, because `python -O` strips an assert while the print under it still runs, and `done(name)` refuses to print its OK line when nothing was checked, so an example that verified nothing cannot report success; the six under `gallery/` also check adjacent emitted-MeTTa and output comments plus bilingual `@example` atoms | the `examples` and `gallery` gate lanes |
 | `extensions/python/notebooks/tour.ipynb` | the notebook surface, every structural argument a built term | the `notebook` lane |
-| `engine/**/*.pl` | `engine/metta.pl` engine bootstrap consulting the ten `engine/metta/*.pl` units (terms, operators, input_guards, types, effects, space_hooks, runtime, control, interop, registration), `engine/translator.pl` compilation facade over the five `engine/translator/*.pl` units (analysis, lowering, special_forms, typing, runtime), `engine/spaces.pl` store facade over the six `engine/spaces/*.pl` units (catalog, lifecycle, foreign, bounded_matching, native_matching, segment_matching), `engine/filereader.pl` loader over `engine/filereader/source_lifecycle.pl`, `engine/parser.pl` reader and writer (with `engine/reader.c`, 998 lines of C parsing shipped-grammar sources and handing back each source's signature and declaration summaries from the same walk when `engine/reader.so` is built beside it; the Prolog grammar stays the specification, the custom-token path, and the fallback), `engine/json_codec.pl` the one JSON door this repository reads and writes through (with `engine/json_codec.c`, 1,201 lines of C answering a document exactly as `library(json)` answers it or declining to it, when `engine/json_codec.so` is built beside it), `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/duals.pl`, `engine/scc.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta`. Each unit is a plain source file consulted by its umbrella, so predicate ownership and load order are the umbrella's | |
+| `engine/**/*.pl` | `engine/metta.pl` engine bootstrap consulting the ten `engine/metta/*.pl` units (terms, operators, input_guards, types, effects, space_hooks, runtime, control, interop, registration), `engine/translator.pl` compilation facade over the five `engine/translator/*.pl` units (analysis, lowering, special_forms, typing, runtime), `engine/spaces.pl` store facade over the six `engine/spaces/*.pl` units (catalog, lifecycle, foreign, bounded_matching, native_matching, segment_matching), `engine/filereader.pl` loader over `engine/filereader/source_lifecycle.pl`, `engine/parser.pl` reader and writer (with `engine/reader.c`, 923 lines of C parsing shipped-grammar sources and handing back each source's signature and declaration summaries from the same walk when `engine/reader.so` is built beside it; the Prolog grammar stays the specification, the custom-token path, and the fallback), `engine/json_codec.pl` the one JSON door this repository reads and writes through (with `engine/json_codec.c`, 1,219 lines of C answering a document exactly as `library(json)` answers it or declining to it, when `engine/json_codec.so` is built beside it), `engine/kernel.pl` the performance vocabulary beyond the conforming stdlib, `engine/type_rules.pl` the typing registry, `engine/translator_rules.pl` the translator rule registry, `engine/support_graph.pl` derived-artifact dependencies, plus `engine/specializer.pl`, `engine/duals.pl`, `engine/scc.pl`, `engine/tracer.pl`, `engine/trs.pl` and `engine/narrowing.pl` metatheory, `engine/prelude.metta`. Each unit is a plain source file consulted by its umbrella, so predicate ownership and load order are the umbrella's | |
 | `engine/ext_points.pl` | every extension seam, each declared with its KIND (event, ownership, declaration, service). The contract for extending the engine | `ext_points.plt` |
 | `lib/lib_*/lib_*.metta` | 34 MeTTa libraries loaded with `!(import! &self (library lib_x))`; from Python the write door imports them, `m += lib.x` | `extensions/python/tests/ch08_data/test_library_door.py` |
 | `lib/builtin_mods/*` | modules the engine SHIPS, imported by bare name: `!(import! &self skel)` | `builtin_modules` |
@@ -44,8 +44,9 @@ re-runs them.
 | `check.sh` | the gate. `GATE_ONLY=1 sh check.sh` is what CI blocks on | |
 | `extensions/python/metta/*.py` | the library. `extensions/python/metta/_space.py` is the `MeTTa` context and the `Space` handle; a leading `_` means internal | |
 
-Counts measured 2026-08-26, each one re-checked by the `llms` gate lane on
-every run.
+Counts re-measured 2026-09-03. The `llms` lane re-checks the library roster
+and every backticked path on each run; the other counts here are hand-kept, and
+six of them had drifted by the time that was checked.
 
 ## Install and first call
 
@@ -218,7 +219,9 @@ is a handle rather than a value that dwindles.
 one, `overlay(front, back)` reads both and writes to the front, `readonly(s)`
 refuses writes by capability, `mapped(s, shape)` is a shape view from one
 declaration, and `diff(a, b)` says HOW two spaces differ where `digest()` only
-says THAT they do.
+says THAT they do. Each composes STORAGE and is a provider, not an evaluation
+context: equations reachable through one are data, and read back by `atoms()`
+without firing, unless that provider declares `rules`.
 
 `metta.structures` holds the stores worth having: `AlphaSet` (atoms modulo
 variable renaming), `PatternMap` (a MutableMapping keyed by atoms),
@@ -569,7 +572,10 @@ and call `metta.foreign.register_provider(runtime, name, provider)` with a name
 starting with `&`; or subclass `SpaceProvider` and answer `can_run` per call.
 Capabilities are declared, not guessed: `match`, `enumerate`, `add`, `add-many`,
 `remove`, `clear`, `subscribe`, `plan`, `rules`, and an unsupported operation
-refuses loudly rather than degrading. Conjunctive queries route per conjunct, so
+refuses loudly rather than degrading. `rules` is a promise about what a space
+HOLDS, not about which methods a provider has, so nothing derives it: without
+it a space holds DATA, and an equation written there is refused rather than
+stored where it could never fire. Conjunctive queries route per conjunct, so
 a foreign space joins with a native one; on such a conjunction `rows.why()`
 prints which conjunct went where and whether its class was exact.
 
@@ -778,6 +784,25 @@ The exact-integer operators are engine heads rather than library equations:
 `bit-and`, `bit-or`, `bit-xor`, `bit-not`, `bit-shift-left`,
 `bit-shift-right` and `floor-div`, with division by zero answering error
 DATA rather than raising.
+
+Sixty-four more engine heads the corpus exercises, by family. Numeric:
+`pow-math`, `exp-math`, `log-math`, `round-math`, `trunc-math`, `ceil-math`,
+`sin-math`, `cos-math`, `tan-math`, `asin-math`, `acos-math`, `atan-math`,
+`isnan-math`, `isinf-math`. Atoms: `alpha-unique-atom`, `is-alpha-member`,
+`is-member`, `is-var`, `is-expr`, `is-function`, `first-from-pair`,
+`second-from-pair`, `reverse`, `last`, `for-each-in-atom`. Spaces:
+`get-atoms`, `space-atom-count`, `is-space`, `new-state`, `has-declared-type`,
+`space-admission-verdict`. Types: `match-types`, `match-type-or`, `type-cast`.
+Text, IO and files: `println!`, `readln!`, `read-form!`, `format-args`,
+`sort-strings`, `parse-command`, `sleep`, `file-exists`, `exists_file`.
+Pre-add hooks: `declare-pre-add!`, `undeclare-pre-add!`. Translator, Prolog and
+modules: `add-translator-rule!`, `remove-translator-rule!`,
+`import_prolog_function`, `import_prolog_functions_from_file`, `callPredicate`,
+`assertaPredicate`, `git-import!`, `residual-goals`. Minimal MeTTa: `unquote`,
+`noreduce-eq`, `collapse-bind`, `superpose-bind`, `return-on-error`,
+`if-equal`, `repra`. Assertions beyond the four above: `assertEqualMsg`,
+`assertAlphaEqualMsg`, `assertAlphaEqualToResult`, `assertEqualToResultMsg`,
+`assertAlphaEqualToResultMsg`. `undocumented` reports what `doc` lacks.
 
 `pragma!` accepts `max-time`, `max-inferences`,
 `verify-specializations`, `max-stack-depth`, `type-check`, and

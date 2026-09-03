@@ -8,6 +8,18 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- `llms.txt` now names the 64 engine heads the example corpus exercises that it
+  had never mentioned, `println!` and `get-atoms` among them, and its sources
+  table no longer claims the `llms` lane re-checks counts it does not read. Six
+  had drifted: 231 executable programs against 238, 22 numbered chapters against
+  20 in both places, five skipped examples described as six, 8 tutorial lessons
+  against 9, `engine/reader.c` at 998 lines against 923 and
+  `engine/json_codec.c` at 1,201 against 1,219. Every count the lane does check
+  was correct. The Python examples row also records how `_common.py` keeps them
+  honest: `check` raises rather than asserting, because `python -O` strips an
+  assert while the print under it still runs, and `done` refuses its OK line
+  when nothing was checked.
+
 - `Space.derivation` now documents its effect boundary: proof premises execute
   for real and their writes accumulate unless the caller selects the existing
   `speculative()` scope. The scope rolls back engine state but cannot undo
