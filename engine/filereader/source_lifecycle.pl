@@ -11,6 +11,11 @@
 % Guarantees: every definition retains engine/filereader.pl's implementation module and original load order;
 %   each source load is atomic with every dependent recompile it triggers;
 %   source_load_receipt_current/4 accepts a receipt only while its source row, digest, and every tagged stored output remain current;
+%   fast-cache restore admits equations through metta_add_program_atoms/3 and
+%   reconciles program analysis once at the image boundary rather than once
+%   per atom [tested:
+%   test_fast_restore_batches_content_dependent_program_analysis;
+%   commit=WORKTREE];
 %   a failed load erases its typing rules and recompiles affected retained
 %   clauses under the restored policy [tested:
 %   filereader_source_rollback:a_failed_source_rule_restores_discharged_contracts;
@@ -216,15 +221,29 @@ metta_host_fast_add_atoms(FA, Space) :-
         ( metta_host_fast_expect_header(PrefixCodes, In),
           metta_host_fast_expect_hash(In, FA, _),
           metta_host_fast_read(In, FA, Atoms),
-          %metta_add_atom/3 rather than the public `add-atom`: the space was
-          %resolved before the file was opened, so the space-argument check
-          %the public one owes a PROGRAM is pure cost on every atom in the
-          %file. metta_add_atoms/2 was tried here and is SLOWER, because a
-          %fast-format file is not store-only and its batch test scans every
-          %atom before falling back to this same loop [measured 2026-08-17:
-          %4737359333 against 4707855603].
-          forall(member(Atom, Atoms), metta_add_atom(Space, Atom, _)) ),
+          metta_host_fast_restore_atoms(Space, Atoms) ),
         close(In)).
+
+%A cache is a program image, so restore uses the same batch boundary as a
+%parsed source. The old scalar loop fired function_call_graph_changed after
+%every equation while no active_source_program/1 existed; lib_memo therefore
+%rebuilt the growing SCC and effect plan once per atom. Recursive content made
+%that restore superlinear even though an equally large data-only image stayed
+%fast. This is the database bulk-load shape already solved by
+%metta_add_program_atoms/3: register and store the whole image, then rebuild
+%the derived indexes once. Names are collected before the batch because the
+%program-order context has to exist while its arrival events fire.
+metta_host_fast_restore_atoms(Space, Atoms) :-
+    findall(F, metta_fast_equation_name(Atoms, F), Names0),
+    sort(Names0, Names),
+    with_named_program_order(
+        Names,
+        ( metta_add_program_atoms(Space, Atoms, Arrived),
+          forall(member(F, Arrived), source_definition_arrived(F)) )).
+
+metta_fast_equation_name(Atoms, F) :-
+    member([=, [F|_], _], Atoms),
+    atom(F).
 
 %A space's content as one sha256: each atom canonicalized (fresh copy,
 %numbered variables, quoted write) so alpha-equivalent equations print

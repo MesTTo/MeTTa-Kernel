@@ -20,6 +20,10 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Fast-cache restore now admits a program image through the existing bulk
+  equation path and reconciles call-graph analysis once. Recursive content no
+  longer turns restore into a growing per-atom analysis loop.
+
 - `duplicate-binder` lint now follows clause-scoped variable identity across
   both `let` and `let*`, including separate binding values. Reusing a plain
   `let` name no longer fails silently without the existing diagnostic.
