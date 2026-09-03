@@ -10,7 +10,7 @@ and say so in two places for three days without a red lane [measured
 
 A cheat sheet is the one document read by something that cannot notice a stale
 claim, so the file that asserts its own gate and has none is worse off than one
-admitting it is hand-kept. Three checks, one per half of the promise:
+admitting it is hand-kept. Five checks cover both directions of each promise:
 
   PATHS       every backticked token that names a file or directory resolves,
               a glob resolving to at least one match. This is the "real file
@@ -18,11 +18,16 @@ admitting it is hand-kept. Three checks, one per half of the promise:
   LIBRARIES   the roster sentence's names and its count equal `lib/lib_*/`.
               The count is stated twice, in the sources table and in the
               roster, and both are read.
+  COUNTS      every explicit source-table count is derived from the path or
+              source it describes.
   HEADS       every name in the language-surface block is one the engine gives
               meaning to, asked of the ENGINE rather than of a list. Both
               questions are asked, `fun/1` and the translator's own
               metta_translated_head/1, because a head has meaning through
               either and asking one alone reports the other's names as unknown.
+  USED HEADS  every engine-known call head exercised by the example corpus is
+              named somewhere in the root cheat sheet. This is the reverse
+              question HEADS did not ask.
 
 Assumes:
   - swipl is on PATH; without it the HEADS half is skipped aloud rather than
@@ -39,6 +44,9 @@ Guarantees:
   - each Python call is checked against the receiver's actual class, and an
     unlabelled API block containing such calls is still inspected
     [tested: tests/checks/check_llms_selftest.py; commit=b089d4309f34b205c5fdaee46960d1fcd9c1ac42]
+  - source-table counts and reverse corpus-head coverage are derived from the
+    files and live vocabulary, with independently planted omissions
+    [tested: tests/checks/check_llms_selftest.py; commit=WORKTREE]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -50,6 +58,7 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+from collections.abc import Mapping
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
@@ -64,8 +73,27 @@ REPO = Path(__file__).resolve().parents[2]
 #: real path by suffix, which is how a sheet writes `tests/repository/` as
 #: `repository/` in prose without lying about the tree.
 _SUFFIXES = frozenset(
-    {".pl", ".plt", ".py", ".pyi", ".md", ".metta", ".c", ".h", ".ts", ".mjs",
-     ".json", ".txt", ".sh", ".so", ".toml", ".yml", ".ipynb", ".rs", ".lean"}
+    {
+        ".pl",
+        ".plt",
+        ".py",
+        ".pyi",
+        ".md",
+        ".metta",
+        ".c",
+        ".h",
+        ".ts",
+        ".mjs",
+        ".json",
+        ".txt",
+        ".sh",
+        ".so",
+        ".toml",
+        ".yml",
+        ".ipynb",
+        ".rs",
+        ".lean",
+    }
 )
 
 
@@ -94,14 +122,13 @@ def _resolves(sheet: Path, token: str) -> bool:
     if "/" not in tail:
         # A bare name may be a file the sheet names without its directory,
         # `ext_points.plt` for the suite of that name, as well as a directory.
-        return any(
-            ".git" not in candidate.parts for candidate in REPO.rglob(tail)
-        )
+        return any(".git" not in candidate.parts for candidate in REPO.rglob(tail))
     return any(
         str(candidate.relative_to(REPO)).endswith(tail)
         for candidate in REPO.rglob(Path(tail).name)
         if ".git" not in candidate.parts
     )
+
 
 #: The roster sentence, whose count and names both have to match `lib/`.
 _ROSTER = re.compile(
@@ -111,15 +138,147 @@ _ROSTER = re.compile(
 #: The same count where the sources table states it a second time.
 _TABLE_COUNT = re.compile(r"\|\s*`lib/lib_\*/lib_\*\.metta`\s*\|\s*(?P<count>\d+) MeTTa libraries")
 
+#: Each count is anchored to the table row that makes the claim. A missing
+#: match is itself a finding, so deleting the number cannot disable its check.
+#: Word forms are included because the prose uses them for several small
+#: counts; treating only decimal digits as claims was the original blind spot.
+_COUNT_CLAIMS = (
+    (
+        "executable example programs",
+        re.compile(r"\| `examples/\*\*/\*\.metta` \| (?P<count>\d+) executable programs"),
+        "example_programs",
+    ),
+    (
+        "example chapters",
+        re.compile(
+            r"\| `examples/\*\*/\*\.metta` \|[^\n]*? in (?P<count>\d+) "
+            r"(?:numbered )?chapters"
+        ),
+        "example_chapters",
+    ),
+    (
+        "highest example chapter number",
+        re.compile(r"\| `examples/\*\*/\*\.metta` \|[^\n]*? numbered to (?P<count>\d+)"),
+        "highest_example_chapter",
+    ),
+    (
+        "skipped examples",
+        re.compile(
+            r"\| `examples/\*\*/\*\.metta` \|[^\n]*? names the (?P<count>[a-z]+|\d+) that do not"
+        ),
+        "skipped_examples",
+    ),
+    (
+        "generated reference pages",
+        re.compile(r"\| `website/reference/metta-\*\.md` \| (?P<count>\d+) pages"),
+        "reference_pages",
+    ),
+    (
+        "Python test chapters",
+        re.compile(
+            r"\| `extensions/python/tests/\*/test_\*\.py` \|[^\n]*? same (?P<count>\d+) chapters"
+        ),
+        "python_test_chapters",
+    ),
+    (
+        "guide pages",
+        re.compile(r"\| `website/guide/\*\.md` \| (?P<count>\d+) pages"),
+        "guide_pages",
+    ),
+    (
+        "tutorial pages",
+        re.compile(r"\| `website/tutorials/\*\.md` \| (?P<count>\d+) numbered lessons"),
+        "tutorial_pages",
+    ),
+    (
+        "gallery programs",
+        re.compile(
+            r"\| `extensions/python/examples/\*/\*\.py` \|[^\n]*? the (?P<count>[a-z]+|\d+) under `gallery/`"
+        ),
+        "gallery_programs",
+    ),
+    (
+        "engine metta units",
+        re.compile(
+            r"\| `engine/\*\*/\*\.pl` \|[^\n]*? the "
+            r"(?P<count>[a-z]+|\d+) `engine/metta/\*\.pl` units"
+        ),
+        "metta_units",
+    ),
+    (
+        "engine translator units",
+        re.compile(
+            r"\| `engine/\*\*/\*\.pl` \|[^\n]*? the "
+            r"(?P<count>[a-z]+|\d+) `engine/translator/\*\.pl` units"
+        ),
+        "translator_units",
+    ),
+    (
+        "engine spaces units",
+        re.compile(
+            r"\| `engine/\*\*/\*\.pl` \|[^\n]*? the "
+            r"(?P<count>[a-z]+|\d+) `engine/spaces/\*\.pl` units"
+        ),
+        "spaces_units",
+    ),
+    (
+        "reader.c lines",
+        re.compile(
+            r"\| `engine/\*\*/\*\.pl` \|[^\n]*?`engine/reader\.c`, "
+            r"(?P<count>[\d,]+) lines"
+        ),
+        "reader_lines",
+    ),
+    (
+        "json_codec.c lines",
+        re.compile(
+            r"\| `engine/\*\*/\*\.pl` \|[^\n]*?`engine/json_codec\.c`, "
+            r"(?P<count>[\d,]+) lines"
+        ),
+        "json_codec_lines",
+    ),
+    (
+        "extension-point kinds",
+        re.compile(
+            r"\| `engine/ext_points\.pl` \|[^\n]*? (?P<count>[A-Za-z]+|\d+) "
+            r"of them, and the count of each"
+        ),
+        "extension_point_kinds",
+    ),
+    *(
+        (
+            f"{kind} extension points",
+            re.compile(
+                rf"\| `engine/ext_points\.pl` \|[^\n]*?`{kind}` "
+                rf"(?P<count>\d+)"
+            ),
+            f"extension_points_{kind}",
+        )
+        for kind in ("host_service", "service", "ownership", "event", "declaration")
+    ),
+)
+
+_NUMBER_WORDS = {
+    "zero": 0,
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+}
+
 #: Receiver names used by the Python examples. The same spelling can denote a
 #: different class in each sheet, so the class is selected before a method is
 #: checked. ``self`` is the one supported property hop because the Python
 #: extension sheet teaches context.self methods directly.
 _RECEIVERS = frozenset({"m", "context", "ctx", "kb", "space", "store", "metta"})
 _METHOD = re.compile(
-    r"\b(?P<receiver>"
-    + "|".join(sorted(_RECEIVERS))
-    + r")\.(?:(?P<via>self)\.)?(?P<method>\w+)"
+    r"\b(?P<receiver>" + "|".join(sorted(_RECEIVERS)) + r")\.(?:(?P<via>self)\.)?(?P<method>\w+)"
 )
 _ROOT_SHEET = REPO / "llms.txt"
 _PYTHON_SHEET = REPO / "extensions/python/llms.txt"
@@ -242,6 +401,92 @@ def _line_of(text: str, index: int) -> int:
     return text.count("\n", 0, index) + 1
 
 
+def _line_count(path: Path) -> int:
+    with path.open(encoding="utf-8") as source:
+        return sum(1 for _line in source)
+
+
+def source_counts(root: Path = REPO) -> dict[str, int]:
+    """Derive every explicit count in the root sheet's sources table."""
+    chapters = sorted(path for path in (root / "examples").glob("ch[0-9][0-9]-*") if path.is_dir())
+    examples = [
+        path
+        for path in (root / "examples").rglob("*.metta")
+        if not path.is_symlink() and "_fixtures" not in path.parts
+    ]
+    skipped = [
+        line
+        for line in (root / "tests/data/example_skips.txt").read_text(encoding="utf-8").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    test_chapters = [
+        path for path in (root / "extensions/python/tests").glob("ch[0-9][0-9]_*") if path.is_dir()
+    ]
+    # `kind/2` is the source of truth and its few out-of-module clauses are
+    # written as `seam:kind/2`. Anchoring to clause heads excludes prose and
+    # tests while still following a seam moved to another engine unit.
+    extension_kinds: dict[str, int] = {}
+    kind_clause = re.compile(r"^(?:seam:)?kind\([^,\n]+,\s*(?P<kind>[a-z_]+)\)\.", re.MULTILINE)
+    for path in (root / "engine").rglob("*.pl"):
+        for match in kind_clause.finditer(path.read_text(encoding="utf-8")):
+            kind = match.group("kind")
+            extension_kinds[kind] = extension_kinds.get(kind, 0) + 1
+    counts = {
+        "example_programs": len(examples),
+        "example_chapters": len(chapters),
+        "highest_example_chapter": max(int(path.name[2:4]) for path in chapters),
+        "skipped_examples": len(skipped),
+        "reference_pages": len(list((root / "website/reference").glob("metta-*.md"))),
+        "python_test_chapters": len(test_chapters),
+        "guide_pages": len(list((root / "website/guide").glob("*.md"))),
+        "tutorial_pages": len(list((root / "website/tutorials").glob("*.md"))),
+        "gallery_programs": len(list((root / "extensions/python/examples/gallery").glob("*.py"))),
+        "metta_units": len(list((root / "engine/metta").glob("*.pl"))),
+        "translator_units": len(list((root / "engine/translator").glob("*.pl"))),
+        "spaces_units": len(list((root / "engine/spaces").glob("*.pl"))),
+        "reader_lines": _line_count(root / "engine/reader.c"),
+        "json_codec_lines": _line_count(root / "engine/json_codec.c"),
+        "extension_point_kinds": len(extension_kinds),
+    }
+    counts.update({f"extension_points_{kind}": count for kind, count in extension_kinds.items()})
+    return counts
+
+
+def _number(written: str) -> int:
+    normalized = written.replace(",", "").lower()
+    if normalized.isdecimal():
+        return int(normalized)
+    return _NUMBER_WORDS[normalized]
+
+
+def count_findings(
+    sheet: Path,
+    text: str,
+    counts: Mapping[str, int] | None = None,
+) -> list[str]:
+    """Every source-table count against the source named by its row."""
+    if sheet != _ROOT_SHEET:
+        return []
+    expected = source_counts() if counts is None else counts
+    findings: list[str] = []
+    for label, pattern, key in _COUNT_CLAIMS:
+        match = pattern.search(text)
+        if match is None:
+            findings.append(
+                f"{sheet.relative_to(REPO)}: the sources table no longer states "
+                f"its {label} count, so that count goes unchecked"
+            )
+            continue
+        stated = _number(match.group("count"))
+        observed = expected[key]
+        if stated != observed:
+            findings.append(
+                f"{sheet.relative_to(REPO)}:{_line_of(text, match.start())}: "
+                f"the sources table says {stated} {label}, the tree has {observed}"
+            )
+    return findings
+
+
 def path_findings(sheet: Path, text: str) -> list[str]:
     """Every backticked path claim that no longer resolves."""
     findings: list[str] = []
@@ -279,8 +524,7 @@ def library_findings(sheet: Path, text: str) -> list[str]:
         line = _line_of(text, roster.start())
         for missing in sorted(shipped - named):
             findings.append(
-                f"{sheet.relative_to(REPO)}:{line}: the roster omits `{missing}`, "
-                f"which lib/ ships"
+                f"{sheet.relative_to(REPO)}:{line}: the roster omits `{missing}`, which lib/ ships"
             )
         for absent in sorted(named - shipped):
             findings.append(
@@ -307,24 +551,11 @@ class EngineUnavailable(Exception):
     """swipl is not installed, which is a skip; anything else is a finding."""
 
 
-def engine_vocabulary() -> set[str]:
-    """Every head the engine gives meaning to.
-
-    Raises EngineUnavailable only when swipl is not installed at all. An
-    engine that RAN and failed is a finding, never a skip: returning the
-    absent-toolchain answer for both would let a broken engine take this
-    half of the lane quietly green, which is the fail-open shape a gate
-    exists to refuse.
-
-    BOTH questions are asked. A head has meaning through `fun/1` or through
-    the translator, and asking one alone reports the other's names as unknown:
-    of the special forms, `case`, `if`, `collapse`, `quote` and their kin
-    answer false to `fun/1` and are still perfectly callable.
-    """
+def _query_vocabulary(disjunction: str) -> set[str]:
+    """Ask one engine process for the distinct names a goal enumerates."""
     goal = (
         "ensure_loaded('engine/qlf_boot.pl'), ensure_loaded('engine/metta.pl'), "
-        "forall(( metta_grounded_token(N) ; fun(N) "
-        "; translator:metta_special_form_head(N) ; translator:metta_translated_head(N) ), "
+        f"forall(({disjunction}), "
         "( print_message_lines(user_output, '', []), format('~w~n', [N]) ))"
     )
     try:
@@ -343,6 +574,38 @@ def engine_vocabulary() -> set[str]:
         msg = f"the engine did not answer its vocabulary: {tail}"
         raise RuntimeError(msg)
     return {line.strip() for line in finished.stdout.splitlines() if line.strip()}
+
+
+def engine_vocabulary() -> set[str]:
+    """Every head the forward documentation check accepts.
+
+    Raises EngineUnavailable only when swipl is not installed at all. An
+    engine that RAN and failed is a finding, never a skip: returning the
+    absent-toolchain answer for both would let a broken engine take this
+    half of the lane quietly green, which is the fail-open shape a gate
+    exists to refuse.
+
+    BOTH questions are asked. A head has meaning through `fun/1` or through
+    the translator, and asking one alone reports the other's names as unknown:
+    of the special forms, `case`, `if`, `collapse`, `quote` and their kin
+    answer false to `fun/1` and are still perfectly callable.
+    """
+    return _query_vocabulary(
+        "metta_grounded_token(N) ; fun(N) "
+        "; translator:metta_special_form_head(N) "
+        "; translator:metta_translated_head(N)"
+    )
+
+
+def engine_corpus_vocabulary() -> set[str]:
+    """The callable set used by the corpus-coverage audit.
+
+    This is deliberately the ledger's measured question: `fun/1` plus
+    `metta_translated_head/1`. Special forms are already enumerated by the
+    forward language-surface block, while the reverse check guards ordinary
+    engine heads that the corpus proves are live.
+    """
+    return _query_vocabulary("fun(N) ; translator:metta_translated_head(N)")
 
 
 def head_findings(sheet: Path, text: str, known: set[str]) -> list[str]:
@@ -367,36 +630,103 @@ def head_findings(sheet: Path, text: str, known: set[str]) -> list[str]:
     ]
 
 
+#: This deliberately matches the audit that produced the 64-name repair. It
+#: asks only about written call heads, not data and declaration positions, and
+#: removes full-line comments before scanning. The live engine intersection
+#: below separates callable vocabulary from user-defined heads.
+_CALL_HEAD = re.compile(r"\(([a-zA-Z][a-zA-Z0-9_?!*<>=/+\-]*)[\s)]")
+_HEAD_CHARACTER = r"a-zA-Z0-9_?!*<>=/+#.\-:"
+
+
+def corpus_head_uses(root: Path = REPO) -> dict[str, int]:
+    """Count written call heads in every shipped MeTTa example."""
+    used: dict[str, int] = {}
+    for path in sorted((root / "examples").rglob("*.metta")):
+        if path.is_symlink() or "_fixtures" in path.parts:
+            continue
+        body = "\n".join(
+            line
+            for line in path.read_text(encoding="utf-8").splitlines()
+            if not line.lstrip().startswith(";")
+        )
+        for match in _CALL_HEAD.finditer(body):
+            name = match.group(1)
+            used[name] = used.get(name, 0) + 1
+    return used
+
+
+def _mentions_head(text: str, name: str) -> bool:
+    return (
+        re.search(
+            rf"(?<![{_HEAD_CHARACTER}]){re.escape(name)}(?![{_HEAD_CHARACTER}])",
+            text,
+        )
+        is not None
+    )
+
+
+def omitted_head_findings(
+    sheet: Path,
+    text: str,
+    known: set[str],
+    used: Mapping[str, int] | None = None,
+) -> list[str]:
+    """Every corpus-used engine head that the root sheet fails to name."""
+    if sheet != _ROOT_SHEET:
+        return []
+    calls = corpus_head_uses() if used is None else used
+    return [
+        f"{sheet.relative_to(REPO)}: the corpus calls engine head `{name}` "
+        f"{calls[name]} time(s), but the sheet never names it"
+        for name in sorted(set(calls) & known)
+        if not _mentions_head(text, name)
+    ]
+
+
 def main(argv: list[str] | None = None) -> int:
     """Report every stale claim, or say what was checked."""
     del argv
     findings: list[str] = []
     known: set[str] | None
+    corpus_known: set[str] | None
     try:
         known = engine_vocabulary()
+        corpus_known = engine_corpus_vocabulary()
     except EngineUnavailable:
         known = None
+        corpus_known = None
     except RuntimeError as broken:
         known = None
+        corpus_known = None
         findings.append(f"llms: {broken}")
+    used = corpus_head_uses() if known is not None else {}
     for sheet in sheets():
         text = sheet.read_text(encoding="utf-8")
         findings.extend(path_findings(sheet, text))
         findings.extend(library_findings(sheet, text))
+        findings.extend(count_findings(sheet, text))
         findings.extend(method_findings(sheet, text))
         if known is not None:
+            assert corpus_known is not None
             findings.extend(head_findings(sheet, text, known))
+            findings.extend(omitted_head_findings(sheet, text, corpus_known, used))
     for finding in findings:
         print(finding, file=sys.stderr)
     if known is not None:
-        where = "against the live engine"
+        assert corpus_known is not None
+        used_known = set(used) & corpus_known
+        root_text = _ROOT_SHEET.read_text(encoding="utf-8")
+        covered = sum(1 for name in used_known if _mentions_head(root_text, name))
+        where = (
+            f"against {len(known)} live engine names; {len(used_known)} of "
+            f"{len(corpus_known)} callable names are corpus-used and {covered} "
+            "are covered"
+        )
     elif findings and findings[-1].startswith("llms: the engine"):
         where = "with the engine refusing to answer, so heads went unread"
     else:
         where = "with swipl absent, so heads went unread"
-    print(
-        f"llms: {len(sheets())} cheat sheet(s) read {where}, {len(findings)} finding(s)"
-    )
+    print(f"llms: {len(sheets())} cheat sheet(s) read {where}, {len(findings)} finding(s)")
     return 1 if findings else 0
 
 

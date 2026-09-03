@@ -5,7 +5,7 @@ cheat sheet claimed a gate that did not exist and drifted for three days
 behind the claim, so this file plants exactly the drift each half is supposed
 to catch and fails when the checker reports it green.
 
-The checker's three halves are pure functions over (sheet, text), so each
+The checker's five parts are pure functions over (sheet, text), so each
 fault is planted in TEXT rather than by writing a broken llms.txt into the
 tree: a selftest that edited the shipped sheet would race the lane reading it.
 The engine half takes its vocabulary as an argument for the same reason, and
@@ -24,6 +24,9 @@ Guarantees:
   - the real sheets are read by the lane itself, never edited here, so a
     planted fault cannot race the lane reading the shipped file [tested:
     tests/checks/check_llms_names.py; commit=b089d4309f34b205c5fdaee46960d1fcd9c1ac42]
+  - a wrong source-table count and an omitted corpus-used engine head each
+    turn their production checker red independently [tested: this file is its
+    own test, run by the gate; commit=WORKTREE]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -32,6 +35,7 @@ Open Obligations:
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 
@@ -41,9 +45,11 @@ if str(HERE) not in sys.path:
 
 from check_llms_names import (  # noqa: E402  -- HERE must be on the path first
     REPO,
+    count_findings,
     head_findings,
     library_findings,
     method_findings,
+    omitted_head_findings,
     path_findings,
 )
 
@@ -134,6 +140,28 @@ def main() -> int:
         "a seat sheet without a roster was reported",
     )
 
+    # COUNTS: use the real table as the clean control, then corrupt one claim
+    # in memory. The production derivation still reads the named source.
+    source_text = SHEET.read_text(encoding="utf-8")
+    expect(
+        count_findings(SHEET, source_text) == [],
+        "the sources table's exact counts were reported",
+    )
+    count = re.search(r"(?P<count>\d+) executable programs", source_text)
+    expect(count is not None, "the planted count target vanished from llms.txt")
+    if count is not None:
+        wrong_count = str(int(count.group("count")) + 1)
+        planted = (
+            source_text[: count.start("count")] + wrong_count + source_text[count.end("count") :]
+        )
+        expect(
+            any(
+                "executable example programs" in finding
+                for finding in count_findings(SHEET, planted)
+            ),
+            "a wrong source-table count was NOT reported",
+        )
+
     # The engine half must not fail OPEN: a swipl that ran and failed is a
     # finding, where a swipl that is not installed is a skip.
     import check_llms_names as lane  # noqa: PLC0415  -- patched for one case
@@ -177,6 +205,32 @@ def main() -> int:
         "a seat sheet without a surface block was reported",
     )
 
+    # USED HEADS: the reverse direction. An exact token mention covers a live,
+    # corpus-used head; a longer neighbouring symbol does not.
+    uses = {"println!": 76, "get-atoms": 15}
+    used_known = set(uses)
+    expect(
+        omitted_head_findings(SHEET, "`println!` and `get-atoms`", used_known, uses) == [],
+        "documented corpus-used heads were reported",
+    )
+    omitted = omitted_head_findings(SHEET, "`println!` only", used_known, uses)
+    expect(
+        len(omitted) == 1 and "`get-atoms`" in omitted[0],
+        "an omitted corpus-used engine head was NOT reported",
+    )
+    expect(
+        any(
+            "`print`" in finding
+            for finding in omitted_head_findings(
+                SHEET,
+                "`println!` is a different head",
+                {"print"},
+                {"print": 1},
+            )
+        ),
+        "a longer head name falsely covered an omitted shorter one",
+    )
+
     # METHODS: a code block teaches, while prose can discuss or deny a name.
     block = "```python\nm.query(pattern)\n```"
     expect(
@@ -184,13 +238,11 @@ def main() -> int:
         "a method the library does not have was NOT reported",
     )
     expect(
-        method_findings(SHEET, "```python\nm.match(pattern)\nkb.remove(a)\n```")
-        == [],
+        method_findings(SHEET, "```python\nm.match(pattern)\nkb.remove(a)\n```") == [],
         "real methods were reported",
     )
     expect(
-        method_findings(SHEET, "prose saying there is no `metta.matching` here")
-        == [],
+        method_findings(SHEET, "prose saying there is no `metta.matching` here") == [],
         "prose DENYING a method was read as teaching it",
     )
     expect(
@@ -217,18 +269,14 @@ def main() -> int:
     expect(
         any(
             "kb.close" in finding
-            for finding in method_findings(
-                PYTHON_SHEET, "```python\nkb.close()\n```"
-            )
+            for finding in method_findings(PYTHON_SHEET, "```python\nkb.close()\n```")
         ),
         "a MeTTa-only method written on a Space was NOT reported",
     )
     expect(
         any(
             "context.answers" in finding
-            for finding in method_findings(
-                SHEET, "```python\ncontext.answers(term)\n```"
-            )
+            for finding in method_findings(SHEET, "```python\ncontext.answers(term)\n```")
         ),
         "an invalid method on the named context receiver was NOT reported",
     )
@@ -251,7 +299,7 @@ def main() -> int:
 
     for failure in failures:
         print(failure, file=sys.stderr)
-    print(f"llms selftest: 26 planted case(s), {len(failures)} failure(s)")
+    print(f"llms selftest: 31 planted case(s), {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

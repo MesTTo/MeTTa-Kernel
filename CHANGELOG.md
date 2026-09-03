@@ -8,6 +8,13 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The `llms` gate now derives every explicit count in the source table and
+  checks coverage in both directions. A corpus-used engine head omitted from
+  `llms.txt` now fails beside a documented name the engine does not know, and
+  the selftest plants both an omitted head and a wrong count independently.
+  Exact-token coverage also exposed eight heads that the earlier substring
+  audit had counted only inside longer names; all eight are now named.
+
 - The native-handle round-trip benchmark now loads the chapter-19 shared
   object that `worktree.sh` builds. The benchmark had kept the example tree's
   pre-reorganisation path and silently skipped since the directory moved.

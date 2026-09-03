@@ -44,9 +44,10 @@ re-runs them.
 | `check.sh` | the gate. `GATE_ONLY=1 sh check.sh` is what CI blocks on | |
 | `extensions/python/metta/*.py` | the library. `extensions/python/metta/_space.py` is the `MeTTa` context and the `Space` handle; a leading `_` means internal | |
 
-Counts re-measured 2026-09-03. The `llms` lane re-checks the library roster
-and every backticked path on each run; the other counts here are hand-kept, and
-six of them had drifted by the time that was checked.
+Counts re-measured 2026-09-03. The `llms` lane derives every explicit count in
+this table, checks the library roster and every backticked path, rejects names
+the live engine does not know, and asks the reverse question too: every
+engine-known call head the example corpus exercises must be named here.
 
 ## Install and first call
 
@@ -785,19 +786,20 @@ The exact-integer operators are engine heads rather than library equations:
 `bit-shift-right` and `floor-div`, with division by zero answering error
 DATA rather than raising.
 
-Sixty-four more engine heads the corpus exercises, by family. Numeric:
-`pow-math`, `exp-math`, `log-math`, `round-math`, `trunc-math`, `ceil-math`,
+Seventy-two more engine heads the corpus exercises, by family. Numeric:
+`min`, `max`, `pow-math`, `exp-math`, `log-math`, `round-math`, `trunc-math`, `ceil-math`,
 `sin-math`, `cos-math`, `tan-math`, `asin-math`, `acos-math`, `atan-math`,
 `isnan-math`, `isinf-math`. Atoms: `alpha-unique-atom`, `is-alpha-member`,
 `is-member`, `is-var`, `is-expr`, `is-function`, `first-from-pair`,
-`second-from-pair`, `reverse`, `last`, `for-each-in-atom`. Spaces:
+`second-from-pair`, `reverse`, `last`, `id`, `for-each-in-atom`, `foldl`.
+Logic: `xor`, `dif`. Spaces:
 `get-atoms`, `space-atom-count`, `is-space`, `new-state`, `has-declared-type`,
 `space-admission-verdict`. Types: `match-types`, `match-type-or`, `type-cast`.
-Text, IO and files: `println!`, `readln!`, `read-form!`, `format-args`,
+Text, IO and files: `repr`, `println!`, `readln!`, `read-form!`, `format-args`,
 `sort-strings`, `parse-command`, `sleep`, `file-exists`, `exists_file`.
 Pre-add hooks: `declare-pre-add!`, `undeclare-pre-add!`. Translator, Prolog and
 modules: `add-translator-rule!`, `remove-translator-rule!`,
-`import_prolog_function`, `import_prolog_functions_from_file`, `callPredicate`,
+`import_prolog_function`, `import_prolog_functions_from_file`, `Predicate`, `callPredicate`,
 `assertaPredicate`, `git-import!`, `residual-goals`. Minimal MeTTa: `unquote`,
 `noreduce-eq`, `collapse-bind`, `superpose-bind`, `return-on-error`,
 `if-equal`, `repra`. Assertions beyond the four above: `assertEqualMsg`,
