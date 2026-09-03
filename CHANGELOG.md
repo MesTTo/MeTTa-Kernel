@@ -8,6 +8,14 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The source digest asks whether crypto is present instead of reading the whole
+  census row for it. `metta_platform/4` is the host's enumerable view and
+  unifies a capability's requirements and the sentence describing what its
+  absence costs; a digest choosing between `crypto_data_hash/3` and the SHA
+  fallback needs neither, and paid for both on every call. The translate
+  benchmark falls from 381,633 inferences to 381,093 and evaluate from 559,371
+  to 559,347.
+
 - The engine no longer probes for `library(crypto)` twice at boot.
   `engine/filereader.pl` asks for `crypto_data_hash/3` by name, which records
   the same census status, and every reader of that status runs after it: the

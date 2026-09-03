@@ -406,14 +406,28 @@ source_load_assertion(LoadId, Ref) :-
 :- metta_platform_load(crypto, [crypto_data_hash/3]).
 :- use_module(library(sha), [sha_hash/3, hash_atom/2]).
 
+%The dispatch asks the one bit, not the census row. metta_platform/4 is the
+%HOST's enumerable view and unifies Requires and Costs, and Costs is a sentence
+%written for a person to read; a digest choosing its provider needs neither and
+%paid for both on every call. 5 inferences against 3, which is translate 381,633
+%to 381,093 and evaluate 559,371 to 559,347 [measured 2026-09-03, three
+%identical samples; command=python engine/bench.py].
+%
+%COUPLED to crypto's capability row in engine/metta.pl being unconditional. The
+%census answers absent only for a capability it DECLARES, so for a declared one
+%this is metta_platform/4's own test; for an undeclared name it would answer
+%true where metta_platform/4 fails. Crypto is declared beside the others with no
+%guard, and the roster is asserted whole, so the row cannot leave quietly
+%[tested: platform_capabilities:the_census_agrees_with_what_resolves,
+%platform_capabilities:sha_hashing_survives_without_crypto].
 metta_text_digest(Text, Digest) :-
-    (   metta_platform(crypto, present, _, _)
+    (   \+ metta_platform_absent(crypto)
     ->  crypto_data_hash(Text, Digest, [algorithm(sha256)])
     ;   sha_hash(Text, Bytes, [algorithm(sha256)]),
         hash_atom(Bytes, Digest)
     ).
 metta_octets_digest(Payload, Digest) :-
-    (   metta_platform(crypto, present, _, _)
+    (   \+ metta_platform_absent(crypto)
     ->  crypto_data_hash(Payload, Digest,
                          [algorithm(sha256), encoding(octet)])
     ;   sha_hash(Payload, Bytes,
