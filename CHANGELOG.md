@@ -8,6 +8,22 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The C seat's sanitizer matrix finishes, so `GATE_ONLY=1 sh check.sh` can
+  reach its end on this class of machine. `make -C extensions/cmetta sanitize`
+  did not terminate: every sanitizer diagnostic is symbolized by
+  `llvm-symbolizer`, `/etc/debuginfod/elfutils.urls` points it at
+  `https://debuginfod.ubuntu.com`, and it makes a network request for each
+  module it cannot resolve locally. That request does not return, so the
+  symbolizer sits at 0% CPU and the sanitized process blocks on its pipe
+  forever. `timeout 100 make ... sanitize` exits 124; a bare `llvm-symbolizer`
+  with one query hangs the same way and answers instantly with
+  `DEBUGINFOD_URLS` cleared. `sanitize.sh` clears it now. Nothing is lost: the
+  only symbols debuginfod would add are SWI-Prolog's, and the lane's rule reads
+  frame #1 for a C-seat source file, whose debug info is local. What was lost
+  was the lane, which never reached that rule; it now reports
+  `44104 byte(s) leaked in 27 allocation(s)` and `C-seat allocation origins:
+  none`.
+
 - `NO_AUTOLOAD=1` boots the engine again, and refuses loudly when it cannot.
   `tests/fixtures/no_autoload_boot.pl` reaches `engine/main.pl` by a path
   relative to its own directory; moving that file into `tests/fixtures/` on
