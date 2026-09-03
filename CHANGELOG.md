@@ -8,6 +8,11 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The shared codec corpus now exercises the irregular three-field native
+  handle tag, and its inventory check rejects tags without either a case or a
+  corpus-owned explanation. The one directional stream-control exemption is
+  explicit data, so future tag omissions turn the Python conformance suite red.
+
 - Root gate runs now export a uniquely locked `TMPDIR` beneath
   `ai-tmp/check-runs`. Normal exits remove their run directory; after SIGKILL,
   the next invocation reclaims the unlocked orphan while preserving every

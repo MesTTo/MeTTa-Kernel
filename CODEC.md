@@ -231,12 +231,15 @@ crosses; handing the reference back reaches the very same object, so
 identity, mutation and accessor calls all see one thing. Only an in-process
 encoding can carry it, which is why it is outside the core profile.
 
-`["h", ...]` carries a native engine value, a C blob, the same way. Both
-sides preserve `["h", id, text]`: the registry id returns the value to the
-engine, and the text lets a host decode and print its opaque reference. The
-engine ignores the text when resolving the id. A stale id is an existence
-error naming it, never a fresh or empty value, because release is explicit
-on the host side and silence would turn a released handle into a wrong answer.
+`["h", ...]` carries a native engine value, a C blob, the same way. A host
+preserves `["h", id, text]` when returning the opaque reference: the registry
+id returns the value to the engine, and the text lets the host print it. An
+engine may issue a fresh id when it re-encodes the same native value, so the
+conformance case compares the value both ids resolve to rather than comparing
+the ids. The engine ignores the text when resolving an id. A stale id is an
+existence error naming it, never a fresh or empty value, because release is
+explicit on the host side and silence would turn a released handle into a
+wrong answer.
 
 ## The text seam
 
@@ -358,6 +361,11 @@ declarations are how a case lands in or out of scope, and `codec_plan`
 reports both the legs it runs and the cases that fell out, rather than
 dropping either quietly.
 
+The `native-handle` case shows the three-field wire shape and asks a driver
+that claims `h` to substitute a live native value for that exemplar. This is
+the handle counterpart of the corpus's `$host` escape: static JSON documents
+the grammar while the driver supplies the process-local identity.
+
 From Python:
 
 ```python
@@ -421,6 +429,7 @@ restatement of one.
 | `variable-anonymous` |  | `["e", [["s", "f"], ["v", "_"], ["v", "_"]]]` | engine `"(f $_0 $_1)"` / python `"(f $_ $_)"` |
 | `symbol-with-no-text-form` |  | `["s", "a b"]` | `"a b"` |
 | `host-reference` |  | `["o", {"$host": "opaque"}]` |  |
+| `native-handle` |  | `["h", 0, "<native-handle>"]` |  |
 | `expression-deep` |  | built, see the corpus |  |
 <!-- end generated -->
 

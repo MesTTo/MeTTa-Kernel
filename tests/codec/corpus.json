@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "grammar": "CODEC.md",
   "note": [
     "The golden corpus for MeTTa's tagged wire codec. Hand-written from the",
@@ -18,7 +18,12 @@
     "",
     "Two escapes, because JSON cannot write what the wire can: {\"$float\":",
     "\"inf\"|\"-inf\"|\"nan\"} is that float, and {\"$host\": \"opaque\"} is a value",
-    "only the host can mint, which a driver supplies for itself."
+    "only the host can mint, which a driver supplies for itself.",
+    "",
+    "A case with wire_fixture native_handle shows the three-field h shape",
+    "and asks a driver claiming h to supply a live handle for the run. Its",
+    "registry id may change when an engine re-encodes the same native value,",
+    "so that case compares the identity each id resolves to."
   ],
 
   "tags": {
@@ -55,6 +60,10 @@
     "here only in the refusal that says a stream-control frame is not an",
     "atom; its three items are specified in CODEC.md."
   ],
+
+  "coverage_exemptions": {
+    "x": "Stream control is directional. Nothing shipped decomposes x; its three forms are specified in CODEC.md, and refuse-stream-control-in-atom-position proves it is not an atom."
+  },
 
   "cases": [
     {
@@ -379,6 +388,14 @@
       "tags": ["o"],
       "wire": ["o", {"$host": "opaque"}],
       "note": "A live host value crossing by reference, not by serialisation: the same object comes back, so identity, mutation and accessors all see one thing. Only an in-process encoding can carry it, which is why it is outside the core profile."
+    },
+    {
+      "id": "native-handle",
+      "tags": ["h"],
+      "wire": ["h", 0, "<native-handle>"],
+      "wire_fixture": "native_handle",
+      "roundtrip_equivalence": "native_identity",
+      "note": "A live native engine value held by registry identity. The wire shows all three fields; the driver substitutes a handle its own engine minted. Re-encoding may issue another registry id, so the round trip compares the native value both ids resolve to rather than mistaking an id spelling for the value."
     },
     {
       "id": "expression-deep",
