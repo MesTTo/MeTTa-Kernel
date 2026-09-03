@@ -3,10 +3,10 @@
 Guarantees:
   - ``generated-artifacts`` selects exactly ``ledger``, ``aio-mirror`` and
     ``reference``, whose adjacent source order keeps the mirror ahead of the
-    page derived from it [tested: tests/checks/check_generated_artifact_group.py;
+    page derived from it [tested: generated-artifacts-selftest;
     commit=7d3c883f91d1d4be055fd725463d214f6fbd1438].
   - DEVELOPING.md publishes the aggregate command and the reason for the order
-    [tested: tests/checks/check_generated_artifact_group.py;
+    [tested: generated-artifacts-selftest;
     commit=7d3c883f91d1d4be055fd725463d214f6fbd1438].
 Fails when:
   - check.sh stops keeping its selectable lane declarations as literal

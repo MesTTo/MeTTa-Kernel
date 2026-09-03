@@ -8,6 +8,8 @@ Guarantees:
   - every corpus file runs in its own process with specialization verification
     enabled, and a disagreement or failed verifier process makes the gate fail
     while naming the file
+    [tested: spec-differential-selftest;
+    commit=de2a69fbea43d7bbc641fd93240cf7572285bb5c]
   - ``specialization_finding`` is the same per-file detector imported by the
     planted selftest, so the selftest cannot drift from the production scan
     [tested: tests/checks/check_specialization_differential_selftest.py;

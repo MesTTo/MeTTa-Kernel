@@ -69,7 +69,7 @@
 #     commit=7d3c883f91d1d4be055fd725463d214f6fbd1438].
 #   - every lane inherits a repository-local scratch directory, and a later
 #     run reclaims one left by SIGKILL without touching a concurrent run
-#     [tested: tests/checks/check_gate_scratch_selftest.py; commit=WORKTREE].
+#     [tested: scratch-retention; commit=c96093349e37cc7153f31b3dd9af10246a325301].
 # Open Obligations:
 #   To Do: None
 #   Hacks: None

@@ -3,9 +3,10 @@
 Guarantees:
   - a concurrent locked run survives another allocation, a killed holder leaves
     its fixture behind, and the next allocation removes that orphan
-    [tested: tests/checks/check_gate_scratch_selftest.py; commit=WORKTREE].
+    [tested: scratch-retention; commit=c96093349e37cc7153f31b3dd9af10246a325301].
   - check.sh initializes the shared allocator before its first mktemp call and
-    closes it from the root EXIT trap [tested: contract_findings; commit=WORKTREE].
+    closes it from the root EXIT trap
+    [tested: scratch-retention; commit=c96093349e37cc7153f31b3dd9af10246a325301].
 Fails when:
   - POSIX SIGKILL or util-linux flock is unavailable; check.sh refuses the same
     environment because safe active-run discrimination would be impossible.

@@ -6,8 +6,8 @@
 # Guarantees:
 #   - allocation exports TMPDIR, TMP and TEMP beneath ai-tmp/check-runs, and
 #     the next allocation removes every unlocked run.* orphan while preserving
-#     locked active runs [tested: tests/checks/check_gate_scratch_selftest.py;
-#     commit=WORKTREE].
+#     locked active runs [tested: scratch-retention;
+#     commit=c96093349e37cc7153f31b3dd9af10246a325301].
 # Owns resources:
 #   - file descriptor 9 holds the run's lifetime lock; descriptor 7 serializes
 #     allocation and descriptor 8 probes old runs. metta_gate_scratch_close
