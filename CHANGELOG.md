@@ -8,6 +8,24 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A process this repository starts now carries a bound that outlives whatever
+  started it. `subprocess.run(timeout=)` and a shell driver's own wait are both
+  enforced in the parent, so killing the parent leaves the child running with no
+  bound at all: two `swipl` children spawned by a repository runner survived
+  from 2026-09-01 to 2026-09-03, spinning at 100% for 122 CPU-hours between
+  them. The bound moves into a wrapper that shares the child's fate, at four
+  places rather than 127 call sites: `check.sh`'s `run()` for every lane whose
+  command word is a program, a `bounded` prefix inside the 25 lane functions
+  `timeout` cannot exec, `example_parity.py` at `TIMEOUT + CHILD_GRACE` so its
+  own `TimeoutExpired` still fires first, and the pytest conftest for a session
+  driven directly. `timeout` rather than `PR_SET_PDEATHSIG`, which is set
+  through `preexec_fn` (unsafe with threads, and these runners spawn from a
+  `ThreadPoolExecutor`) and fires on parent THREAD exit, so a finished pool
+  worker would kill a live child. `--preserve-status` is part of it: without
+  that flag a signalled child is reported as 124 and its own exit status is
+  lost, which three interrupt tests read. `tests/checks/check_process_bounds.py`
+  keeps a 38th spawn from arriving unbounded.
+
 - Three repository lanes that had been red are green, and one of them was
   hiding another. `test_the_ruff_configuration_enables_every_family_or_records_why_not`
   failed on a `# noqa: ARG002,D102` written without the comma-space its

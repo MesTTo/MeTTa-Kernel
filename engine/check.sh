@@ -32,15 +32,15 @@
 run_example_corpus() {
     py_prefix=$(dirname "$(dirname "$PY")")
     if [ -f "$py_prefix/pyvenv.cfg" ]; then
-        ( cd "$HERE" && VIRTUAL_ENV="$py_prefix" PATH="$py_prefix/bin:$PATH" sh test.sh )
+        ( cd "$HERE" && bounded env VIRTUAL_ENV="$py_prefix" PATH="$py_prefix/bin:$PATH" sh test.sh )
     else
-        ( cd "$HERE" && sh test.sh )
+        ( cd "$HERE" && bounded sh test.sh )
     fi
 }
 
 check_examples() {
     run_example_corpus &&
-        ( cd "$HERE" && sh tests/shell/test_specializer_regressions.sh )
+        ( cd "$HERE" && bounded sh tests/shell/test_specializer_regressions.sh )
 }
 
 run GATE shell        run_example_corpus
@@ -141,7 +141,7 @@ check_engine_bench() {
     # measures a case outside its band. A missing engine/bench-baseline.json is
     # NOT a missing toolchain: it is a committed file, so it fails here rather
     # than skipping.
-    CHECK_PY="$PY" sh "$HERE/engine/bench.sh"
+    bounded env CHECK_PY="$PY" sh "$HERE/engine/bench.sh"
 }
 run GATE engine-bench check_engine_bench
 
@@ -182,7 +182,7 @@ PROLOG_KNOWN_UNDEFINED='mettafunc/2'
 check_prolog() {
     cd "$HERE" || return 1
     unexpected=$(
-        swipl -q -g "use_module(library(check)), \
+        bounded swipl -q -g "use_module(library(check)), \
                      set_prolog_flag(autoload, false), \
                      consult('engine/main.pl'), list_undefined, halt." \
               -t 'halt(1)' 2>&1 \
@@ -204,7 +204,7 @@ run GATE prolog check_prolog
 # commit=dcfc20be4933c19140ccb5759291401d13058301].
 check_ciao_grade() {
     cd "$HERE/tests/prolog" || return 1
-    swipl -q --on-warning=status --on-error=status \
+    bounded swipl -q --on-warning=status --on-error=status \
         -g "set_test_options([format(log)]), run_tests" \
         -t halt suites/seams/ciao_grade.plt
 }
@@ -216,7 +216,7 @@ run GATE ciao-grade check_ciao_grade
 # gate as SWI warnings.
 check_prolog_static() {
     cd "$HERE/tests/prolog" || return 1
-    swipl -q --on-warning=status --on-error=status static_checks.pl
+    bounded swipl -q --on-warning=status --on-error=status static_checks.pl
 }
 run GATE prolog-static check_prolog_static
 
@@ -237,7 +237,7 @@ run GATE prolog-static check_prolog_static
 # migration must update it in the same commit or it silently reports nothing.
 check_reachability() {
     cd "$HERE/tests/prolog" || return 1
-    swipl -q -g reachability_report -t 'halt(0)' reachability.pl
+    bounded swipl -q -g reachability_report -t 'halt(0)' reachability.pl
 }
 run REPORT prolog-reach check_reachability
 
@@ -250,7 +250,7 @@ run REPORT prolog-reach check_reachability
 # the fixture passing vacuously [measured 2026-08-18: 0.90s].
 check_reachability_selftest() {
     cd "$HERE/tests/prolog" || return 1
-    swipl -q --on-error=status -g reachability_selftest -t 'halt(0)' reachability.pl
+    bounded swipl -q --on-error=status -g reachability_selftest -t 'halt(0)' reachability.pl
 }
 run GATE prolog-reach-selftest check_reachability_selftest
 
@@ -260,7 +260,7 @@ run GATE prolog-reach-selftest check_reachability_selftest
 check_prolog_metatheory() {
     cd "$HERE/tests/prolog" || return 1
     unexpected=$(
-        swipl -q -g "use_module('../../engine/trs.pl'), \
+        bounded swipl -q -g "use_module('../../engine/trs.pl'), \
                      use_module('../../engine/narrowing.pl'), \
                      list_undefined, halt." -t 'halt(1)' 2>&1 \
             | grep -E 'which is referenced by'
@@ -291,21 +291,21 @@ run GATE translator-confluence-selftest sh -c "cd '$HERE/tests/prolog' && swipl 
 # main lane runs every plt suite under the typed build.
 check_dev_typed_selftest() {
     cd "$HERE/tests/prolog" || return 1
-    swipl -q --on-error=status -g dev_typed_selftest -t 'halt(0)' dev_typed.pl || return 1
-    swipl -O -q --on-error=status -g dev_typed_selftest -t 'halt(0)' dev_typed.pl
+    bounded swipl -q --on-error=status -g dev_typed_selftest -t 'halt(0)' dev_typed.pl || return 1
+    bounded swipl -O -q --on-error=status -g dev_typed_selftest -t 'halt(0)' dev_typed.pl
 }
 run GATE dev-typed-selftest check_dev_typed_selftest
 
 check_dev_typed() {
     cd "$HERE/tests/prolog" || return 1
     ok=0
-    swipl -q --on-error=status -g dev_typed_report -t 'halt(0)' dev_typed.pl || ok=1
+    bounded swipl -q --on-error=status -g dev_typed_report -t 'halt(0)' dev_typed.pl || ok=1
     for suite in suites/*/*.plt; do
         [ -e "$suite" ] || continue
         # dev_typed.plt consults the engine itself; running it UNDER the
         # typed build would consult the engine twice into one session.
         [ "$suite" = suites/seams/dev_typed.plt ] && continue
-        swipl -q -g dev_typed_suites -t 'halt(0)' dev_typed.pl -- "$suite" || ok=1
+        bounded swipl -q -g dev_typed_suites -t 'halt(0)' dev_typed.pl -- "$suite" || ok=1
     done
     return $ok
 }
@@ -330,7 +330,7 @@ run GATE dev-typed check_dev_typed
 # report waited for the topology rather than for a guard.
 check_engine_integrity() {
     cd "$HERE/tests/prolog" || return 1
-    swipl -q --on-error=status -g engine_integrity_report -t 'halt(0)' engine_integrity.pl
+    bounded swipl -q --on-error=status -g engine_integrity_report -t 'halt(0)' engine_integrity.pl
 }
 run GATE engine-integrity check_engine_integrity
 
@@ -343,7 +343,7 @@ run GATE engine-integrity check_engine_integrity
 # files clean, which is exactly what this refuses to let happen again.
 check_engine_integrity_selftest() {
     cd "$HERE/tests/prolog" || return 1
-    swipl -q --on-error=status -g engine_integrity_selftest -t 'halt(0)' engine_integrity.pl
+    bounded swipl -q --on-error=status -g engine_integrity_selftest -t 'halt(0)' engine_integrity.pl
 }
 run GATE engine-integrity-selftest check_engine_integrity_selftest
 
@@ -392,7 +392,7 @@ run GATE   no-autoload  sh -c "cd '$HERE' && NO_AUTOLOAD=1 sh test.sh"
 # library predicate, the engine internal and the remedy [measured 2026-08-21].
 check_library_surface() {
     cd "$HERE/tests/prolog" || return 1
-    swipl -q --on-error=status library_surface.pl
+    bounded swipl -q --on-error=status library_surface.pl
 }
 run GATE lib-surface check_library_surface
 
@@ -414,7 +414,7 @@ run GATE lib-surface check_library_surface
 # cross-subsystem calls over 52 contract lines, 2 components].
 check_layering() {
     cd "$HERE/tests/prolog" || return 1
-    swipl -q --on-error=status -g layering_gate -t 'halt(0)' layering.pl
+    bounded swipl -q --on-error=status -g layering_gate -t 'halt(0)' layering.pl
 }
 run GATE layering check_layering
 
@@ -431,7 +431,7 @@ check_translation_determinism() {
         ! -path "$HERE/examples/ch20-extending-the-engine/20-04-modules-and-the-catalog/_fixtures/imports/import_error_broken.metta" -print |
     LC_ALL=C sort |
     while IFS= read -r file; do
-        swipl -q --on-warning=status --on-error=status \
+        bounded swipl -q --on-warning=status --on-error=status \
             translation_determinism.pl -- "$file" || exit 1
     done
 }
@@ -480,6 +480,6 @@ run GATE prolog-determinism check_translation_determinism
 # against, the choicepoint scan and the load-time error scan -- lives in
 # engine/test.sh so a developer running that file gets all of it.
 check_plunit() {
-    sh "$HERE/engine/test.sh"
+    bounded sh "$HERE/engine/test.sh"
 }
 run GATE plunit check_plunit

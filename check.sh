@@ -115,6 +115,30 @@ check_cleanup() {
 }
 trap check_cleanup EXIT
 
+# The bound in the CHILD, for the lanes that cannot take a wrapper.
+#
+# `run()` below wraps a lane whose command word is an external program, and
+# cannot wrap one that names a shell function: `timeout` execs, and a function
+# is not on disk. 25 of the 33 lane functions spawn swipl, node or a Python of
+# their own, so most of what this gate runs would otherwise carry no bound at
+# all -- which is how two swipl children spawned under it spun for 122 CPU-hours
+# between 2026-09-01 and 2026-09-03 after the session that started them was
+# killed.
+#
+# Written as a prefix rather than as a `timeout` spelled out 25 times so the
+# ceiling has ONE definition, and so `tests/checks/check_process_bounds.py` can
+# name the spawn that forgot it.
+bounded() {
+    # --preserve-status, because without it `timeout` answers 124 for a
+# command that was SIGNALLED and the child's own exit status is lost:
+# measured 2026-09-03, a child exiting 42 from its SIGINT handler is
+# reported as 124 by a plain wrapper and as 42 with this flag, and
+# tests/ch10_errors_and_refusals/test_interrupt.py reads that status.
+# Reaping is unaffected: an orphaned wrapper still leaves 0 survivors
+# after its bound.
+    timeout --preserve-status -k 10 "${METTA_CHILD_CEILING:-3600}" "$@"
+}
+
 # run TIER NAME COMMAND...
 # A GATE failure is recorded; a REPORT failure is printed and forgiven.
 run() {
@@ -125,7 +149,38 @@ run() {
     [ "$tier" = REPORT ] && [ "${GATE_ONLY:-}" = 1 ] && return 0
 
     printf '\n=== %s [%s] ===\n' "$name" "$tier"
-    if "$@"; then
+    # The bound belongs in a process that shares the LANE's fate, not this
+    # driver's. A driver-side wait loop stops enforcing the moment the driver
+    # is killed, and sessions here are killed routinely: two swipl children
+    # spawned under this gate survived from 2026-09-01 to 2026-09-03, spinning
+    # at 100% for 122 CPU-hours between them, because the only bound on them
+    # lived in a parent that was gone. test.sh already spells the fix
+    # (`timeout 290 sh run.sh`); this is the same convention, applied to the
+    # lanes rather than only to the examples. GNU timeout runs the lane in its
+    # own process group and signals the GROUP, so it reaches whatever the lane
+    # spawned [measured 2026-09-03: a child that spawns a grandchild leaves no
+    # survivor when the wrapper fires].
+    #
+    # LANE_CEILING is an orphan reaper, not a regression detector. test.sh's
+    # 290 is tight on purpose and catches a cost-class change; an hour is
+    # twelve times the ENTIRE GATE_ONLY run [measured 2026-08-21: 286s], so a
+    # lane can only reach it by hanging.
+    #
+    # 36 of the 106 lanes name a SHELL FUNCTION rather than a command, and
+    # timeout cannot exec one. Those are counted and named at the end of the
+    # run instead of being quietly skipped, because a guard that silently
+    # covers two thirds of what it claims is the defect this repository has
+    # already been bitten by three times.
+    # A lane naming a shell function cannot take a wrapper -- `timeout` execs,
+    # and a function is not on disk -- so its bound sits at the external
+    # command INSIDE the function, written `bounded swipl ...`.
+    # tests/checks/check_process_bounds.py is what says every such spawn has
+    # one, so this branch is a division of labour rather than a gap.
+    case "$(command -v "$1" 2>/dev/null)" in
+        /*) lane_runner="timeout --preserve-status -k 10 ${METTA_LANE_CEILING:-3600}" ;;
+        *)  lane_runner="" ;;
+    esac
+    if $lane_runner "$@"; then
         status=ok
     else
         # A REPORT that exits nonzero has FINDINGS, which is its working state
@@ -142,7 +197,7 @@ run() {
     printf '%s\t%s\t%s\n' "$tier" "$name" "$status" >> "$SUMMARY"
 }
 
-in_py() { ( cd "$PYDIR" && "$@" ); }
+in_py() { ( cd "$PYDIR" && bounded "$@" ); }
 
 # The gate does not BUILD anything any more; it asks each component to build
 # itself, through the same build.sh the repository's own build.sh drives. This
@@ -409,6 +464,19 @@ run GATE conflict-markers-selftest "$PY" "$HERE/tests/checks/check_conflict_mark
 run GATE artifact-paths "$PY" "$HERE/tests/checks/check_artifact_paths.py"
 run GATE artifact-paths-selftest "$PY" "$HERE/tests/checks/check_artifact_paths_selftest.py"
 
+# A bound kept by the caller stops being kept when the caller is killed. Two
+# swipl children spawned under this gate ran from 2026-09-01 to 2026-09-03,
+# spinning at 100% for 122 CPU-hours between them, because
+# `subprocess.run(timeout=)` and this driver's own wait are both enforced in a
+# process that was gone. `run()` above wraps a lane whose command word is a
+# program; the 25 lane functions that start swipl, node or a Python of their
+# own carry `bounded` at that call instead, and this is what says every one of
+# them still does. The selftest plants three unbounded spawns and five shapes
+# that must not be flagged, and seven mutations each disabling one rule were
+# each caught [measured 2026-09-03].
+run GATE process-bounds "$PY" "$HERE/tests/checks/check_process_bounds.py"
+run GATE process-bounds-selftest "$PY" "$HERE/tests/checks/check_process_bounds_selftest.py"
+
 # KERNEL.md is the engine's ledger of which translator head is primitive and
 # which is derived, and it requires every derived form still fused into the
 # compiler to say why. The library had 110 public doors and no such ledger, so
@@ -496,7 +564,7 @@ check_component_python() {
     [ -n "$found" ] || return 0
     # shellcheck disable=SC2086  -- the list is newline-separated paths this
     # tree owns, and word splitting is how they reach ruff as arguments.
-    ( cd "$HERE" && "$PY" -m ruff check $found )
+    ( cd "$HERE" && bounded "$PY" -m ruff check $found )
 }
 run GATE   ruff-drivers check_component_python
 # The site itself renders, which nothing ran before this: three config headers
@@ -542,7 +610,7 @@ check_docs_site() {
             "run 'npm ci --prefix website'; vitepress is not installed"
         return
     fi
-    npm run --prefix "$site" docs:build
+    bounded npm run --prefix "$site" docs:build
 }
 run GATE   docs        check_docs_site
 # Every source path the project ships, and clean, so this gates. It used to
