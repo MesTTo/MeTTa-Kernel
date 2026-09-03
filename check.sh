@@ -61,7 +61,7 @@
 #     commit=350c0d9dbd3c78a4f779d6331e223e939b94c2c8].
 #   - KERNEL.md's counts and both translator-head rosters are runtime-derived,
 #     with independent planted count and omission failures [tested:
-#     tests/checks/check_kernel_ledger_selftest.py; commit=WORKTREE].
+#     tests/checks/check_kernel_ledger_selftest.py; commit=d7a55be4e931732a02f2178013aed47bb9cde474].
 # Open Obligations:
 #   To Do: None
 #   Hacks: None

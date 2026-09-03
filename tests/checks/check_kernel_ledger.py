@@ -15,10 +15,10 @@ Assumes:
 Guarantees:
   - the opening total, special-head count, special-clause count, prelude-rule
     count, implementation source and table headings equal the running engine [tested:
-    tests/checks/check_kernel_ledger_selftest.py; commit=WORKTREE]
+    tests/checks/check_kernel_ledger_selftest.py; commit=d7a55be4e931732a02f2178013aed47bb9cde474]
   - every runtime head has exactly one row in its corresponding table and no
     stale row survives; every special row states a kind and reason [tested:
-    tests/checks/check_kernel_ledger_selftest.py; commit=WORKTREE]
+    tests/checks/check_kernel_ledger_selftest.py; commit=d7a55be4e931732a02f2178013aed47bb9cde474]
 Fails when:
   - the engine cannot boot or its query emits an unrecognised record; neither
     state can turn an unread ledger green.

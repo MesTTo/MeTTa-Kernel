@@ -8,7 +8,7 @@ Assumes: the checked-in KERNEL.md is green against the built engine.
 Guarantees:
   - a planted wrong total and a planted omitted special-head row are each
     reported independently, and unwinding each plant restores a clean result
-    [tested: this file is its own gate; commit=WORKTREE]
+    [tested: this file is its own gate; commit=d7a55be4e931732a02f2178013aed47bb9cde474]
 Fails when: the production checker no longer exposes its text-and-inventory
   comparison or the document changes without satisfying that comparison.
 Open Obligations:
