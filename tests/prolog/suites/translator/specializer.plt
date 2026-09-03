@@ -16,7 +16,7 @@
 %   - substituting a registered nullary application into a specialization
 %     keeps the clone at the generic call's arity and returns the partial value
 %     [tested: specializer:a_specialization_keeps_the_generic_call_arity;
-%     commit=WORKTREE].
+%     commit=1aebfc7b41e7d89893903a3a5f614e5b7c7f8eac].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

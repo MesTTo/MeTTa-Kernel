@@ -15,7 +15,7 @@
 %   A specialized clone keeps the generic call's source arity even when
 %   substitution exposes a partial body, while ordinary equations retain eta
 %   expansion [tested: specializer:a_specialization_keeps_the_generic_call_arity;
-%   commit=WORKTREE].
+%   commit=1aebfc7b41e7d89893903a3a5f614e5b7c7f8eac].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/translator/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 

@@ -43,7 +43,7 @@
 %     arity when substituting a higher-order argument exposes a partial body;
 %     ordinary source equations retain their established eta expansion
 %     [tested: specializer:a_specialization_keeps_the_generic_call_arity;
-%     commit=WORKTREE].
+%     commit=1aebfc7b41e7d89893903a3a5f614e5b7c7f8eac].
 %   - A runtime-type-guarded built-in, or format-args, whose written operands
 %     already contradict its declared parameter types is refused before those
 %     operands run, while accepted and undecided operands retain ordinary

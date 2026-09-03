@@ -44,7 +44,7 @@
 %     when substitution exposes a partial result [tested:
 %     translator_literal_type_checks:a_repeated_parameter_contract_has_a_live_static_proof,
 %     specializer:a_specialization_keeps_the_generic_call_arity;
-%     commit=WORKTREE].
+%     commit=1aebfc7b41e7d89893903a3a5f614e5b7c7f8eac].
 % Guarded by: '$metta_typing_policy' is acquired before '$metta_specializer'
 %   and before the publication transaction, so a specialization cannot retain
 %   a static type proof across a concurrent policy change. '$metta_specializer'
