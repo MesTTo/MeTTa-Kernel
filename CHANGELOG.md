@@ -8,6 +8,24 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A class that defines `__metta__` is asked, even when it inherits from a type
+  the library already knows how to encode. `encode`'s fast table is keyed on the
+  exact class, so a subclass missed it and fell to a `singledispatch` that
+  resolves by MRO: a `str` subclass reached the `str` encoder and its own hook
+  was never consulted. Seven of eight subclass shapes were wrong that way,
+  `IntEnum` encoding as a **repr**, and every `StrEnum` `vocabgen.py` emits was
+  among them, so `llms.txt`'s "each member IS its wire word and encodes as its
+  symbol" was false for every generated vocabulary. `project` had the same
+  inversion from the other side: a registration DERIVED from an Enum, dataclass
+  or NamedTuple's shape is not an author's opt-in, but it was consulted first,
+  so a NamedTuple carrying `__metta__` projected as its constructor expression.
+  Both doors ask the hook now, below an explicit `register_type` and above an
+  inferred default. Values with no hook are untouched, and the hot path is too:
+  the check sits after the exact-class table, and removing the `object`
+  fallback's now-dead second call took an unregistered object from 2,221ns back
+  to 1,428ns. Reported against the published 0.6.0 wheel by a downstream
+  integrator, who saw the `StrEnum` case.
+
 - A process this repository starts now carries a bound that outlives whatever
   started it. `subprocess.run(timeout=)` and a shell driver's own wait are both
   enforced in the parent, so killing the parent leaves the child running with no
