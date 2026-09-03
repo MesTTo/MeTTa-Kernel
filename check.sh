@@ -445,22 +445,38 @@ run GATE   ruff-drivers check_component_python
 # relative links resolve.
 #
 # It does not fetch: a gate that reaches the network fails for a reason that is
-# not the tree, which is the rule the Node lanes already follow, so this says
-# which step is missing and passes without it. What it CANNOT skip is the
-# structure: test_every_site_include_resolves and
+# not the tree, which is the rule the Node lanes already follow. A developer
+# without the site dependencies gets the install instruction and a local skip.
+# GitHub Actions sets CI=true, where this lane is load-bearing, so a missing
+# prerequisite refuses instead of turning an unbuilt site into a green gate.
+# What it CANNOT skip locally is the structure:
+# test_every_site_include_resolves and
 # test_every_site_page_is_reachable_from_the_navigation run in the pytest lane
 # on every machine, node or no node.
+docs_prerequisite_missing() {
+    if [ "${CI:-}" = true ]; then
+        printf 'error: %s; refusing to pass the CI documentation gate without a build\n' \
+            "$1" >&2
+        return 1
+    fi
+    printf 'note: %s; the documentation site will not be built\n' "$1" >&2
+    return 0
+}
+
 check_docs_site() {
     site="$HERE/website"
-    [ -d "$site" ] || return 0
+    if [ ! -d "$site" ]; then
+        docs_prerequisite_missing "website directory not found"
+        return
+    fi
     if ! command -v npm >/dev/null 2>&1; then
-        echo "note: npm not found, the documentation site will not be built" >&2
-        return 0
+        docs_prerequisite_missing "npm not found"
+        return
     fi
     if [ ! -d "$site/node_modules/vitepress" ]; then
-        echo "note: run 'npm ci --prefix website', the documentation site will \
-not be built without vitepress" >&2
-        return 0
+        docs_prerequisite_missing \
+            "run 'npm ci --prefix website'; vitepress is not installed"
+        return
     fi
     npm run --prefix "$site" docs:build
 }
