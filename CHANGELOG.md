@@ -28,6 +28,8 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   root atom list. Bound child spaces, their aliases, and translator rules are
   restored under fresh runtime identities, repeat loads replace the prior
   image, and binary payloads are no longer decoded as UTF-8 during reload.
+  Loading an engine-base image reuses matching live prelude registrations in
+  that same module without claiming or later retiring them.
 
 - Fast-cache restore now admits a program image through the existing bulk
   equation path and reconciles call-graph analysis once. Recursive content no

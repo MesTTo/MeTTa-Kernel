@@ -33,9 +33,9 @@
 %   - translator rules retain the execution module that owns their body,
 %     compile from sibling spaces, and retire before release-time repair can
 %     re-enter a half-cleared home. A recycled module life receives a new
-%     generation and a planted old row is refused [tested:
-%     translator_rule_module_home;
-%     commit=a5c34eb71ea5b078c55023ed988dd20b2c675323].
+%     generation and a planted old row is refused. Fast restore reuses an
+%     identical live rule only in the same module, without taking ownership
+%     of it [tested: translator_rule_module_home; commit=WORKTREE].
 %   - bulk and single-atom ingestion apply the same definition-local type mask
 %     while an equation is arriving [tested:
 %     translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask;
@@ -3107,6 +3107,25 @@ test(a_recycled_rule_home_rejects_its_past_generation,
     assertion(Error = error(
         metta_stale_translator_rule('plunit-tr-stale-pick', SecondHome,
                                     FirstGeneration, SecondGeneration), _)).
+
+test(a_fast_restore_reuses_a_matching_live_rule_in_the_same_module) :-
+    metta_self_module(SelfModule),
+    once(( translator_rule_snapshot([0-'&self'], Rules, _),
+           member(rule('and-then', Declarations, 0, Override), Rules) )),
+    restore_translator_rule_snapshot(
+        [rule('and-then', Declarations, 0, Override)],
+        [0-'&self'], Installed),
+    assertion(Installed == []),
+    assertion(once(translator_rule_current(
+        'and-then', Declarations, SelfModule))).
+
+test(a_fast_restore_still_refuses_a_different_live_rule_declaration) :-
+    catch(restore_translator_rule_snapshot(
+              [rule('and-then', [cost(17)], 0, none)],
+              [0-'&self'], _),
+          Error, true),
+    assertion(Error = error(
+        metta_fast_translator_rule_conflict('and-then', _, _), _)).
 
 :- end_tests(translator_rule_module_home).
 

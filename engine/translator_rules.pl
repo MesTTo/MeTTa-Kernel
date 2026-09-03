@@ -69,9 +69,13 @@
 %     commit=9330b5d7ebf607e34a85be950bb226fce65f45c0].
 %   - fast-cache images persist current rules by snapshot-local space identity
 %     and restore registry state before compiling their stored equations, so
-%     a restored call site has the same translator meaning [tested:
-%     test_fast_cache_restores_translator_rules_and_bound_spaces;
-%     commit=d2279ea320e54790dab4484421a168e93755b185].
+%     a restored call site has the same translator meaning. A matching current
+%     row in the same module is reused rather than claimed by the cache; this
+%     lets an engine-base image depend on the live prelude without either
+%     replacing or later retiring it [tested:
+%     test_fast_cache_restores_translator_rules_and_bound_spaces,
+%     a_fast_restore_reuses_a_matching_live_rule_in_the_same_module;
+%     commit=WORKTREE].
 % Decides:
 %   - a rule read both ways is applied only in the direction that strictly
 %     lowers the form's cost, and cost defaults to the node count. Nothing
@@ -293,27 +297,55 @@ preflight_restored_translator_rule(Name, Declarations, HomeId, Override,
     (   Override == none
     ;   Override = override(_)
     ),
-    (   translator_rule(Name, Existing, ExistingHome)
-    ->  throw(error(metta_fast_translator_rule_conflict(
-                        Name, Existing, ExistingHome),
-                    context(restore_translator_rule_snapshot/3,
-                            'the cache cannot replace a live translator \c
-                             rule owned outside this source load')))
-    ;   true
-    ).
+    restored_translator_rule_disposition(
+        Name, Declarations, Home, Override, _).
+
+%A cache loaded into the module it was captured from can meet a standing rule
+%with the exact state it requires. The engine base does so for every shipped
+%prelude rule: those rows are process machinery rather than resources this
+%cache may retire. Reusing one is the idempotent half of
+%register_translator_rule/2, narrowed by home module and live generation so a
+%same-named rule elsewhere or a stale occupant is still a conflict.
+restored_translator_rule_disposition(Name, Declarations, Home, Override,
+                                     reuse) :-
+    translator_rule(Name, Existing, Home),
+    translator_rule_life_status(Name, Home, current),
+    Existing =@= Declarations,
+    translator_rule_override_snapshot(Name, ExistingOverride),
+    ExistingOverride =@= Override,
+    !.
+restored_translator_rule_disposition(Name, _, _, _, install) :-
+    \+ translator_rule(Name, _, _),
+    !.
+restored_translator_rule_disposition(Name, _, _, _, _) :-
+    translator_rule(Name, Existing, ExistingHome),
+    throw(error(metta_fast_translator_rule_conflict(
+                    Name, Existing, ExistingHome),
+                context(restore_translator_rule_snapshot/3,
+                        'the cache cannot replace a live translator rule \c
+                         owned outside this source load'))).
 
 restore_translator_rule_rows([], _, []).
 restore_translator_rule_rows(
         [rule(Name, Declarations, HomeId, Override)|Rows], NodeSpaces,
-        [restored_rule(Name, Home, Generation)|Installed]) :-
+        Installed) :-
     memberchk(HomeId-Space, NodeSpaces),
     space_module(Space, Home),
+    restored_translator_rule_disposition(
+        Name, Declarations, Home, Override, Disposition),
+    restore_translator_rule_row(
+        Disposition, Name, Declarations, Home, Override, Installed, Rest),
+    restore_translator_rule_rows(Rows, NodeSpaces, Rest).
+
+restore_translator_rule_row(reuse, _, _, _, _, Installed, Installed).
+restore_translator_rule_row(
+        install, Name, Declarations, Home, Override,
+        [restored_rule(Name, Home, Generation)|Installed], Installed) :-
     metta_exec_module_generation(Home, Generation),
     assertz(translator_rule_generation(Name, Home, Generation)),
     assertz(translator_rule(Name, Declarations, Home)),
     restore_translator_rule_override(Name, Override),
-    restore_translator_rule_cost(Name, Declarations),
-    restore_translator_rule_rows(Rows, NodeSpaces, Installed).
+    restore_translator_rule_cost(Name, Declarations).
 
 restore_translator_rule_override(_, none) :- !.
 restore_translator_rule_override(Name, override(Kind)) :-
