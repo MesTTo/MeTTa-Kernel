@@ -6,6 +6,17 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The `ledger`, `aio-mirror` and `reference` gates are green again. Each had
+  been failing on a different commit: `6229e43c` removed the `self.clear()`
+  call from `Space.drop` without removing the shrink-ledger row that reaching a
+  public method is what earns, `418bed01` moved `Space` without regenerating
+  `aio.py`'s mirror, and `d2279ea3` changed docstrings the reference pages
+  reproduce. Regenerating them is ordered: `aiogen.py --write` rewrites
+  `aio.py`, whose docstrings `reference.py` then reproduces, so the mirror goes
+  first and a single pass over the printed remedies does not converge.
+
 ### Changed
 
 - `llms.txt` now names the 64 engine heads the example corpus exercises that it

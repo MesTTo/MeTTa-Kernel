@@ -10,8 +10,8 @@ maintained by hand.
 
 | class | count | what it means |
 |---|---|---|
-| primitive | 23 | speaks to the engine; nothing on this surface expresses it |
-| derived | 16 | its body reaches another PUBLIC method, so it is macro-expressible by one |
+| primitive | 24 | speaks to the engine; nothing on this surface expresses it |
+| derived | 15 | its body reaches another PUBLIC method, so it is macro-expressible by one |
 | shared | 26 | reaches a private helper: an implementation already collapsed, which is a shrink's outcome rather than its target |
 | facade | 39 | delegates to a satellite module; the layering, not a duplication |
 | property | 9 | no body to class |
@@ -29,7 +29,6 @@ method with no answer.
 | `add_tagged_rule` | `add` | the same for a rule, whose atom the algebra generates from a head and its premises rather than from a literal |
 | `copy` | `atoms` | one act for enumerate-and-store, and the space it answers is a new one rather than this handle rebound |
 | `doc` | `eval` | the structured `(@doc ...)` answer decoded into its parts, where `eval` of `get-doc` answers the raw term |
-| `drop` | `clear` | the LIFETIME, which `clear` is only one step of: it releases an anonymous name back to the pool, cancels the space's subscriptions so a reused name cannot deliver to the old life's watchers, and unregisters a foreign provider |
 | `eval` | `answers` | the EAGER path. It delegates to `answers` only for the carrier, the theory and the interpreter, and the split is measured rather than assumed: routing it through the cursor unconditionally left a memoized definition's call keys unrecorded, 13 entries on the eager path against 0 through the cursor |
 | `ne` | `eq` | the negated relation as one term, `(not (== a b))`, so a caller spells the relation rather than its expansion |
 | `pre_add` | `define` | a HOOK rather than an equation: the definition it installs runs on the write path, which is a different moment from a call |
