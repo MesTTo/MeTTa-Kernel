@@ -153,6 +153,7 @@
             % engine's own predicates, reached under the subsystem that
             % defines them.
             host_add_hooks_idle/2,
+            atom_hook_ref_idle/2,
             host_transport_failure/1,
             host_error_reason/2,
             host_import/1,
@@ -700,6 +701,24 @@ kind(control_exception/1, declaration).
 %declared here because every seam is.
 :- multifile host_add_hooks_idle/2.
 kind(host_add_hooks_idle/2, ownership).
+
+%Whether ONE added-atom hook is idle for ONE space, answered by whoever
+%installed that hook. The census seam above asks a host about the whole
+%reference list at once, which works while every hook belongs to a host and
+%breaks the moment the ENGINE installs one of its own: the bridge hook is a
+%single clause with an unbound Space, because any space might carry a
+%reaction, so its head cannot say which spaces it watches and no host can
+%speak for it either. The census then had two references where the host
+%clause matches one, answered "not idle" for EVERY space, and the batched
+%program-atom door fell back to the per-atom one -- 30,274 inferences to
+%4,496,299 for a forty-equation fast-cache restore, 149x, from one reaction
+%on an unrelated space [measured 2026-09-04].
+%
+%A hook that knows its own table answers from it. Refs nobody claims idle
+%are what the host census is asked about, so the existing clause keeps
+%matching the list it was written for.
+:- multifile atom_hook_ref_idle/2.
+kind(atom_hook_ref_idle/2, ownership).
 
 %Whether an error term is a host's transport dying, and how a host's own
 %error renders as a MeTTa (Error ...) reason. Both are the host's to answer

@@ -2261,11 +2261,33 @@ metta_install_bridges :-
     ->  true
     ;   assertz(metta_bridges_installed),
         assertz(( seam:atom_added(Space, Term) :-
-                      metta_bridge_fire(Space, Term) )),
+                      metta_bridge_fire(Space, Term) ), Ref),
+        assertz(metta_bridge_hook_ref(Ref)),
         seam:enable_atom_hook(added)
     ).
 
 :- dynamic metta_bridges_installed/0.
+:- dynamic metta_bridge_hook_ref/1.
+
+%This hook watches every space by construction: ONE clause with an unbound
+%Space, because any space might carry a reaction. So its head cannot say
+%which spaces it is idle for, and no host can answer for it either -- it is
+%the engine's own. Its TABLE can say, and that is what this answers.
+%
+%Without it, installing a single reaction anywhere made the added-atom
+%census two references where the host's clause matches one, so
+%metta_add_hooks_idle/1 said "not idle" for EVERY space and the batched
+%program-atom door fell back to the per-atom one. A forty-equation
+%fast-cache restore went 30,274 inferences to 4,496,299, 149x, from one
+%reaction on a space it never touched, and three reactions cost the same
+%151x, which is the tell that it was a switch rather than a per-reaction
+%charge [measured 2026-09-04;
+%tested: test_fast_restore_batches_content_dependent_program_analysis, which
+%fails at 4,430,741 against its 100,000 budget when this clause is removed].
+:- multifile seam:atom_hook_ref_idle/2.
+seam:atom_hook_ref_idle(Space, Ref) :-
+    metta_bridge_hook_ref(Ref),
+    \+ metta_reaction(Space, _, _, _).
 
 %%%% The agenda: which reaction fires first (P12.17) %%%%
 %

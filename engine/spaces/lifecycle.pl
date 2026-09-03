@@ -1792,7 +1792,28 @@ metta_add_hooks_idle(_) :-
     \+ seam:atom_hook_clause(added, _), !.
 metta_add_hooks_idle(Space) :-
     findall(Ref, seam:atom_hook_clause(added, Ref), Refs),
-    seam:host_add_hooks_idle(Space, Refs).
+    metta_hooks_watching(Space, Refs, Watching),
+    (   Watching == []
+    ->  true
+    ;   seam:host_add_hooks_idle(Space, Watching)
+    ).
+
+%The census minus every reference whose OWNER says it is idle for this
+%space. The host census seam asks one question about the whole list, which
+%holds while every hook belongs to a host and breaks when the engine
+%installs one of its own: the bridge hook is a single clause with an unbound
+%Space, so its head cannot say which spaces it watches and the host cannot
+%speak for it. Two references then reached a host clause written for one,
+%the answer was "not idle" for EVERY space, and the batched program-atom
+%door fell back to the per-atom one at 149x on a fast-cache restore
+%[measured 2026-09-04]. Filtering first leaves the host exactly the
+%references it installed, so its clause keeps matching the shape it was
+%written for.
+metta_hooks_watching(Space, Refs, Watching) :-
+    exclude(metta_hook_ref_idle(Space), Refs, Watching).
+
+metta_hook_ref_idle(Space, Ref) :-
+    seam:atom_hook_ref_idle(Space, Ref).
 
 %The removal mirror, asked by the bulk clear below: nothing is listening
 %when no removed-atom handler exists at all, or when a host claims the
@@ -1801,7 +1822,11 @@ metta_remove_hooks_idle(_) :-
     \+ seam:atom_hook_clause(removed, _), !.
 metta_remove_hooks_idle(Space) :-
     findall(Ref, seam:atom_hook_clause(removed, Ref), Refs),
-    seam:host_remove_hooks_idle(Space, Refs).
+    metta_hooks_watching(Space, Refs, Watching),
+    (   Watching == []
+    ->  true
+    ;   seam:host_remove_hooks_idle(Space, Watching)
+    ).
 
 %Clear a space, whoever holds it: a Prolog foreign provider clears through
 %its own seam (or refuses, loudly, when it cannot); a native space

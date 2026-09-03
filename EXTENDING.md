@@ -2233,6 +2233,31 @@ seam:host_add_hooks_idle(Space, [OnlyRef]) :- my_bridge_clause(OnlyRef),
 With no host loaded the seams have no clause and the engine's own no-handlers
 test has already answered, so nothing is paid for the question.
 
+That census question works while every handler belongs to a host. It stops
+working the moment one does not: the engine's own reaction bridge is a single
+`seam:atom_added/2` clause with an unbound `Space`, because any space might
+carry a reaction, so its head cannot say which spaces it watches and no host
+can answer for it either. The census then held two references where a host
+clause matches one, the answer was "not idle" for every space, and the batched
+program-atom door fell back to the per-atom one: a forty-equation fast-cache
+restore went from 30,274 inferences to 4,496,299, 149x, because of one reaction
+on a space it never touched.
+
+`seam:atom_hook_ref_idle/2` is the per-reference half. Whoever installed a hook
+answers whether that ONE reference is idle for one space, from whatever table
+it keeps, and the engine subtracts every reference so claimed before asking the
+host census about the rest. A host that installed one bridging clause is still
+asked the question it was written for.
+
+```prolog
+:- multifile seam:atom_hook_ref_idle/2.
+seam:atom_hook_ref_idle(Space, Ref) :- my_bridge_clause(Ref),
+                                       \+ my_reaction(Space, _).
+```
+
+Answer only for references you installed. A clause that claims someone else's
+reference idle turns their handler off.
+
 ### The one way to get a handler wrong
 
 Write your guard as `( Condition -> Action ; true )`, not `Condition, !`:

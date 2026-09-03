@@ -8,6 +8,23 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Declaring one reaction no longer makes every space's bulk atom load 149x
+  more expensive. The batched program-atom door steps aside for the per-atom one
+  when hooks are live, which its own comment prices at 61.39us an atom against
+  2.25us, and the question it asks handed the whole added-atom census to
+  `seam:host_add_hooks_idle/2`, whose shim clause matches a SINGLETON reference
+  list. The first reaction installs a second `seam:atom_added/2` clause, so the
+  census became two references, the clause stopped unifying, and the answer was
+  "not idle" for every space -- a forty-equation fast-cache restore went from
+  30,274 inferences to 4,496,299 because of one reaction on a space it never
+  touched. The bridge hook cannot be filtered by its head, since it is one
+  clause with an unbound `Space`, and no host can answer for it because it is
+  the engine's own. `seam:atom_hook_ref_idle/2` is the per-reference half:
+  whoever installed a hook says whether that one reference is idle for one
+  space, and the engine subtracts those before asking the host census about the
+  rest, so a host's clause keeps matching the shape it was written for. Back to
+  1.02x, with the reaction still firing.
+
 - A trace that reaches its bound answers the prefix and says so, instead of
   raising and discarding it. `max_events` is a COUNT and an event costs the size
   of its term, which nothing bounds, so a trace that refused had already paid
