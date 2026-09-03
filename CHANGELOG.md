@@ -32,7 +32,10 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   `aio.py`'s mirror, and `d2279ea3` changed docstrings the reference pages
   reproduce. Regenerating them is ordered: `aiogen.py --write` rewrites
   `aio.py`, whose docstrings `reference.py` then reproduces, so the mirror goes
-  first and a single pass over the printed remedies does not converge.
+  first and a single pass over the printed remedies does not converge. The
+  `generated-artifacts` target now selects all three in remedy order, and a
+  structural selftest rejects drift between the alias, source order and
+  development guide.
 
 ### Changed
 

@@ -47,6 +47,17 @@ Pass check names to run a subset, for example:
 CHECK_PY="$PY" sh check.sh ruff mypy ty
 ```
 
+Run the three Python generated-artifact checks as one target:
+
+```sh
+CHECK_PY="$PY" sh check.sh generated-artifacts
+```
+
+The target runs `ledger`, `aio-mirror`, then `reference`. The ledger is
+independent, while `aio-mirror` must precede `reference`: `aiogen.py --write`
+rewrites `aio.py`, and `reference.py --write` then publishes that file's
+docstrings. Keeping the checks in remedy order makes one repair pass converge.
+
 The `ciao-grade` gate applies external `pred` assertions to the live engine's
 removal and translation funnels, runs them with the packaged runtime checker,
 and requires a valid smoke to produce zero `assrchk/1` findings. Install its

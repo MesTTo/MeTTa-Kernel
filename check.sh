@@ -27,6 +27,7 @@
 #                                            scaling
 #                                            memory-scale memory-scale-gate
 #                                            shell examples layering
+#                                            generated-artifacts
 #          CHECK_PY=/path/to/python   pick the interpreter
 #          GATE_ONLY=1                skip the REPORT tier
 # Guarantees:
@@ -62,6 +63,9 @@
 #   - KERNEL.md's counts and both translator-head rosters are runtime-derived,
 #     with independent planted count and omission failures [tested:
 #     tests/checks/check_kernel_ledger_selftest.py; commit=d7a55be4e931732a02f2178013aed47bb9cde474].
+#   - generated-artifacts selects ledger, aio-mirror and reference in the order
+#     their remedies converge [tested: tests/checks/check_generated_artifact_group.py;
+#     commit=WORKTREE].
 # Open Obligations:
 #   To Do: None
 #   Hacks: None
@@ -84,7 +88,13 @@ METTA_ROOT="$HERE"
 [ -n "$PY" ] || { echo "check.sh: no python found (set CHECK_PY)" >&2; exit 2; }
 
 PYDIR="$HERE/extensions/python"
+# ledger is independent; aio-mirror must precede reference because aiogen.py
+# rewrites aio.py and reference.py publishes that file's docstrings.
+GENERATED_ARTIFACT_LANES="ledger aio-mirror reference"
 WANT="$*"
+case " $WANT " in
+    *" generated-artifacts "*) WANT="$WANT $GENERATED_ARTIFACT_LANES" ;;
+esac
 FAILED=''
 SUMMARY=$(mktemp "${TMPDIR:-/tmp}/metta-check.XXXXXX")
 MEMORY_SCALE_DATA=$(mktemp "${TMPDIR:-/tmp}/metta-memory-scale.XXXXXX")
@@ -363,14 +373,6 @@ run GATE evidence-selftest "$PY" "$HERE/tests/checks/check_evidence_selftest.py"
 # it can tell a pin from the code that writes one.
 run GATE provenance-pin-selftest "$PY" "$HERE/tests/checks/check_pin_provenance_selftest.py"
 
-# Every website/reference/metta-*.md page says "The entries below reproduce the
-# source signatures and docstrings", and across nineteen pages that promise was
-# false in 20 places by omission and 47 by a signature that had moved on: a
-# reader checking MeTTa.run against the reference read a shape it had not had
-# for some time. They are generated now, so the promise holds by construction
-# and this asks only whether what is checked in is what the source says.
-run GATE reference  "$PY" "$HERE/extensions/python/tools/reference.py"
-
 # KERNEL.md is the engine's ledger of which translator head is primitive and
 # which is derived, and it requires every derived form still fused into the
 # compiler to say why. The library had 110 public doors and no such ledger, so
@@ -388,6 +390,19 @@ run GATE ledger     "$PY" "$HERE/extensions/python/tools/ledger.py"
 # they claimed to reproduce, two of them refusing at runtime what the sync door
 # accepts [measured 2026-08-31].
 run GATE aio-mirror "$PY" "$HERE/extensions/python/tools/aiogen.py"
+
+# Every website/reference/metta-*.md page says "The entries below reproduce the
+# source signatures and docstrings", and across nineteen pages that promise was
+# false in 20 places by omission and 47 by a signature that had moved on: a
+# reader checking MeTTa.run against the reference read a shape it had not had
+# for some time. They are generated now, so the promise holds by construction
+# and this asks only whether what is checked in is what the source says.
+# Keep it after aio-mirror: reference.py reads aio.py. The adjacent
+# generated-artifacts contract lane makes the dependency executable.
+run GATE reference  "$PY" "$HERE/extensions/python/tools/reference.py"
+
+run GATE generated-artifacts-selftest \
+    "$PY" "$HERE/tests/checks/check_generated_artifact_group.py"
 
 # The MeTTa half of the same promise: metta-libraries.md reproduces each
 # library's own (@doc ...) atoms, and its coverage table is the burn-down
