@@ -1,8 +1,8 @@
 {
  "//": {
   "our_boot": 1076388987,
-  "translator_rule_home_repin": "RE-PINNED 2026-09-03 while closing module-owned translator rules. Clean 12771f41 already exceeds the frozen inference pins on specializefunctiontypes, recursive_types2, types_dependent, types_nondet, nilbc, plntest and plntestdirect; the changed tree adds only its deterministic delta to those standing drifts. forall is the one newly displaced row because it compiles the prelude translator-rule path. Retired-instruction comparison and answer parity remain governed by their existing fields. [measured: full parity/performance lane on clean 12771f41 and the changed tree; command=$CHECK_PY tests/checks/check_upstream_parity.py; fixture=warm main-checkout engine artifacts; commit=d1318d20b5d89d33079c49d0e94aa29e12685664]",
   "status": "meta",
+  "translator_rule_home_repin": "RE-PINNED 2026-09-03 while closing module-owned translator rules. Clean 12771f41 already exceeds the frozen inference pins on specializefunctiontypes, recursive_types2, types_dependent, types_nondet, nilbc, plntest and plntestdirect; the changed tree adds only its deterministic delta to those standing drifts. forall is the one newly displaced row because it compiles the prelude translator-rule path. Retired-instruction comparison and answer parity remain governed by their existing fields. [measured: full parity/performance lane on clean 12771f41 and the changed tree; command=$CHECK_PY tests/checks/check_upstream_parity.py; fixture=warm main-checkout engine artifacts; commit=d1318d20b5d89d33079c49d0e94aa29e12685664]",
   "upstream_boot": 252384222
  },
  "examples/ch01-getting-started/01-hello.metta": {
@@ -492,7 +492,7 @@
   "upstream_instructions": 12555255
  },
  "examples/ch07-control-flow/07-04-bounded-and-committed-searches/05-foldall.metta": {
-  "our_inferences": 20092,
+  "our_inferences": 20761,
   "our_instructions": 17645601,
   "status": "measured",
   "upstream_instructions": 30073853
@@ -573,7 +573,7 @@
   "upstream_instructions": 25079936
  },
  "examples/ch08-data/08-01-atoms-lists-and-folds/05-lambda.metta": {
-  "our_inferences": 16017,
+  "our_inferences": 16578,
   "our_instructions": 15619038,
   "status": "measured",
   "upstream_instructions": 24012766

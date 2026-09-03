@@ -1792,25 +1792,53 @@ metta_add_hooks_idle(_) :-
     \+ seam:atom_hook_clause(added, _), !.
 metta_add_hooks_idle(Space) :-
     findall(Ref, seam:atom_hook_clause(added, Ref), Refs),
-    metta_hooks_watching(Space, Refs, Watching),
-    (   Watching == []
+    (   seam:host_add_hooks_idle(Space, Refs)
     ->  true
-    ;   seam:host_add_hooks_idle(Space, Watching)
+    ;   metta_filtered_census_idle(added, Space, Refs)
     ).
 
-%The census minus every reference whose OWNER says it is idle for this
-%space. The host census seam asks one question about the whole list, which
-%holds while every hook belongs to a host and breaks when the engine
-%installs one of its own: the bridge hook is a single clause with an unbound
-%Space, so its head cannot say which spaces it watches and the host cannot
-%speak for it. Two references then reached a host clause written for one,
-%the answer was "not idle" for EVERY space, and the batched program-atom
-%door fell back to the per-atom one at 149x on a fast-cache restore
-%[measured 2026-09-04]. Filtering first leaves the host exactly the
-%references it installed, so its clause keeps matching the shape it was
-%written for.
-metta_hooks_watching(Space, Refs, Watching) :-
-    exclude(metta_hook_ref_idle(Space), Refs, Watching).
+%The host census is asked FIRST, INLINE, so the path that was already
+%answering runs the same two goals it ran before this existed -- the findall
+%and the host call, with no wrapper between them. Only its refusal reaches
+%here. Routing both through one dispatcher instead read +665 inferences on
+%ch07/07-04/05-foldall.metta and +557 on ch08/08-01/05-lambda.metta against
+%their frozen parity numbers, on trees with no reaction at all
+%[measured 2026-09-04]: two extra calls per bulk load, charged to everyone to
+%serve the case that needs them.
+%
+%That order is the whole design. The census seam asks one question about the
+%whole reference list, which holds while every hook belongs to a host and
+%breaks when the engine installs one of its own: the reaction bridge is a
+%single clause with an unbound Space, because any space might carry a
+%reaction, so its head cannot say which spaces it watches and no host can
+%speak for it. Two references then reached a host clause written for one, the
+%answer was "not idle" for EVERY space, and the batched program-atom door fell
+%back to the per-atom one -- 30,274 inferences to 4,496,299 on a
+%forty-equation fast-cache restore, 149x, from one reaction on an unrelated
+%space [measured 2026-09-04].
+%
+%Filtering FIRST fixed that and charged everyone else for it: an exclude/3
+%over the census on every bulk load cost +665 inferences on
+%ch07/07-04/05-foldall.metta and +557 on ch08/08-01/05-lambda.metta against
+%their frozen parity numbers, on trees with no reaction at all
+%[measured 2026-09-04]. Asking the host first costs nothing when the host can
+%answer, and the filter runs only where the alternative was the per-atom door.
+%
+%Watching \== Refs is what stops a second identical question: if nothing
+%claimed a reference idle, the filtered list IS the census and the host has
+%already refused it.
+metta_filtered_census_idle(Kind, Space, Refs) :-
+    exclude(metta_hook_ref_idle(Space), Refs, Watching),
+    Watching \== Refs,
+    (   Watching == []
+    ->  true
+    ;   metta_host_census_idle(Kind, Space, Watching)
+    ).
+
+metta_host_census_idle(added, Space, Refs) :-
+    seam:host_add_hooks_idle(Space, Refs).
+metta_host_census_idle(removed, Space, Refs) :-
+    seam:host_remove_hooks_idle(Space, Refs).
 
 metta_hook_ref_idle(Space, Ref) :-
     seam:atom_hook_ref_idle(Space, Ref).
@@ -1822,10 +1850,9 @@ metta_remove_hooks_idle(_) :-
     \+ seam:atom_hook_clause(removed, _), !.
 metta_remove_hooks_idle(Space) :-
     findall(Ref, seam:atom_hook_clause(removed, Ref), Refs),
-    metta_hooks_watching(Space, Refs, Watching),
-    (   Watching == []
+    (   seam:host_remove_hooks_idle(Space, Refs)
     ->  true
-    ;   seam:host_remove_hooks_idle(Space, Watching)
+    ;   metta_filtered_census_idle(removed, Space, Refs)
     ).
 
 %Clear a space, whoever holds it: a Prolog foreign provider clears through
