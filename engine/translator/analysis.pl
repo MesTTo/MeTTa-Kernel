@@ -12,6 +12,10 @@
 %   translator_literal_type_checks:a_repeated_parameter_contract_has_a_live_static_proof,
 %   translator_literal_type_checks:an_untracked_clause_retains_static_and_intrinsic_contracts;
 %   commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
+%   A specialized clone keeps the generic call's source arity even when
+%   substitution exposes a partial body, while ordinary equations retain eta
+%   expansion [tested: specializer:a_specialization_keeps_the_generic_call_arity;
+%   commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/translator/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -821,7 +825,7 @@ translate_clause(Input, Clause) :-
 translate_clause(Input, Clause, ConstrainArgs) :-
     with_static_contract_shortcuts(
         disabled,
-        translate_clause_impl(Input, Clause, ConstrainArgs)).
+        translate_clause_impl(Input, Clause, ConstrainArgs, eta_expand)).
 
 %% translate_tracked_clause(+Equation, -Clause) is semidet.
 translate_tracked_clause(Input, Clause) :-
@@ -831,7 +835,25 @@ translate_tracked_clause(Input, Clause) :-
 translate_tracked_clause(Input, Clause, ConstrainArgs) :-
     with_static_contract_shortcuts(
         enabled,
-        translate_clause_impl(Input, Clause, ConstrainArgs)).
+        translate_clause_impl(Input, Clause, ConstrainArgs, eta_expand)).
+
+%% translate_specialized_clause(+Equation, -Clause, +ConstrainArgs:boolean) is semidet.
+%
+% A specialization clones an existing callable and its call site has already
+% fixed that callable's arity. Constant substitution may turn the cloned body
+% into a partial application, but that is the clone's RESULT, not permission
+% to widen its ABI. Ordinary source equations still use eta_expand above.
+translate_specialized_clause(Input, Clause, ConstrainArgs) :-
+    with_static_contract_shortcuts(
+        enabled,
+        translate_clause_impl(Input, Clause, ConstrainArgs,
+                              preserve_source_arity)),
+    specialized_clause_arity(Input, Clause).
+
+specialized_clause_arity([=, [_|SourceArgs], _], (Head :- _)) :-
+    length(SourceArgs, InputArity),
+    ExpectedArity is InputArity + 1,
+    functor(Head, _, ExpectedArity).
 
 :- meta_predicate with_static_contract_shortcuts(+, 0).
 with_static_contract_shortcuts(Mode, Goal) :-
@@ -849,7 +871,7 @@ restore_static_contract_shortcuts(previous(Previous)) :-
 restore_static_contract_shortcuts(absent) :-
     nb_delete('$metta_static_contract_shortcuts').
 
-translate_clause_impl(Input, (Head :- BodyConj), ConstrainArgs) :-
+translate_clause_impl(Input, (Head :- BodyConj), ConstrainArgs, _) :-
     Input = [=, [F|Args0], BodyExpr],
     metta_seq_present(Args0),
     !,
@@ -879,7 +901,7 @@ translate_clause_impl(Input, (Head :- BodyConj), ConstrainArgs) :-
     ->  quantify_negations(Head, BodyConj)
     ;   true
     ).
-translate_clause_impl(Input, (Head :- BodyConj), ConstrainArgs) :-
+translate_clause_impl(Input, (Head :- BodyConj), ConstrainArgs, ArityPolicy) :-
                                                Input = [=, [F|Args0], BodyExpr],
                                                translate_equation_head(F, Args0, ConstrainArgs,
                                                                        Args1, GoalsPrefix),
@@ -891,7 +913,9 @@ translate_clause_impl(Input, (Head :- BodyConj), ConstrainArgs) :-
                                                    translate_equation_body_result(
                                                        F, BodyExpr, GoalsBody,
                                                        ExpOut)),
-                                               (  nonvar(ExpOut) , ExpOut = partial(Base,Bound)
+                                               (  ArityPolicy == eta_expand,
+                                                  nonvar(ExpOut),
+                                                  ExpOut = partial(Base,Bound)
                                                -> length(Bound, N),
                                                   MinimumArity is N + 1,
                                                   metta_ensure_compiled(Base),

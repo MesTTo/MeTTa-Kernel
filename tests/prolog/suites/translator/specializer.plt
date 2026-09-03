@@ -13,6 +13,10 @@
 %     argument's size prices only the graft
 %     [tested: specializer:the_argument_walk_makes_no_metacall_per_position;
 %     commit=7e7cac85fee08c117032b2efa5a58a40f3b21365].
+%   - substituting a registered nullary application into a specialization
+%     keeps the clone at the generic call's arity and returns the partial value
+%     [tested: specializer:a_specialization_keeps_the_generic_call_arity;
+%     commit=WORKTREE].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -137,6 +141,27 @@ test(global_key_covers_every_specialized_argument_position,
          sub_term(Reduce, Body),
          compound(Reduce),
          functor(Reduce, reduce, 2) ).
+
+test(a_specialization_keeps_the_generic_call_arity,
+     [ setup(( set_specializer_test_mode,
+               process_metta_string(
+                   "(: plunit-wrap-one (-> %Undefined% %Undefined%))\n\
+(= (plunit-wrap-one $x) ($x))", _) )),
+       cleanup(( metta_remove_atom(
+                     '&self',
+                     [':', 'plunit-wrap-one',
+                      [->, '%Undefined%', '%Undefined%']], _),
+                 cleanup_specializer_symbols(['plunit-wrap-one']) )) ]) :-
+    process_metta_string("!(plunit-wrap-one plain)", [[plain]]),
+    process_metta_string("!(plunit-wrap-one sleep)", [Partial]),
+    assertion(Partial == partial(sleep, [])),
+    metta_self_module(Module),
+    ho_specialization(Module, 'plunit-wrap-one', SpecName),
+    functor(Runnable, SpecName, 2),
+    aggregate_all(count, clause(Module:Runnable, _), Clauses),
+    assertion(Clauses == 1),
+    functor(Widened, SpecName, 3),
+    assertion(\+ clause(Module:Widened, _)).
 
 setup_recursive :-
     set_specializer_test_mode,

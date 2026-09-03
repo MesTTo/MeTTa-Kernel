@@ -39,6 +39,11 @@
 %     [tested:
 %     translator_literal_type_checks:an_untracked_clause_retains_static_and_intrinsic_contracts;
 %     commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
+%   - translate_specialized_clause/3 preserves the source function's call
+%     arity when substituting a higher-order argument exposes a partial body;
+%     ordinary source equations retain their established eta expansion
+%     [tested: specializer:a_specialization_keeps_the_generic_call_arity;
+%     commit=WORKTREE].
 %   - A runtime-type-guarded built-in, or format-args, whose written operands
 %     already contradict its declared parameter types is refused before those
 %     operands run, while accepted and undecided operands retain ordinary
@@ -248,6 +253,7 @@
             translate_clause/3,
             translate_tracked_clause/2,
             translate_tracked_clause/3,
+            translate_specialized_clause/3,
             without_runnable_name_context/1,
             translate_expr/3,
             translate_cached_expr/3,

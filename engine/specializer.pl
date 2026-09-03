@@ -39,11 +39,12 @@
 %     against the 17.0 the yall lambda it replaced cost; command=cd
 %     tests/prolog && swipl -g "set_test_options([format(log)]), run_tests"
 %     -t halt specializer.plt; commit=7e7cac85fee08c117032b2efa5a58a40f3b21365].
-%   - A generated specialization uses translate_tracked_clause/3 because its
-%     source and dependencies are published in the support graph immediately
-%     afterward [tested:
-%     translator_literal_type_checks:a_repeated_parameter_contract_has_a_live_static_proof;
-%     commit=c00341f0ff9d83d1b9338ca86ad51708eaf07ebd].
+%   - A generated specialization uses translate_specialized_clause/3, retaining
+%     tracked contract shortcuts while preserving the generic call's arity
+%     when substitution exposes a partial result [tested:
+%     translator_literal_type_checks:a_repeated_parameter_contract_has_a_live_static_proof,
+%     specializer:a_specialization_keeps_the_generic_call_arity;
+%     commit=WORKTREE].
 % Guarded by: '$metta_typing_policy' is acquired before '$metta_specializer'
 %   and before the publication transaction, so a specialization cannot retain
 %   a static type proof across a concurrent policy change. '$metta_specializer'
@@ -441,7 +442,7 @@ specialize_call_locked(HV, CleanBindSet, MetaList, HasDirectBenefit,
                                       _SourceMeta,StoredMeta),
                           clause_info(StoredInput,Clause)]>>
               ( CompiledInput = [=,[SpecName|ArgsNorm],BodyExpr],
-                translate_tracked_clause(CompiledInput, Clause, false),
+                translate_specialized_clause(CompiledInput, Clause, false),
                 specialization_storage_input(SpecName, StoredMeta,
                                              StoredInput) ),
               MetaList, ClauseInfos),
