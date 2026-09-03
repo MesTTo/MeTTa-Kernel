@@ -65,7 +65,7 @@
 #     tests/checks/check_kernel_ledger_selftest.py; commit=d7a55be4e931732a02f2178013aed47bb9cde474].
 #   - generated-artifacts selects ledger, aio-mirror and reference in the order
 #     their remedies converge [tested: tests/checks/check_generated_artifact_group.py;
-#     commit=WORKTREE].
+#     commit=7d3c883f91d1d4be055fd725463d214f6fbd1438].
 # Open Obligations:
 #   To Do: None
 #   Hacks: None
