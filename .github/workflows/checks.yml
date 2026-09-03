@@ -71,15 +71,24 @@ jobs:
       # node-binding lane says it cannot run and the conformance kit in
       # extensions/python/tests/ch21_another_language_at_the_seam/test_node_binding.py
       # skips, which is a green run that tested the seam's second consumer not
-      # at all.
+      # at all. The docs lane has the same provisioning boundary: it needs
+      # VitePress before its blocking build can render the site and check dead
+      # links.
+      # One cache entry is enough because setup-node caches npm's shared download
+      # cache, not node_modules; key it with both lockfiles, then install both.
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
-          cache-dependency-path: extensions/node/package-lock.json
+          cache-dependency-path: |
+            extensions/node/package-lock.json
+            website/package-lock.json
 
       - name: Install the Node binding's dependencies
         run: npm ci --prefix extensions/node
+
+      - name: Install the documentation site's dependencies
+        run: npm ci --prefix website
 
       - name: Gate
         env:

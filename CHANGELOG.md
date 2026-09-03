@@ -115,6 +115,11 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
   Loading an engine-base image reuses matching live prelude registrations in
   that same module without claiming or later retiring them.
 
+- The blocking documentation lane now installs the website's locked VitePress
+  dependencies in CI and keys npm's cache with the Node binding and website
+  lockfiles. Missing npm or VitePress still gives contributors a local skip,
+  but refuses under CI so an unbuilt site cannot report a green docs gate.
+
 - Fast-cache restore now admits a program image through the existing bulk
   equation path and reconciles call-graph analysis once. Recursive content no
   longer turns restore into a growing per-atom analysis loop.
