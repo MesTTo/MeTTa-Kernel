@@ -17,7 +17,7 @@
 %   - each element receives fresh case, switch, unify and let* body bindings
 %     when a collection reuses one compiled closure
 %     [tested: a_collection_closure_keeps_each_binding_form_local_to_one_element;
-%     commit=WORKTREE]
+%     commit=09e34db01c8e3ebeff375ca18d3424c483172e7d]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
