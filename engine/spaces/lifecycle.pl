@@ -12,6 +12,9 @@
 %   outer release after recursive child cleanup, so support repair can mute
 %   only functions that are going away
 %   [tested: translator_rule_module_home; commit=d1318d20b5d89d33079c49d0e94aa29e12685664].
+%   The engine-owned &self and &metta roots refuse clear and release before
+%   teardown starts, directing callers to their own context or a named space
+%   [tested: base_space_lifecycle; commit=WORKTREE].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
@@ -1019,12 +1022,35 @@ space_read_chain_(Space, Seen, Each) :-
         space_read_chain_(Parent, [Space|Seen], Each)
     ).
 
+%The process roots are catalogues, not caller-owned containers. Treating their
+%public names as ordinary space handles let one host erase the engine for every
+%other host in the process. This is the same ownership boundary enforced for a
+%live inherited parent below: refuse before entering release context or touching
+%storage. Two identity comparisons keep the ordinary clear and release path
+%constant without binding a malformed variable argument to a protected root.
+metta_engine_owned_base_space(Space) :-
+    (   Space == '&self'
+    ;   Space == '&metta'
+    ).
+
+metta_assert_space_destructible(Operation, Space) :-
+    (   metta_engine_owned_base_space(Space)
+    ->  throw(error(
+            permission_error(Operation, metta_base_space, Space),
+            context(
+                metta_assert_space_destructible/2,
+                'the engine owns this base space; clear or drop the caller''s \c
+                 own context space or a named space instead')))
+    ;   true
+    ).
+
 %An (inherits ...) heir refuses: that relationship is program-owned and a
 %recycled parent name must not be followable. An equation-home child does
 %NOT refuse: it is the world's own mint and the release cascades it, so the
 %python pre-ask and the release door answer the same question by
 %construction [tested: a_context_close_takes_its_world_with_it].
 metta_assert_space_releasable(Space) :-
+    metta_assert_space_destructible(release, Space),
     (   space_parent(Child, Space)
     ->  throw(error(metta_space_parent_live_child(Space, Child), none))
     ;   true
@@ -1739,6 +1765,7 @@ metta_remove_hooks_idle(Space) :-
 %exist [tested: test_pool_reuse_starts_tabling_clean].
 metta_host_clear_space(Space) :-
     seam:foreign_space(Space), !,
+    metta_assert_space_destructible(clear, Space),
     (   metta_exec_module_known(Space, Module)
     ->  % A foreign clear removes stored equations, so untabling must precede
         % the provider's removal funnel just as it does for native storage.
@@ -1777,6 +1804,7 @@ metta_host_clear_space(Space) :-
 %[tested: test_a_drop_untables_before_it_removes_any_clause,
 %spaces_drop_untables_first; commit=b33102fbd50a30ae44d58eca08abd49e447ea60d].
 metta_host_clear_space(Space) :-
+    metta_assert_space_destructible(clear, Space),
     space_module(Space, Module),
     metta_host_clear_tabling(Space, Module),
     (   metta_remove_hooks_idle(Space)

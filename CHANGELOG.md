@@ -8,6 +8,10 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Engine-owned `&self` and `&metta` spaces now refuse `clear` and `drop`
+  before teardown starts. The refusal directs callers to their own context or
+  a named space, while ordinary spaces retain both lifecycle operations.
+
 - The specialization differential gate now imports the corpus definition from
   the parity runner and has a planted selftest built from the `wrap-one/sleep`
   arity defect. A disagreement, verifier error, or failed process makes the
