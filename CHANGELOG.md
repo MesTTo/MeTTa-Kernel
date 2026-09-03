@@ -6,6 +6,13 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Node's `TabledMap` contract now states the swipl-wasm lifetime boundary:
+  tabled calls share answers within one `run()`, while a later job uses a new
+  threads-disabled SWI engine and recomputes. Persistent cross-run memoization
+  remains available only on threaded hosts.
+
 ### Fixed
 
 - `duplicate-binder` lint now follows clause-scoped variable identity across
