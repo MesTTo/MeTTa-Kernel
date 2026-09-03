@@ -14,12 +14,12 @@ match only the opener and closer cannot be quietly reversed.
 Assumes: git on PATH, and a writable ai-tmp/ in this repository.
 Guarantees:
   - a planted opener and a planted closer are each reported with their path and
-    line [tested: tests/checks/check_conflict_markers_selftest.py; commit=WORKTREE]
+    line [tested: tests/checks/check_conflict_markers_selftest.py; commit=74e3f12824aee43fb5dd5c7f0f21b859d72e5c78]
   - a setext heading underline and a table rule are NOT reported
-    [tested: tests/checks/check_conflict_markers_selftest.py; commit=WORKTREE]
+    [tested: tests/checks/check_conflict_markers_selftest.py; commit=74e3f12824aee43fb5dd5c7f0f21b859d72e5c78]
   - an untracked file carrying a marker is NOT reported, because a commit
     cannot carry it [tested: tests/checks/check_conflict_markers_selftest.py;
-    commit=WORKTREE]
+    commit=74e3f12824aee43fb5dd5c7f0f21b859d72e5c78]
 Fails when: run against a tree it did not write. It asserts on its own fixture.
 Open Obligations:
   To Do: None

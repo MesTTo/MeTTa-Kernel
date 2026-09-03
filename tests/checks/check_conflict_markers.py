@@ -21,10 +21,10 @@ Assumes: git on PATH, and a checkout of this repository.
 Guarantees:
   - a tracked file carrying an opener or a closer fails the run and is named
     with its path and line [tested: tests/checks/check_conflict_markers_selftest.py;
-    commit=WORKTREE]
+    commit=74e3f12824aee43fb5dd5c7f0f21b859d72e5c78]
   - a markdown setext heading underline is NOT a finding, because the separator
     alone is never matched [tested:
-    tests/checks/check_conflict_markers_selftest.py; commit=WORKTREE]
+    tests/checks/check_conflict_markers_selftest.py; commit=74e3f12824aee43fb5dd5c7f0f21b859d72e5c78]
 Fails when: run outside a git checkout, where it reports that rather than
   passing on an empty file list.
 Open Obligations:
