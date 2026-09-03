@@ -6,6 +6,8 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-09-04
+
 ### Fixed
 
 - Declaring one reaction no longer makes every space's bulk atom load 149x

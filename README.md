@@ -708,7 +708,7 @@ engine and its surfaces. GitHub's "Cite this repository" button reads
   author  = {MesTTo},
   title   = {MeTTa Kernel},
   url     = {https://github.com/MesTTo/MeTTa-Kernel},
-  version = {0.6.0}
+  version = {0.7.0}
 }
 ```
 
