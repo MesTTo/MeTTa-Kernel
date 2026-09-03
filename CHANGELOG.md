@@ -8,6 +8,10 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `python -m metta repl` now submits a buffered final form at end of input.
+  Incomplete input is reported on stderr instead of disappearing, while the
+  interactive command continues to recover from errors and exit successfully.
+
 - Optional `library(crypto)` and `library(redis)` dependencies now participate
   in the platform census before their libraries load. Reduced builds retain
   the five SHA hashes supplied by `library(sha)` and refuse crypto-only or
