@@ -859,14 +859,36 @@ unknowns and refuses; the `#` operators POST rather than solve and compose
 across several operations, which is what they are for.
 `examples/ch05-equations-and-evaluation/05-04-arithmetic-that-runs-backwards/02-relational_arithmetic.metta` runs all of it.
 
-34 libraries load with `!(import! &self (library lib_x))`: `lib_builtin_types`,
-`lib_combinatorics`, `lib_conformance`, `lib_constraints`, `lib_crypto`,
-`lib_datastructures`, `lib_datetime`, `lib_derived`, `lib_dict`, `lib_doc`,
-`lib_file`, `lib_gitimport`, `lib_he`,
-`lib_import`, `lib_json`, `lib_measure`, `lib_memo`, `lib_mm2`,
-`lib_nars`, `lib_patrick`, `lib_pln`, `lib_redis`, `lib_reflect`, `lib_regex`,
-`lib_roman`, `lib_soft`, `lib_spaces`, `lib_strategy`, `lib_string`, `lib_tabling`, `lib_thread`,
-`lib_torch`, `lib_vector`, `lib_zar`. Scored answers and fuzzy or regex matching
+34 libraries load with `!(import! &self (library lib_x))`, each one line of
+what it is for: `lib_builtin_types` the declared type surface of the shipped
+builtins; `lib_combinatorics` range, take and choose-k; `lib_conformance` proves
+a foreign space provider before its users find out; `lib_constraints` CLP(Q)
+over rationals and CLP(B) over booleans; `lib_crypto` hashes and secure
+randomness, refusing by name where OpenSSL is absent; `lib_datastructures` an
+amortised O(1) functional queue and a finger tree; `lib_datetime` now,
+format-date, day-of-week; `lib_derived` the derived forms the engine keeps FUSED
+into its compiler, written out as equations; `lib_dict` a dictionary that IS a
+space; `lib_doc` keeps the old doc import path working after its vocabulary
+moved; `lib_file` files, handle-based, MeTTa HE's names exactly;
+`lib_gitimport` git-import!, Prolog-only, a module fetched from a repository;
+`lib_he` Hyperon-Experimental compatibility, nearly all of it core now;
+`lib_import` importing that fails LOUDLY where a missing file once answered
+nothing; `lib_json` JSON, decoding into that dict-as-space; `lib_measure`
+weighted superpositions: normalize, softmax, rank, top-k, sample; `lib_memo` the
+resident automatic and explicit memoisation controls; `lib_mm2` notation over
+&mork, loaded on demand; `lib_nars` NARS truth functions, inference rules and
+bounded derivation; `lib_patrick` compose, for, iterate; `lib_pln` PLN truth
+formulas, consistency and ranking; `lib_redis` shared spaces over Redis;
+`lib_reflect` the engine's own surface as data you can match; `lib_regex` PCRE2
+over strings; `lib_roman` a list and fold basis, head, init, fold-flat,
+foldr-flat; `lib_soft` soft structural unification, match quality as a measure;
+`lib_spaces` moving atoms between spaces, with find and match-count;
+`lib_strategy` a Stratego-style strategy basis whose plans are ordinary atoms;
+`lib_string` text, imported when you need it; `lib_tabling` expert-only tabling
+control; `lib_thread` parallel data operations, M:N futures and timers;
+`lib_torch` PyTorch from plain MeTTa through py-call; `lib_vector` dot, norm,
+cosine and random-normal-vector; `lib_zar` Prolog interop, consult and
+use_module wrappers. Scored answers and fuzzy or regex matching
 are `lib_measure` and `lib_regex` riding the general seam, not Python modules:
 there is no `metta.measure` and no `metta.matching`.
 

@@ -19,6 +19,11 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- `llms.txt`'s library roster now says what each of the 34 libraries is FOR,
+  one clause each, where it had been a bare list of names. A reader choosing
+  between `lib_measure` and `lib_soft`, or wondering whether `lib_dict` is a
+  dictionary or a space, had to open the sources to find out.
+
 - `KERNEL.md` states what the engine actually holds. It claimed 58 translator
   heads over 50 `translate_special_dl/5` clause-heads and 55 clauses, in
   `engine/translator.pl`; the engine answers 67, 59 and 64, in
