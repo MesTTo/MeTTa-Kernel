@@ -71,7 +71,7 @@
 %     and restore registry state before compiling their stored equations, so
 %     a restored call site has the same translator meaning [tested:
 %     test_fast_cache_restores_translator_rules_and_bound_spaces;
-%     commit=WORKTREE].
+%     commit=d2279ea320e54790dab4484421a168e93755b185].
 % Decides:
 %   - a rule read both ways is applied only in the direction that strictly
 %     lowers the form's cost, and cost defaults to the node count. Nothing

@@ -13,7 +13,7 @@
 %   Token bindings carry their creating execution-module generation, are
 %   retired with that module life, and can be rebased as part of a fast-cache
 %   world image [tested: test_fast_cache_restores_translator_rules_and_bound_spaces;
-%   commit=WORKTREE].
+%   commit=d2279ea320e54790dab4484421a168e93755b185].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % Guarded by: '$metta_token_registry' serializes token replacement, image
 %   restore, and execution-module retirement.

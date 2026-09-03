@@ -51,7 +51,7 @@
 %     space-valued token bindings, and current translator registries restore
 %     under fresh process identities and share the source reload lifecycle [tested:
 %     test_fast_cache_restores_translator_rules_and_bound_spaces;
-%     commit=WORKTREE].
+%     commit=d2279ea320e54790dab4484421a168e93755b185].
 %   - Loader diagnostics contain ANSI escapes only on terminal streams
 %     [tested 2026-08-14: filereader_terminal_output].
 %   - A type declaration that cannot type a function the same source defines

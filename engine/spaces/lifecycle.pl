@@ -22,7 +22,7 @@
 %   A fast-cache restore can enumerate one equation world and mint fresh
 %   children without reusing a persisted runtime identity [tested:
 %   test_fast_cache_restores_translator_rules_and_bound_spaces;
-%   commit=WORKTREE].
+%   commit=d2279ea320e54790dab4484421a168e93755b185].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % Guarded by: '$metta_metta_exec' serializes execution-module identity,
 %   relationship declarations, fresh cache-child minting, and release.

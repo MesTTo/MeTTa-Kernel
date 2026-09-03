@@ -15,12 +15,12 @@
 %   reconciles program analysis once at the image boundary rather than once
 %   per atom [tested:
 %   test_fast_restore_batches_content_dependent_program_analysis;
-%   commit=WORKTREE];
+%   commit=d2279ea320e54790dab4484421a168e93755b185];
 %   a fast cache captures one consistent equation-world graph and restores its
 %   child spaces, space-valued token bindings, and translator registry through
 %   fresh runtime identities [tested:
 %   test_fast_cache_restores_translator_rules_and_bound_spaces;
-%   commit=WORKTREE];
+%   commit=d2279ea320e54790dab4484421a168e93755b185];
 %   a failed load erases its typing rules and recompiles affected retained
 %   clauses under the restored policy [tested:
 %   filereader_source_rollback:a_failed_source_rule_restores_discharged_contracts;
