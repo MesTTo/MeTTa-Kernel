@@ -13,6 +13,11 @@
 %     dropped add is caught by the canary round trip
 %     [tested: conformance_catches_a_source_that_drains,
 %     conformance_catches_an_add_that_drops, conformance_round_trips_a_canary]
+%   - a qualified clause body runs only its leading ownership guard, while a
+%     failing guard and a declared capability with no matching hook still
+%     refuse [tested: a_qualified_hook_body_runs_only_its_leading_guard,
+%     a_qualified_hook_body_with_a_failing_guard_is_refused,
+%     conformance_catches_a_capability_with_no_hook; commit=WORKTREE]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -50,12 +55,18 @@ test(conformance_catches_a_false_exact_claim,
 % A declaration with nothing behind it surfaces as a silent failure inside a
 % callback; here it is a mistake named at check time.
 test(conformance_catches_a_capability_with_no_hook,
-     [condition(\+ ( predicate_property(seam:foreign_clear(_),
-                                       number_of_clauses(Count)),
-                       Count > 0 )),
-      throws(error(metta_conformance_no_hook('&plunit_conf_hookless', clear,
+     [throws(error(metta_conformance_no_hook('&plunit_conf_hookless', clear,
                                              seam:foreign_clear/1), _))]) :-
     metta_check_space_provider('&plunit_conf_hookless', _).
+
+% clause/2 qualifies a body with its owner module. The guard succeeds, while
+% the planted second goal would make the old catch-all fail after running more
+% than the protocol permits.
+test(a_qualified_hook_body_runs_only_its_leading_guard) :-
+    conformance_guard_admits(user:(true, fail)).
+
+test(a_qualified_hook_body_with_a_failing_guard_is_refused, [fail]) :-
+    conformance_guard_admits(user:(fail, true)).
 
 test(conformance_refuses_a_space_that_is_not_foreign,
      [throws(error(metta_conformance_not_foreign('&plunit_conf_absent'), _))]) :-

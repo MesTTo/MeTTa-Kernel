@@ -8,6 +8,11 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Space-provider conformance checks now strip a hook body's module qualifier
+  before selecting and running its leading ownership guard. Registered foreign
+  spaces are admitted without executing the operation behind that guard, while
+  missing hooks and failing guards still refuse.
+
 - The example parity runner now closes every Python engine and compares test
   verdicts and process exit status as well as answer groups. Teardown failures
   and assertion-status disagreements can no longer be hidden by matching
