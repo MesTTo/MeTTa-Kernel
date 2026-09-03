@@ -8,6 +8,10 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Node bridge job identifiers now come from a monotone constant-time
+  allocator. Starting jobs no longer scans every suspended job, and an
+  emptied job table never reissues an earlier identifier.
+
 - Array constructor registrations now retain a backend's fully qualified
   module name. Installing NumPy no longer silently retargets an earlier
   JAX-backed space, and JAX random construction refuses instead of drawing
