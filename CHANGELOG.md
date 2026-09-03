@@ -8,6 +8,11 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Prolog-only Python integrations now use their fully qualified module name as
+  the SWI library alias. Distinct dotted modules with the same final component
+  no longer share an ordered search path accidentally, while an explicitly
+  shared alias remains additive.
+
 - `python -m metta repl` now submits a buffered final form at end of input.
   Incomplete input is reported on stderr instead of disappearing, while the
   interactive command continues to recover from errors and exit successfully.
