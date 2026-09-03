@@ -19,6 +19,16 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- `KERNEL.md` states what the engine actually holds. It claimed 58 translator
+  heads over 50 `translate_special_dl/5` clause-heads and 55 clauses, in
+  `engine/translator.pl`; the engine answers 67, 59 and 64, in
+  `engine/translator/special_forms.pl`. Eight heads had no entry at all and are
+  now named in the opening so the table's silence is not read as their absence:
+  `get-atoms`, `metta-thread`, `new-space`, `space-atom-count`,
+  `space-contains`, `subtract-atom`, `switch` and `with-seed`. Ask
+  `metta_special_form_head/1` rather than the paragraph; nothing reads this
+  file, which is how four numbers and a path drifted at once.
+
 - `llms.txt` now names the 64 engine heads the example corpus exercises that it
   had never mentioned, `println!` and `get-atoms` among them, and its sources
   table no longer claims the `llms` lane re-checks counts it does not read. Six

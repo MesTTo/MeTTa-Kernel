@@ -1,9 +1,18 @@
 # The kernel and the forms built on it
 
-The translator gives 58 heads a meaning of their own. 50 of them are clauses
-of `translate_special_dl/5` in `engine/translator.pl`, 55 clauses over those 50
-heads, and the remaining 8 are equations in `engine/prelude.metta` registered
-with `add-translator-rule!`. A head in the second group costs the compiler
+The translator gives 67 heads a meaning of their own. 59 of them are clauses
+of `translate_special_dl/5` in `engine/translator/special_forms.pl`, 64 clauses
+over those 59 heads, and the remaining 8 are equations in
+`engine/prelude.metta` registered with `add-translator-rule!`. Ask the engine
+rather than this paragraph: `metta_special_form_head/1` is
+`clause(translate_special_dl(Name,_,_,_,_), _)` and answers the first number,
+and the four counts here were each wrong before 2026-09-03 because nothing
+reads this file.
+
+Eight of those 67 have no row below yet: `get-atoms`, `metta-thread`,
+`new-space`, `space-atom-count`, `space-contains`, `subtract-atom`, `switch`
+and `with-seed`. They are named here so the table's silence is not read as
+their absence from the engine. A head in the second group costs the compiler
 nothing: the rule says what the call expands to, the expansion goes back
 through the ordinary translator, and one definition decides what the form
 means.
