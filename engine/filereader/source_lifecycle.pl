@@ -170,12 +170,16 @@ metta_fast_capture_space_node(
         Id, Parent, Space, Next0, Seen0, Seen, Next,
         [raw_space(Id, Parent, Space, Atoms)|Rows0], Rows,
         [Id-Space|NodeSpaces0], NodeSpaces) :-
+    %The throw is a GUARD rather than one arm of a choice: binding Seen1 inside
+    %the else arm leaves it unbound in a branch the analyser cannot see is
+    %unreachable, and list_undefined's walk halts on that warning.
     (   get_assoc(Space, Seen0, _)
     ->  throw(error(metta_fast_space_graph_cycle(Space),
                     context(metta_host_save_fast/3,
                             'an equation-world cache must be a tree')))
-    ;   put_assoc(Space, Seen0, true, Seen1)
+    ;   true
     ),
+    put_assoc(Space, Seen0, true, Seen1),
     (   Id =\= 0,
         seam:foreign_space(Space)
     ->  throw(error(permission_error(snapshot, foreign_space, Space),
