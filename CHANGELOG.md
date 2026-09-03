@@ -8,6 +8,13 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `CHANGELOG.md` no longer ships 134 lines of unresolved merge conflict. They
+  landed with the MORK seat merge on 2026-08-28 and survived every gate run
+  until 2026-09-03, because `git diff --check` reports leftover markers in a
+  DIFF and a marker that is already committed appears in no later diff. Both
+  parents' entries are kept, and a new `conflict-markers` gate asks the
+  committed tree the question the diff cannot.
+
 - The shared codec corpus now exercises the irregular three-field native
   handle tag, and its inventory check rejects tags without either a case or a
   corpus-owned explanation. The one directional stream-control exemption is
@@ -4168,7 +4175,6 @@ upstream tags above it. Published to PyPI as `pymetta` 0.6.0.
   already too late, which is what the first attempt got wrong when the ω in
   `space_hooks.pl`'s header comment kept warning from line 42.
 
-<<<<<<< HEAD
 - **Four readers modelled "the gate" as one file, so each stopped seeing its
   own subject the moment a lane moved out of that file.**
   `tests/checks/evidence_runners.py` pinned its pytest collector to
@@ -4289,7 +4295,7 @@ upstream tags above it. Published to PyPI as `pymetta` 0.6.0.
   seat's benchmark baseline for commit pins rather than only the Python seat's,
   so a seat that grows its own benchmarks does not grow unchecked provenance
   [tested: sh check.sh evidence].
-=======
+
 - **`extensions/mork/extension.pl` declares BOTH shared objects, so a
   half-built tree stops reporting a backend that is not there.**
   `morkspaces.pl` opens `libmork_ffi.so` for its global symbols and then loads
@@ -4302,7 +4308,6 @@ upstream tags above it. Published to PyPI as `pymetta` 0.6.0.
   exactly as an unbuilt tree does, and `tests/mork_seat.plt` carries the
   invariant under it, unconditioned: a seat on the record has a working backend
   behind it.
->>>>>>> mork-seat-contract
 
 - **`new-mork-space` is gone from the three tables that vouched for it,
   because it never existed.** It was registered as a `writesState` semantic

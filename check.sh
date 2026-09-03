@@ -387,6 +387,17 @@ run GATE evidence-selftest "$PY" "$HERE/tests/checks/check_evidence_selftest.py"
 # it can tell a pin from the code that writes one.
 run GATE provenance-pin-selftest "$PY" "$HERE/tests/checks/check_pin_provenance_selftest.py"
 
+# `git diff --check` reports a leftover conflict marker and this repository runs
+# it, but it reads a DIFF, so it sees one only while the change carrying it is
+# uncommitted. A merge is where that gap opens: resolve, add, commit, and if the
+# staged result was never checked the markers land, after which they appear in no
+# later diff. 134 lines of unresolved conflict sat in CHANGELOG.md from
+# 095366db on 2026-08-28 until 2026-09-03, through every gate run between. This
+# asks the committed tree instead, and its selftest plants the setext heading
+# underline that a matcher reading `=======` alone would report as a conflict.
+run GATE conflict-markers "$PY" "$HERE/tests/checks/check_conflict_markers.py"
+run GATE conflict-markers-selftest "$PY" "$HERE/tests/checks/check_conflict_markers_selftest.py"
+
 # KERNEL.md is the engine's ledger of which translator head is primitive and
 # which is derived, and it requires every derived form still fused into the
 # compiler to say why. The library had 110 public doors and no such ledger, so
