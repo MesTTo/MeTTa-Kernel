@@ -10,10 +10,10 @@ Assumes: a writable ai-tmp/ in this repository.
 Guarantees:
   - a path expression naming a missing file is reported with its line and the
     folded path [tested: tests/checks/check_artifact_paths_selftest.py;
-    commit=WORKTREE]
+    commit=1b689c7f4ce1be7fd151c0bd5b7ef017c4c12e9f]
   - a resolving path, a `artifact-path-created` opt-out, and a path whose
     segments are not literals are each NOT reported
-    [tested: tests/checks/check_artifact_paths_selftest.py; commit=WORKTREE]
+    [tested: tests/checks/check_artifact_paths_selftest.py; commit=1b689c7f4ce1be7fd151c0bd5b7ef017c4c12e9f]
 Fails when: run against a tree it did not write. It asserts on its own fixture.
 Open Obligations:
   To Do: None

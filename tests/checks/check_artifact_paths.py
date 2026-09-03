@@ -28,10 +28,10 @@ Assumes: a checkout of this repository, and Python's own `ast`.
 Guarantees:
   - a file-relative path expression naming something that does not exist fails
     the run, with the file, the line, and the path it folded to
-    [tested: tests/checks/check_artifact_paths_selftest.py; commit=WORKTREE]
+    [tested: tests/checks/check_artifact_paths_selftest.py; commit=1b689c7f4ce1be7fd151c0bd5b7ef017c4c12e9f]
   - an expression marked `artifact-path-created` is not a finding, so a runtime
     output path does not have to disable the lane
-    [tested: tests/checks/check_artifact_paths_selftest.py; commit=WORKTREE]
+    [tested: tests/checks/check_artifact_paths_selftest.py; commit=1b689c7f4ce1be7fd151c0bd5b7ef017c4c12e9f]
 Fails when: an expression's segments are not literals, which it skips rather
   than guessing; a computed path is outside what this can decide.
 Open Obligations:
