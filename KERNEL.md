@@ -7,15 +7,11 @@ over those 59 heads, and the remaining 8 are equations in
 rather than this paragraph: `metta_special_form_head/1` is
 `clause(translate_special_dl(Name,_,_,_,_), _)` and answers the first number,
 and the four counts here were each wrong before 2026-09-03 because nothing
-reads this file.
-
-Eight of those 67 have no row below yet: `get-atoms`, `metta-thread`,
-`new-space`, `space-atom-count`, `space-contains`, `subtract-atom`, `switch`
-and `with-seed`. They are named here so the table's silence is not read as
-their absence from the engine. A head in the second group costs the compiler
-nothing: the rule says what the call expands to, the expansion goes back
-through the ordinary translator, and one definition decides what the form
-means.
+read this file. The `kernel-ledger` lane now derives both rosters and every
+count from those predicates, then refuses a missing or stale row. A head in the
+second group costs the compiler nothing: the rule says what the call expands
+to, the expansion goes back through the ordinary translator, and one
+definition decides what the form means.
 
 This page is the ledger of which head is which, and why. It is the shrink
 target: a form that can move out of the first group and into the second
@@ -53,7 +49,7 @@ derived form that is already a prelude rule says `prelude`; a derived form
 still fused into the compiler says why, and every one of those reasons is
 measured.
 
-## `translate_special_dl/5`, 50 heads
+## `translate_special_dl/5`, 59 heads
 
 | head | kind | reason |
 |---|---|---|
@@ -67,12 +63,19 @@ measured.
 | `call` | core, counterpart `call-native` | compiles one Prolog goal named as a list, the host seam |
 | `translatePredicate` | core, counterpart `call-native` | the other direction of the same seam: a MeTTa head backed by a Prolog predicate |
 | `reduce` | core, counterpart `metta` | runtime dispatch on a head that is not known at compile time |
+| `metta-thread` | core, counterpart `metta` | the nested full evaluator keeps its Atom operand written while it evaluates eager positions to a fixpoint; compiled and runtime doors both preserve `(quote (+ 1 2))` through an Atom result where an ordinary eager call would consume it [tested: `metta_thread:eager_arguments_reach_a_fixpoint_and_atom_arguments_stay_written`] |
+| `return` | core, counterpart `return` | only a `function` frame consumes it as the structural `[return, Value]` instruction; outside that compile-time frame it remains an ordinary polymorphic call, so the compiler context is the distinction |
 | `match` | core, follow-up | matching semantics is a named follow-up presentation; this is the space query |
+| `get-atoms` | core, follow-up | enumerates the selected space; fused so `translate_space_expr_dl/4` preserves a registered expression as a space identity instead of evaluating its callable head |
+| `space-atom-count` | core, follow-up | counts atoms the native space itself owns from per-predicate clause metadata, refusing a foreign enumeration that would lie about the cost; the enumerating predecessor cost 4,569.70 inferences per add at 1,000 atoms where a plain add cost 49.01, while this path is independent of atom count [measured 2026-08-20] |
+| `space-contains` | core, follow-up | one indexed membership probe about an Atom as written, with a registered expression preserved as the space identity; its set-semantics caller costs 57.01 inferences per add at 2,000 atoms and 57.00 at 10,000 [measured 2026-08-21] |
 | `add-atom` | core, follow-up | state is a named follow-up presentation |
 | `remove-atom` | core, follow-up | the same |
+| `subtract-atom` | core, follow-up | removes one multiset occurrence and answers whether it did; fused with the other space updates so the deep Atom mask keeps an equation-shaped atom written rather than evaluating it before the removal |
 | `add-atoms` | core, follow-up | the same. Derived in shape, since it and the four above share `translate_space_update_dl/5`, but the clause carries the DEEP Atom mask and the declaration does not: without the clause the argument's subexpressions evaluate, `(add-atom &self (foo (+ 1 2)))` compiles `+(1,2,V)` and stores `(foo V)`, and 15 corpus files change answers [measured 2026-08-19] |
 | `add-reduct` | core, follow-up | the same |
 | `add-reducts` | core, follow-up | the same |
+| `new-space` | core, follow-up | constructs and registers a space before first use; the one-input form must recognise a ground expression as a parametric identity before that identity exists in the registry, including when its family head is callable [tested: `spaces_parametric:the_surface_constructor_is_idempotent_and_reflected_once`] |
 | `super` | core, follow-up | reaches the definition a space's parent holds; space configuration |
 | `get-metatype` | core, follow-up | type semantics is a named follow-up presentation |
 | `noeval` | core, follow-up | the Atom mask itself: the argument is the answer |
@@ -81,6 +84,7 @@ measured.
 | `explain` | core, divergence | the derivation of an answer, same channel |
 | `if` | derived, fused | Hyperon's stdlib defines `if` in minimal MeTTa. Fused because it is written 259 times in the corpus, behind only `test`, `collapse` and `let` [measured 2026-08-19], and because its clauses build the branches through `build_branch/4`, which is what lets `and-then` and `or-else` be prelude rules with no runtime cost |
 | `case` | derived, fused | a nested `if` chain, `translate_case/5`; fused for the same reason, and it carries a runtime path for cases that arrive as a value |
+| `switch` | derived, fused | the recursive minimal definition exists, but a one-line alias to `case` is wrong when the key answers nothing; written rows compile once and cost 3 inferences per call at 3, 12 and 24 cases, against 78, 258 and 498 when the same rows arrive at runtime [measured 2026-08-19] |
 | `let*` | derived, fused | nested `let`s, `letstar_to_rec_let/3`; fused for the same reason, and it carries the same runtime path |
 | `progn` | derived, fused | `(let $_ $a $b)` chained. The rule form measured 188 compile-time inferences against 150 and adds one `unify_with_occurs_check/2` goal per call that the fused form does not emit [measured 2026-08-19] |
 | `prog1` | derived, fused | `(let $r $a (let $_ $b $r))`. 205 against 146, and two extra goals a call [measured 2026-08-19] |
@@ -105,6 +109,7 @@ measured.
 | `elapsed` | core, divergence | wall clock around an expression |
 | `transaction` | core, divergence | all-or-nothing space writes |
 | `with-pragma!` | core, divergence | scoped engine settings |
+| `with-seed` | core, divergence | a dynamically scoped random generator: the body is compiled in place, and `setup_call_cleanup/3` restores the prior state after success, failure, cut or exception; two scopes with the same seed repeat their draws without moving the outside generator [tested: `test_a_seed_scope_repeats_its_draws_and_leaves_the_outside_alone`] |
 | `sealed` | core, divergence | renames the listed variables at COMPILE time, which is the only place the rename can work |
 | `\|->` | core, divergence | a lambda, compiled into a generated predicate in the space that wrote it |
 

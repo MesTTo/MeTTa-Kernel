@@ -59,6 +59,9 @@
 #     metta._tokens -> metta._trace and requires the same command to reject it
 #     by name [tested: test_a_planted_module_level_import_is_rejected;
 #     commit=350c0d9dbd3c78a4f779d6331e223e939b94c2c8].
+#   - KERNEL.md's counts and both translator-head rosters are runtime-derived,
+#     with independent planted count and omission failures [tested:
+#     tests/checks/check_kernel_ledger_selftest.py; commit=WORKTREE].
 # Open Obligations:
 #   To Do: None
 #   Hacks: None
@@ -326,6 +329,13 @@ run GATE   cetta         "$PY" "$HERE/tests/conformance/cetta.py" --timeout 25 -
 # 2026-09-01: the library roster drifted to 33 of 34 names behind the claim.
 run GATE llms       "$PY" "$HERE/tests/checks/check_llms_names.py"
 run GATE llms-selftest "$PY" "$HERE/tests/checks/check_llms_selftest.py"
+
+# KERNEL.md's two rosters and six counts come from the running translator.
+# The first lane rejects a head without a reason row and a stale row without a
+# head; the second runs the production comparison over a planted bad count and
+# a planted missing row, independently.
+run GATE kernel-ledger "$PY" "$HERE/tests/checks/check_kernel_ledger.py"
+run GATE kernel-ledger-selftest "$PY" "$HERE/tests/checks/check_kernel_ledger_selftest.py"
 
 run GATE evidence   "$PY" "$HERE/tests/checks/check_evidence_tags.py"
 

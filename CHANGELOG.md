@@ -8,6 +8,12 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `KERNEL.md` now has a row for every one of the translator's 59 special
+  heads, including `return`, which the original eight-head audit also missed.
+  A new runtime-derived gate checks both translator tiers, all six stated
+  counts, every classification and every reason; its selftest independently
+  plants a wrong count and an omitted head.
+
 - The `llms` gate now derives every explicit count in the source table and
   checks coverage in both directions. A corpus-used engine head omitted from
   `llms.txt` now fails beside a documented name the engine does not know, and
