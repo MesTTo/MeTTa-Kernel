@@ -21,10 +21,10 @@
 % Owns:
 %   - metta_trace_source/4 removes every metta_tracer wrapper and state fact,
 %     including after an event-limit error [tested 2026-08-14:
-%     tracer:event_limit_error_removes_every_wrapper].
+%     tracer:event_limit_truncates_and_removes_every_wrapper].
 % Guarded by:
 %   - '$metta_trace_state' serializes trace sessions and wrapper changes
-%     [tested 2026-08-14: tracer:event_limit_error_removes_every_wrapper].
+%     [tested 2026-08-14: tracer:event_limit_truncates_and_removes_every_wrapper].
 %   - '$metta_trace_events' assigns event sequence numbers and enforces the
 %     event bound across hyperpose worker threads [tested 2026-08-14: tracer].
 % Open Obligations:
@@ -38,6 +38,8 @@
 %[tested: engine_layering:test_the_engine_layering_contract_holds_and_a_violation_is_named].
 :- module(tracer,
           [ metta_trace_source/4,
+            metta_trace_source/5,
+            metta_trace_default_events/1,
             metta_trace_target/1,
             metta_trace_wrap_once/1
           ]).
@@ -51,6 +53,8 @@
 :- dynamic metta_trace_limit/1.
 :- dynamic metta_trace_next_seq/1.
 :- dynamic metta_trace_session/0.
+:- dynamic metta_trace_truncated/0.
+:- dynamic metta_trace_cells/1.
 :- dynamic metta_trace_wrapped/1.
 
 %Every name the translator compiled from equations, in &self's module and in
@@ -142,17 +146,47 @@ metta_trace_record(Depth, Kind, Term, Answer) :-
     term_variables(TermCopy-AnswerCopy, Variables),
     metta_trace_variable_names(Variables, 0, Names),
     Event = event(Depth, Kind, TermCopy, AnswerCopy, Names),
+    term_size(Event, EventCells),
     with_mutex('$metta_trace_events',
                ( metta_trace_next_seq(N),
                  metta_trace_limit(Max),
+                 metta_trace_cells(Cells),
+                 Cells1 is Cells + EventCells,
+                 metta_trace_cell_budget(Budget),
                  N1 is N + 1,
-                 ( N1 > Max
-                   -> throw(error(resource_error(metta_trace_events(Max)),
-                                  context(metta_trace_record/4,
-                                          'the trace hit its max_events bound')))
+                 ( ( N1 > Max ; Cells1 > Budget )
+                   -> ( metta_trace_truncated -> true
+                      ; assertz(metta_trace_truncated) ),
+                      throw('$metta_trace_bound_reached')
                  ; retractall(metta_trace_next_seq(_)),
                    assertz(metta_trace_next_seq(N1)),
+                   retractall(metta_trace_cells(_)),
+                   assertz(metta_trace_cells(Cells1)),
                    assertz(metta_trace_event(N, Event)) ) )).
+
+%The throw still ABORTS the run, and metta_trace_source/5 catches it and
+%answers the events recorded so far. Both halves matter and the earlier
+%design had only one of each.
+%
+%Aborting is what bounds the TIME. The bound is a count, so a trace that
+%merely stopped recording still ran the whole program: 02-tilepuzzle.metta
+%at max_events 5000 did not finish in 240 seconds that way, where the
+%abort ends it in seconds. A caller asking to be bounded is asking not to
+%pay for the rest.
+%
+%Answering the prefix is what stops the memory being spent for nothing.
+%The bound is a count and the memory an event costs is the size of its
+%term, which nothing bounds, so a throw that also discarded the events
+%charged the full memory of the bound and returned no trace: measured
+%2026-09-03 on 02-tilepuzzle.metta, max_events 5000 peaks 0.08GB and
+%10000 peaks 0.26GB, and a downstream renderer measured 50000 at 5.77GB,
+%100000 above 14GB, and six concurrent renders taking a 60GB machine to
+%2GB free -- every one of them raising and answering nothing.
+%
+%'$metta_trace_bound_reached' is a bare atom rather than an error term
+%because it is this module's own control flow and must not be mistaken
+%for, or caught by, anything that handles error/2. It never escapes
+%metta_trace_source/5.
 
 %_0, _1 and so on, by first occurrence, which is the naming swrite applied
 %when an event crossed as text. The pairs travel with the term, so a
@@ -175,6 +209,9 @@ metta_trace_begin_unlocked(Max) :-
     ; retractall(metta_trace_event(_, _)),
       retractall(metta_trace_limit(_)),
       retractall(metta_trace_next_seq(_)),
+      retractall(metta_trace_truncated),
+      retractall(metta_trace_cells(_)),
+      assertz(metta_trace_cells(0)),
       retractall(metta_trace_wrapped(_)),
       assertz(metta_trace_limit(Max)),
       assertz(metta_trace_next_seq(0)),
@@ -195,27 +232,82 @@ metta_trace_end_unlocked :-
     retractall(metta_trace_session),
     retractall(metta_trace_limit(_)),
     retractall(metta_trace_next_seq(_)),
+    retractall(metta_trace_truncated),
+    retractall(metta_trace_cells(_)),
     retractall(metta_trace_event(_, _)).
 
 %Run Source in Space with the trace armed; Events come back oldest
-%first, at most Max of them: past the bound the trace throws instead of
-%accumulating without limit, since a long run's trace is data too. The
-%three-argument form carries the default bound. Each event is
+%first, at most Max of them. Past the bound the recording STOPS and
+%Truncated is true, so the caller keeps the prefix it asked to be bounded
+%to: an event costs the size of its term and nothing bounds that, so a
+%throw at the bound discarded everything already recorded and charged the
+%full memory of the bound for no answer. The five-argument form reports
+%whether the events are a prefix; the four- and three-argument forms drop
+%that and carry the default bound. Each event is
 %event(Depth, Kind, Term, Answer, VariableNames), Answer being '' on a
 %call, and VariableNames pairing $_0, $_1 with the term's variables.
+%
+%DEFAULT_TRACE_EVENTS is 10000 rather than the 1000000 it was through
+%2026-09-03. An unqualified trace has to be survivable on an ordinary
+%machine, and the old default was not: measured on
+%examples/ch22-a-reasoner-you-can-serve/22-03-search/02-tilepuzzle.metta,
+%10000 events peak 0.26GB and a downstream renderer measured 50000 at
+%5.77GB and 100000 above 14GB, six concurrent renders taking a 60GB
+%machine to 2GB free. Truncation is what makes a low default safe rather
+%than lossy: a caller who needs more asks for more and can SEE that the
+%first answer was cut.
+%A COUNT cannot bound the memory, because an event costs the size of its
+%term and nothing bounds that. Measured 2026-09-03 on
+%examples/ch22-a-reasoner-you-can-serve/22-03-search/02-tilepuzzle.metta,
+%whose terms are search states: 1000 events peak 0.13GB, 5000 peak 1.38GB,
+%and 10000 exceeded a 4GB cap and died. The same 10000 on an ordinary
+%program costs nothing at all. So the bound a caller can set is a count
+%because that is what a caller can reason about, and the bound that keeps
+%the process alive is this, in cells of the Prolog store.
+%
+%Both truncate identically, so a caller never has to know which one
+%stopped it; Truncated says only that the events are a prefix. Charged on
+%the term ALREADY copied, so it costs a term_size walk over a term
+%copy_term has just walked anyway.
+%
+%4 million cells is 32MB at 8 bytes a cell, and it is chosen from the
+%measurement rather than the arithmetic: answering a trace collects,
+%encodes, crosses and rebuilds it, each step holding its own copy, and
+%that pipeline costs about twenty times the recorded size. On
+%02-tilepuzzle.metta, which peaks at 0.19GB untraced, a whole traced run
+%peaks at 0.39GB for 2M cells, 0.73GB for 4M and 2.76GB for 16M. 4M keeps
+%the worst program measured under a gigabyte while leaving 4,035 events of
+%it, and an ordinary program never reaches the budget at all: the 42-event
+%trace of a recursive count is unchanged.
+%
+%The twenty-fold pipeline is where a streaming door would pay, since it
+%is the materialising and not the recording that dominates. Nothing here
+%streams yet.
+metta_trace_cell_budget(4000000).
+
+metta_trace_default_events(10000).
+
 metta_trace_source(Source, Space, Events) :-
-    metta_trace_source(Source, Space, 1000000, Events).
+    metta_trace_default_events(Max),
+    metta_trace_source(Source, Space, Max, Events).
 
 metta_trace_source(Source, Space, Max, Events) :-
+    metta_trace_source(Source, Space, Max, Events, _Truncated).
+
+metta_trace_source(Source, Space, Max, Events, Truncated) :-
     ( integer(Max), Max > 0 -> true
     ; throw(error(domain_error(positive_integer, Max),
-                  context(metta_trace_source/4, 'max_events bound')))),
+                  context(metta_trace_source/5, 'max_events bound')))),
     setup_call_cleanup(
         metta_trace_begin(Max),
         ( b_setval('$metta_trace_depth', 0),
-          process_metta_string(Source, _Results, Space),
+          catch(process_metta_string(Source, _Results, Space),
+                '$metta_trace_bound_reached',
+                true),
           with_mutex('$metta_trace_events',
-                     findall(N-E, metta_trace_event(N, E), Pairs)),
+                     ( findall(N-E, metta_trace_event(N, E), Pairs),
+                       ( metta_trace_truncated -> Truncated = true
+                       ; Truncated = false ) )),
           keysort(Pairs, Sorted),
           pairs_values(Sorted, Events) ),
         metta_trace_end).

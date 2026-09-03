@@ -22,14 +22,29 @@ class TraceEvent:
 > is what reduced, answer carries the exit's result and stays None on
 > a call.
 
+## `Trace`
+
+```python
+class Trace(list):
+```
+
+> The events, and whether the bound stopped the recording early.
+>
+> A list, because that is what a trace IS and every consumer wants to
+> iterate it, index it and take its length. `truncated` is the one thing a
+> plain list cannot say, and it has to be said: the bound is a COUNT and the
+> memory an event costs is its term's size, so the honest answer to "trace
+> this if it is cheap" is a prefix that admits to being one.
+
 ## `trace`
 
 ```python
-def trace(space, source: Atom | str, max_events: int = 1000000) -> list[TraceEvent]:
+def trace(space, source: Atom | str, max_events: int | None = None) -> Trace:
 ```
 
 > Run a term, or source, in this space under the engine's reduction trace.
 >
-> max_events bounds the recording: past it the trace raises instead
-> of accumulating without limit, the same shape as the timeout and
-> inference bounds elsewhere.
+> max_events bounds the recording. Past it the recording STOPS and the
+> result's `truncated` is True, so what was already recorded is answered
+> rather than discarded: through 2026-09-03 the bound raised, which threw
+> away every event and charged the full memory of the bound for no answer.

@@ -1125,7 +1125,7 @@ kind(metta_space_names/1, host_service).
 kind(metta_space_operand/1, host_service).
 kind(metta_string_declarations/2, host_service).
 kind(metta_substitute_self/3, host_service).
-kind(metta_trace_source/4, host_service).
+kind(metta_trace_source/5, host_service).
 kind(metta_annotations/2, host_service).
 kind(metta_contract_fact/1, host_service).
 kind(metta_error_answer/3, host_service).

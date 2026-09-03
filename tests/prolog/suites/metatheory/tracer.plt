@@ -136,19 +136,35 @@ test(a_symbol_holding_a_comment_character_stays_whole,
                event(0, exit, [plunit_trace_new, 'semi;colon'],
                      'semi;colon', [])].
 
-test(event_limit_error_removes_every_wrapper,
+%The bound TRUNCATES rather than raising, and this test's own subject is
+%what happens afterwards: the session ends and every wrapper comes off,
+%which used to be reachable only through the exception path. Reaching the
+%bound answers the events recorded so far, so the prefix is asserted here
+%too -- a bound that discarded them charged their memory for nothing, which
+%is what it did until 2026-09-03.
+test(event_limit_truncates_and_removes_every_wrapper,
      [setup(setup_trace_test), cleanup(cleanup_trace_test)]) :-
     process_metta_string("(= (plunit_trace_hyperpose $x) (+ $x 1))", _),
-    catch(tracer:metta_trace_source("!(plunit_trace_hyperpose 1)", '&self', 1, _),
-          Error,
-          true),
-    nonvar(Error),
-    Error = error(resource_error(metta_trace_events(1)), _),
+    tracer:metta_trace_source("!(plunit_trace_hyperpose 1)", '&self', 1,
+                              Bounded, Truncated),
+    Truncated == true,
+    Bounded == [event(0, call, [plunit_trace_hyperpose, 1], '', [])],
     \+ tracer:metta_trace_session,
     \+ current_predicate_wrapper(user:plunit_trace_hyperpose(_, _),
                                   metta_tracer, _, _),
     tracer:metta_trace_source("!(plunit_trace_hyperpose 2)", '&self', Events),
     Events == [event(0, call, [plunit_trace_hyperpose, 2], '', []),
                event(0, exit, [plunit_trace_hyperpose, 2], 3, [])].
+
+%A trace that fits its bound says so, which is the other half: `truncated`
+%is what a caller reads to know whether the events are all of them.
+test(a_trace_inside_its_bound_is_not_truncated,
+     [setup(setup_trace_test), cleanup(cleanup_trace_test)]) :-
+    process_metta_string("(= (plunit_trace_hyperpose $x) (+ $x 1))", _),
+    tracer:metta_trace_source("!(plunit_trace_hyperpose 3)", '&self', 1000,
+                              Events, Truncated),
+    Truncated == false,
+    Events == [event(0, call, [plunit_trace_hyperpose, 3], '', []),
+               event(0, exit, [plunit_trace_hyperpose, 3], 4, [])].
 
 :- end_tests(tracer).

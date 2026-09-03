@@ -484,7 +484,7 @@ def cast(self, value: Any, type_: Any = ..., /) -> Any:
 ### `Space.trace`
 
 ```python
-def trace(self, source: Atom | str, max_events: int = 1000000):
+def trace(self, source: Atom | str, max_events: int | None = None):
 ```
 
 > Run a TERM, or source, under the engine's reduction trace and
@@ -494,7 +494,8 @@ def trace(self, source: Atom | str, max_events: int = 1000000):
 > argument `answers` and `eval` take; a string is still a string.
 > What is traced executes for real, writes included, like run();
 > the wrap exists only while tracing, so untraced calls pay
-> nothing. max_events bounds the recording, raising past it rather
+> nothing. max_events bounds the recording; past it the recording
+> stops and the result's `truncated` is True, rather
 > than accumulating a long run's trace without limit.
 
 ### `Space.lint`
@@ -3094,7 +3095,7 @@ def speculate(self) -> ScopedExecution:
 ### `MeTTa.trace`
 
 ```python
-def trace(self, source: Atom | str, max_events: int = 1000000):
+def trace(self, source: Atom | str, max_events: int | None = None):
 ```
 
 > Run a TERM, or source, under the engine's reduction trace and
@@ -3104,7 +3105,8 @@ def trace(self, source: Atom | str, max_events: int = 1000000):
 > argument `answers` and `eval` take; a string is still a string.
 > What is traced executes for real, writes included, like run();
 > the wrap exists only while tracing, so untraced calls pay
-> nothing. max_events bounds the recording, raising past it rather
+> nothing. max_events bounds the recording; past it the recording
+> stops and the result's `truncated` is True, rather
 > than accumulating a long run's trace without limit.
 > Runs against this context's self space.
 

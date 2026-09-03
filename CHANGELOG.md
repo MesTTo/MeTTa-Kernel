@@ -8,6 +8,21 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A trace that reaches its bound answers the prefix and says so, instead of
+  raising and discarding it. `max_events` is a COUNT and an event costs the size
+  of its term, which nothing bounds, so a trace that refused had already paid
+  for the bound it refused at: on `ch22/22-03-search/02-tilepuzzle.metta`, 5,000
+  events cost 1.38GB and a downstream renderer measured 50,000 at 5.77GB,
+  100,000 above 14GB, and six concurrent renders taking a 60GB machine to 2GB
+  free -- every one of them raising and answering nothing. The throw still
+  ABORTS the run, which is what bounds the time, and is caught so the events
+  already recorded come back; `Trace.truncated` on the Python seat and the
+  `truncated` field on the Node seat's `Trace` say when they are a prefix. A
+  second bound in cells of the engine's store is what actually bounds the
+  memory, since a count cannot: at `max_events=1_000_000` that program now stops
+  at 4,035 events and 0.73GB where it exceeded a 4GB cap and died. The default
+  drops from 1,000,000 to 10,000, which is what the Node seat already used.
+
 - `llms.txt` names the downstream distribution the way its own `pyproject.toml`
   does, `metta-fabricpc` rather than `metta-fabric-pc`, and stops claiming a
   guarantee it does not carry. The file said its names "are checked against the
