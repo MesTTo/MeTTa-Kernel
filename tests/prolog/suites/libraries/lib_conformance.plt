@@ -17,7 +17,7 @@
 %     failing guard and a declared capability with no matching hook still
 %     refuse [tested: a_qualified_hook_body_runs_only_its_leading_guard,
 %     a_qualified_hook_body_with_a_failing_guard_is_refused,
-%     conformance_catches_a_capability_with_no_hook; commit=WORKTREE]
+%     conformance_catches_a_capability_with_no_hook; commit=90362cf551149c822a05fb26fbf80d0c2ce11fa4]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
