@@ -8,6 +8,16 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `llms.txt` names the downstream distribution the way its own `pyproject.toml`
+  does, `metta-fabricpc` rather than `metta-fabric-pc`, and stops claiming a
+  guarantee it does not carry. The file said its names "are checked against the
+  live engine and the real file tree by `check.sh`'s `llms` lane, so a rename
+  breaks the build instead of misleading you", and a reader took that as
+  universal. It covers call heads, paths and the library roster; the name of a
+  distribution published elsewhere has no oracle this repository owns, and a
+  lane reading a sibling checkout would go red for that checkout's reasons. The
+  sentence says so now, with the case that found it.
+
 - A class that defines `__metta__` is asked, even when it inherits from a type
   the library already knows how to encode. `encode`'s fast table is keyed on the
   exact class, so a subclass missed it and fell to a `singledispatch` that

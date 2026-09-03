@@ -6,7 +6,12 @@
 > below is a signature, an exact return shape, or a contract you cannot guess.
 > Names here are checked against the live engine and the real file tree by
 > `check.sh`'s `llms` lane, so a rename breaks the build instead of misleading
-> you. Counts are dated; treat an undated number as unverified.
+> you. That covers call heads, paths and the library roster, and it does NOT
+> cover the name of a distribution published elsewhere: nothing here owns an
+> oracle for one, and a lane reading a sibling checkout would go red for that
+> checkout's reasons. This file said `metta-fabric-pc` for a package that calls
+> itself `metta-fabricpc` until 2026-09-03, and the lane had no opinion.
+> Counts are dated; treat an undated number as unverified.
 
 ## Every source of information in this repository
 
@@ -935,7 +940,7 @@ regression. Check `/proc/loadavg` before trusting any timing.
 `pettorch` connects PyTorch through `metta.arrays` and `metta.integrate` and
 adds autograd operations, module wrappers, training helpers and neural
 predicates; `website/guide/pettorch.md` is its page here.
-`metta-fabric-pc` projects a FabricPC predictive-coding network into a space, so
+`metta-fabricpc` projects a FabricPC predictive-coding network into a space, so
 settling, attention and comparison are MeTTa rather than Python.
 Neither is a special case in the engine: both are ordinary users of
 `op`, `arrays.install`, `integrate.facts` and the provider seam.
