@@ -6,7 +6,7 @@ Guarantees:
     ``metta_specialization_disagrees`` through the production detector, while
     the plain-call control stays clean under the same plant
     [tested: tests/checks/check_specialization_differential_selftest.py;
-    commit=WORKTREE]
+    commit=de2a69fbea43d7bbc641fd93240cf7572285bb5c]
 Fails when:
   - the production detector, specializer verification, or fixture stops
     exercising the same disagreement; this imports the detector rather than

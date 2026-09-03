@@ -11,7 +11,7 @@ Guarantees:
   - ``specialization_finding`` is the same per-file detector imported by the
     planted selftest, so the selftest cannot drift from the production scan
     [tested: tests/checks/check_specialization_differential_selftest.py;
-    commit=WORKTREE]
+    commit=de2a69fbea43d7bbc641fd93240cf7572285bb5c]
 Fails when:
   - SWI-Prolog or the engine cannot start; infrastructure failure is loud
     rather than being mistaken for a corpus with no disagreements.

@@ -89,7 +89,7 @@ run GATE examples     check_examples
 # detector imports example_parity.corpus instead of reconstructing discovery,
 # and treats a failed verifier process as a failure rather than an empty
 # disagreement set [tested:
-# tests/checks/check_specialization_differential_selftest.py; commit=WORKTREE].
+# tests/checks/check_specialization_differential_selftest.py; commit=de2a69fbea43d7bbc641fd93240cf7572285bb5c].
 run GATE spec-differential "$PY" "$HERE/tests/checks/check_specialization_differential.py"
 
 # The exact wrap-one/sleep source that exposes the live specializer arity
