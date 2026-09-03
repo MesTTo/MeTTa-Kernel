@@ -8,6 +8,11 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Collection closures now treat variables bound by `case`, `switch`, `unify`,
+  and `let*` as invocation-local. A list walker no longer carries the first
+  element's pattern bindings into later elements and silently selects the
+  wrong arm.
+
 - Space-provider conformance checks now strip a hook body's module qualifier
   before selecting and running its leading ownership guard. Registered foreign
   spaces are admitted without executing the operation behind that guard, while

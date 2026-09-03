@@ -14,6 +14,10 @@
 %   - the compiled door and the dynamic door agree on every row, which is what
 %     lets a self-interpreter dispatch a family call through `metta` and get
 %     the answer a written call gets
+%   - each element receives fresh case, switch, unify and let* body bindings
+%     when a collection reuses one compiled closure
+%     [tested: a_collection_closure_keeps_each_binding_form_local_to_one_element;
+%     commit=WORKTREE]
 % Open Obligations:
 %   To Do: None
 %   Hacks: None
@@ -150,6 +154,35 @@ test(a_lambda_does_not_capture_a_binder_of_its_own_body) :-
         "(let $x (0 1) (map-atom $x (|-> ($v) (let $h (filter-atom $x (|-> ($w) (< $v $w))) (q $h)))))",
         Answers),
     assertion(Answers == [[[q, [1]], [q, []]]]).
+
+% A collection compiles one closure and applies it repeatedly. Variables bound
+% by a form inside that closure belong to one invocation, not to the closure's
+% captured environment; otherwise the first element constrains every later
+% pattern. case exercises all three walkers, and the other rows cover every
+% binding form with the same free-variable-analysis root cause.
+collection_local_binding_row(
+    "(map-atom ((F a 1) (F b 2)) $x (case $x (((F $s $n) $n) ($_ none))))",
+    [[1, 2]]).
+collection_local_binding_row(
+    "(filter-atom ((F a 1) (F b 2)) $x (case $x (((F $s $n) true) ($_ false))))",
+    [[['F', a, 1], ['F', b, 2]]]).
+collection_local_binding_row(
+    "(foldl-atom ((F a 1) (F b 2)) 0 $acc $x (case $x (((F $s $n) (+ $acc $n)) ($_ $acc))))",
+    [3]).
+collection_local_binding_row(
+    "(map-atom ((F a 1) (F b 2)) $x (switch $x (((F $s $n) $n) ($_ none))))",
+    [[1, 2]]).
+collection_local_binding_row(
+    "(map-atom ((F a 1) (F b 2)) $x (unify $x (F $s $n) $n none))",
+    [[1, 2]]).
+collection_local_binding_row(
+    "(map-atom ((F a 1) (F b 2)) $x (let* (((F $s $n) $x)) $n))",
+    [[1, 2]]).
+
+test(a_collection_closure_keeps_each_binding_form_local_to_one_element,
+     [forall(collection_local_binding_row(Text, Expected))]) :-
+    both_doors(Text, Answers),
+    assertion(Answers == Expected).
 
 % unquote HOLDS its operand: `(: unquote (-> Atom %Undefined%))` in
 % engine/prelude.metta, so the argument arrives unreduced and the written

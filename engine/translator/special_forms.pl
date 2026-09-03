@@ -11,6 +11,7 @@
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % Guarantees: match, unify and let classify a written gap pattern ONCE while the call site compiles and hand the plan to the door in a wrapper, so a gap-free form emits the goal it always emitted [tested: tests/prolog/suites/reader/segments.plt, examples/ch08-data/08-02-sequence-variables/01-segments.metta; commit=a3dff3abc83b9d82f3652093246e1d693d526cdb].
+% Guarantees: a collection closure excludes every variable bound by case, switch, unify and let* from its captured environment, preserving the written variable identities used by each binding form [tested: a_collection_closure_keeps_each_binding_form_local_to_one_element; commit=WORKTREE].
 % [tested: tests/prolog/suites/translator/translator.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
 %%% An evaluated operand that produced an Error finishes the call %%%
@@ -1515,8 +1516,9 @@ seal_lambda_locals_list(Term, Sealed, Locals) :-
 %Every variable a lambda body BINDS for itself, so the free-variable analysis
 %above can leave it out of the capture set. One clause per binding form, and
 %the form's own head is the specification: `let` and `chain` bind their
-%pattern, `let*` binds every pair's pattern, the three collection forms bind
-%their binder variables, and a nested lambda binds its parameters. A form not
+%pattern; `case`, `switch` and `let*` bind each row's pattern; `unify` binds
+%variables on both of its syntax operands; the three collection forms bind
+%their binder variables; and a nested lambda binds its parameters. A form not
 %listed here binds nothing, which is the safe direction: the variable stays
 %captured and behaves exactly as it did.
 %
@@ -1546,13 +1548,29 @@ lambda_body_binders_list([Head|Tail], Binders) :-
 lambda_binder_form([let, Pattern, _, _], Pattern).
 lambda_binder_form([chain, _, Pattern, _], Pattern).
 lambda_binder_form(['let*', Pairs, _], Patterns) :-
-    is_list(Pairs),
-    findall(Pattern, member([Pattern, _], Pairs), Patterns).
+    lambda_pair_patterns(Pairs, Patterns).
+lambda_binder_form([case, _, Pairs], Patterns) :-
+    lambda_pair_patterns(Pairs, Patterns).
+lambda_binder_form([switch, _, Pairs], Patterns) :-
+    lambda_pair_patterns(Pairs, Patterns).
+lambda_binder_form([unify, A, B, _, _], [A, B]).
 lambda_binder_form(['map-atom', _, Binder, _], Binder).
 lambda_binder_form(['filter-atom', _, Binder, _], Binder).
 lambda_binder_form(['foldl-atom', _, _, Accumulator, Item, _],
                    [Accumulator, Item]).
 lambda_binder_form(['|->', Parameters, _], Parameters).
+
+%Read binding rows without findall/3 or copy_term/2: those copy the pattern
+%variables, and free-variable exclusion is deliberately based on identity.
+%Reject a partial or malformed row as a binding form so its variables remain
+%captured, the conservative behaviour documented above.
+lambda_pair_patterns(Pairs, Patterns) :-
+    is_list(Pairs),
+    maplist(lambda_pair_pattern, Pairs, Patterns).
+
+lambda_pair_pattern(Pair, Pattern) :-
+    is_list(Pair),
+    Pair = [Pattern, _].
 
 %Whether two terms have a variable in common. A let pattern is ordinarily one
 %variable, so settle that shape without building and walking a one-item list;
