@@ -20,6 +20,10 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The Python seat guide now distinguishes literal and bound `Error` data from
+  an `Error` produced while evaluating a strict operand, which finishes the
+  enclosing call unchanged.
+
 - Fast caches now persist complete equation-world images instead of only the
   root atom list. Bound child spaces, their aliases, and translator rules are
   restored under fresh runtime identities, repeat loads replace the prior
