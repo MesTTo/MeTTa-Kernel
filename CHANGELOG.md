@@ -8,6 +8,11 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- `Space.derivation` now documents its effect boundary: proof premises execute
+  for real and their writes accumulate unless the caller selects the existing
+  `speculative()` scope. The scope rolls back engine state but cannot undo
+  Python, I/O, or callback effects that already occurred.
+
 - Node's `TabledMap` contract now states the swipl-wasm lifetime boundary:
   tabled calls share answers within one `run()`, while a later job uses a new
   threads-disabled SWI engine and recomputes. Persistent cross-run memoization

@@ -96,7 +96,9 @@ assert len(grand.solve(given=[S.Parent(S.Ann, S.Zoe)])) == 2
 takes whole MeTTa programs as text. Prefer the built term when you have one: it
 is knowledge already, where a string must be parsed first. `rows.why()`
 explains an empty match. `m.derivation(atom)` builds the proof tree behind an
-answer.
+answer. Its premises execute, effects included; use `with m.speculative():`
+when engine writes should be discarded, noting that external side effects
+already performed cannot be rolled back.
 
 ## Writing MeTTa in Python
 
