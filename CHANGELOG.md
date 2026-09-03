@@ -8,6 +8,11 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The specialization differential gate now imports the corpus definition from
+  the parity runner and has a planted selftest built from the `wrap-one/sleep`
+  arity defect. A disagreement, verifier error, or failed process makes the
+  lane red, while a generic plain-call control remains clean.
+
 - Collection closures now treat variables bound by `case`, `switch`, `unify`,
   and `let*` as invocation-local. A list walker no longer carries the first
   element's pattern bindings into later elements and silently selects the

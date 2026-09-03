@@ -85,37 +85,18 @@ run GATE examples     check_examples
 # reaching the generic path answered nothing at all.
 # One engine per file, run across the cores this machine has, and skipping
 # exactly what test.sh skips (interactive, optional-dependency and
-# long-running examples), so the lane costs about half a minute.
-check_specialization_differential() {
-    cd "$HERE" || return 1
-    found=$(mktemp)
-    # tests/data/example_skips.txt is the one definition, read by every runner.
-    # This used to carry its own seven basenames against test.sh's six, and
-    # the seventh, import_error_broken.metta, never matched anything: it
-    # lives under _fixtures/, which the find above excludes before any skip
-    # is consulted [measured 2026-08-18].
-    METTA_SKIPS=$(command grep -v '^#' tests/data/example_skips.txt | awk 'NF {print $1}')
-    export METTA_SKIPS
-    find examples -name '*.metta' ! -path '*_fixtures*' -print0 |
-        xargs -0 -P "$(nproc 2>/dev/null || echo 4)" -I {} sh -c '
-            case "
-$METTA_SKIPS
-" in *"
-$1
-"*) exit 0 ;;
-            esac
-            out=$(METTA_VERIFY_SPECIALIZATIONS=1 timeout 120 swipl \
-                      --stack_limit=8g -q -s engine/main.pl -- "$1" extensions \
-                      silent </dev/null 2>&1) || true
-            case "$out" in
-                *metta_specialization_disagrees*)
-                    printf "%s: %s\n" "$1" "$out" | head -3 ;;
-            esac' _ {} > "$found" 2>&1
-    if [ -s "$found" ]; then cat "$found"; rm -f "$found"; return 1; fi
-    rm -f "$found"
-    return 0
-}
-run GATE spec-differential check_specialization_differential
+# long-running examples), so the lane costs about half a minute. The Python
+# detector imports example_parity.corpus instead of reconstructing discovery,
+# and treats a failed verifier process as a failure rather than an empty
+# disagreement set [tested:
+# tests/checks/check_specialization_differential_selftest.py; commit=WORKTREE].
+run GATE spec-differential "$PY" "$HERE/tests/checks/check_specialization_differential.py"
+
+# The exact wrap-one/sleep source that exposes the live specializer arity
+# defect must make the production detector report metta_specialization_disagrees.
+# A plain-call twin stays clean, so disabling specialization cannot pass the
+# selftest by making both sides silent.
+run GATE spec-differential-selftest "$PY" "$HERE/tests/checks/check_specialization_differential_selftest.py"
 
 # Three shell suites that existed and nothing here ran. They were reachable only
 # from .github/workflows/ci.yml, which gates pull requests into main, so no
