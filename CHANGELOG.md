@@ -6,6 +6,21 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Restoring a fast cache costs 58% less. The equation-world codec walked every
+  term of the payload three times: the validity pass looked for space
+  references, then the whole image was walked again for host objects, and the
+  decode walked it a third time rebuilding each node to swap references that a
+  program with no child space does not have. One walk answers all three
+  questions now and reports whether any reference exists at all, and `none`
+  skips the decode outright. On the memory-scale lane `load-fast` falls from
+  831,560 inferences to 351,480; on a 2,000-equation cache the validity pass
+  falls from 264,121 to 162,068 and the decode from 116,011 to nothing. Neither
+  walk rebuilds a node whose children did not change, which is also what the
+  save side pays. What remains is one walk of an untrusted payload on load and
+  one to locate space handles on save, both of which the format requires.
+
 ## [0.7.0] - 2026-09-04
 
 ### Fixed

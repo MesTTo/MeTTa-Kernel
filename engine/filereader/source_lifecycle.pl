@@ -257,10 +257,19 @@ metta_fast_encode_term(SpaceIds, Term, '$metta_fast_space_ref'(Id)) :-
 metta_fast_encode_term(_, Term, Term) :-
     ( var(Term) ; atomic(Term) ),
     !.
+%Rebuilt only when a child actually changed. A program with no child space
+%encodes to the term it was given, and reconstructing every node to answer
+%that cost 198,015 of a 468,074-inference save over 2,000 equations
+%[measured 2026-09-04]. == on the argument lists is one comparison against
+%one compound_name_arguments per node, and both walks below have the same
+%shape for the same reason.
 metta_fast_encode_term(SpaceIds, Term, Encoded) :-
     compound_name_arguments(Term, Name, Arguments),
     maplist(metta_fast_encode_term(SpaceIds), Arguments, EncodedArguments),
-    compound_name_arguments(Encoded, Name, EncodedArguments).
+    (   Arguments == EncodedArguments
+    ->  Encoded = Term
+    ;   compound_name_arguments(Encoded, Name, EncodedArguments)
+    ).
 
 %One compact octet string, one C hash. Measured against the crypto
 %filter-stream route (copy through the filter into a null sink), which
@@ -281,18 +290,30 @@ metta_host_fast_expect_header([Expected|Rest], In) :-
     ;   throw(error(metta_fast_header_mismatch(Expected, Actual), none))
     ).
 
-metta_host_fast_read(In, File, Image) :-
+metta_host_fast_read(In, File, Image, Seen) :-
     catch(fast_read(In, Read), Caught,
           throw(error(metta_fast_read_failed(File, Caught), none))),
-    (   metta_fast_image_valid(Read)
+    (   metta_fast_image_valid(Read, Seen)
     ->  Image = Read
     ;   throw(error(metta_fast_payload_invalid(File),
-                    context(metta_host_fast_read/3,
+                    context(metta_host_fast_read/4,
                             'the cache payload is not a complete version-3 \c
                              equation-world image')))
     ).
 
-metta_fast_image_valid(Image) :-
+%ONE walk where there were three. This pass used to walk every term for
+%space references (metta_fast_term_refs_valid) and then walk the WHOLE image
+%again for host objects (metta_host_atom_carries_object), and the decode in
+%metta_host_fast_restore_image/3 walked it a third time, rebuilding every node
+%to swap references that a program with no child spaces does not have.
+%Measured 2026-09-04 on a 2,000-equation cache: 264,121 inferences validating
+%and 116,011 decoding, against 270,105 for the storing that is the work.
+%
+%Seen comes back `refs` when a '$metta_fast_space_ref' was found anywhere and
+%`none` otherwise, and `none` is what lets the restore skip the decode instead
+%of rebuilding a term that cannot change. The object check moves into the same
+%walk's atomic leaf, which is the only place a blob can sit.
+metta_fast_image_valid(Image, Seen) :-
     acyclic_term(Image),
     Image = metta_fast_image(Spaces, Tokens, Rules, Derived),
     is_list(Spaces),
@@ -304,63 +325,86 @@ metta_fast_image_valid(Image) :-
     length(Ids, Count),
     Last is Count - 1,
     numlist(0, Last, Ids),
-    maplist(metta_fast_space_row_valid(Last), Spaces),
-    maplist(metta_fast_token_row_valid(Last), Tokens),
-    maplist(metta_fast_rule_row_valid(Last), Rules),
+    foldl(metta_fast_space_row_valid(Last), Spaces, none, SeenSpaces),
+    foldl(metta_fast_token_row_valid(Last), Tokens, SeenSpaces, SeenTokens),
+    foldl(metta_fast_rule_row_valid(Last), Rules, SeenTokens, SeenRules),
     findall(Name, member(token(Name, _, _), Tokens), TokenNames),
     sort(TokenNames, UniqueTokenNames),
     same_length(TokenNames, UniqueTokenNames),
     findall(Name, member(rule(Name, _, _, _), Rules), RuleNames),
     sort(RuleNames, UniqueRuleNames),
     same_length(RuleNames, UniqueRuleNames),
-    maplist(metta_fast_derived_row_valid(Last, UniqueRuleNames), Derived),
-    \+ metta_host_atom_carries_object(Image).
+    foldl(metta_fast_derived_row_valid(Last, UniqueRuleNames), Derived,
+          SeenRules, Seen).
 
-metta_fast_space_row_valid(Last, space(Id, Parent, Atoms)) :-
+metta_fast_space_row_valid(Last, space(Id, Parent, Atoms), Seen0, Seen) :-
     integer(Id),
     is_list(Atoms),
     (   Id =:= 0
     ->  Parent == root
     ;   integer(Parent), Parent >= 0, Parent < Id, Parent =< Last
     ),
-    maplist(metta_fast_term_refs_valid(Last), Atoms).
+    foldl(metta_fast_term_scan(Last), Atoms, Seen0, Seen).
 
-metta_fast_token_row_valid(Last, token(Name, OwnerId, Value)) :-
+metta_fast_token_row_valid(Last, token(Name, OwnerId, Value), Seen0, Seen) :-
     atom(Name),
     metta_fast_node_id_valid(Last, OwnerId),
-    metta_fast_term_refs_valid(Last, Value).
+    metta_fast_term_scan(Last, Value, Seen0, Seen).
 
 metta_fast_rule_row_valid(Last,
-                          rule(Name, Declarations, HomeId, Override)) :-
+                          rule(Name, Declarations, HomeId, Override),
+                          Seen0, Seen) :-
     atom(Name),
     is_list(Declarations),
     metta_fast_node_id_valid(Last, HomeId),
     ( Override == none ; Override = override(Kind), atom(Kind) ),
-    metta_fast_term_refs_valid(Last, Declarations).
+    metta_fast_term_scan(Last, Declarations, Seen0, Seen).
 
 metta_fast_derived_row_valid(Last, RuleNames,
-                             derived(Name, SpaceId, Equation)) :-
+                             derived(Name, SpaceId, Equation),
+                             Seen0, Seen) :-
     atom(Name),
     memberchk(Name, RuleNames),
     metta_fast_node_id_valid(Last, SpaceId),
-    metta_fast_term_refs_valid(Last, Equation).
+    metta_fast_term_scan(Last, Equation, Seen0, Seen).
 
 metta_fast_node_id_valid(Last, Id) :-
     integer(Id),
     Id >= 0,
     Id =< Last.
 
-metta_fast_term_refs_valid(Last, Term) :-
-    (   var(Term)
-    ->  true
-    ;   compound(Term),
-        compound_name_arity(Term, '$metta_fast_space_ref', 1)
-    ->  arg(1, Term, Id), metta_fast_node_id_valid(Last, Id)
-    ;   atomic(Term)
-    ->  true
-    ;   compound_name_arguments(Term, _, Arguments),
-        maplist(metta_fast_term_refs_valid(Last), Arguments)
-    ).
+%The one walk. It answers three questions at once because it visits each
+%node once and the alternative visited each node three times: is every space
+%reference in range, does any host object sit in the payload, and is there a
+%space reference ANYWHERE. The third is what the restore reads to decide
+%whether decoding is work or a copy.
+%
+%A blob is atomic in SWI, so the object check belongs on the atomic leaf and
+%nowhere else, which is also why the old carries_object walk could be a
+%separate pass at all.
+metta_fast_term_scan(_, Term, Seen, Seen) :-
+    var(Term),
+    !.
+metta_fast_term_scan(Last, Term, _, refs) :-
+    compound(Term),
+    compound_name_arity(Term, '$metta_fast_space_ref', 1),
+    !,
+    arg(1, Term, Id),
+    metta_fast_node_id_valid(Last, Id).
+%An atom, a number or a string is the overwhelmingly common leaf and can
+%never be a host object: only a blob can, and none of these is one. Deciding
+%them with one type test saves the three-goal negation below on every leaf of
+%every term in the payload.
+metta_fast_term_scan(_, Term, Seen, Seen) :-
+    ( atom(Term) ; number(Term) ; string(Term) ),
+    !.
+metta_fast_term_scan(_, Term, Seen, Seen) :-
+    atomic(Term),
+    !,
+    \+ ( blob(Term, Type), Type \== text, seam:host_object(Term) ).
+metta_fast_term_scan(Last, Term, Seen0, Seen) :-
+    compound_name_arguments(Term, _, Arguments),
+    foldl(metta_fast_term_scan(Last), Arguments, Seen0, Seen).
 
 %After the version prefix: one tab, sixty-four hex digits, one newline.
 metta_host_fast_expect_hash(In, File, Hash) :-
@@ -425,8 +469,8 @@ metta_host_fast_add_atoms(FA, Space) :-
         metta_host_fast_open(FA, read, In),
         ( metta_host_fast_expect_header(PrefixCodes, In),
           metta_host_fast_expect_hash(In, FA, _),
-          metta_host_fast_read(In, FA, Image),
-          metta_host_fast_restore_image(Space, Image) ),
+          metta_host_fast_read(In, FA, Image, Seen),
+          metta_host_fast_restore_image(Space, Image, Seen) ),
         close(In)).
 
 %Restore allocates fresh child identities first, then registries, program
@@ -434,15 +478,24 @@ metta_host_fast_add_atoms(FA, Space) :-
 %rule changes what a call site means; derived equations are already in the
 %atom lists and only their removal associations land afterward. Every created
 %resource joins the active source journal before the next phase can fail.
+%Seen is what the validity walk already learned, so decoding is skipped
+%outright when the payload holds no space reference at all -- which is every
+%program without a child space. Decoding it would rebuild each term node for
+%node and answer the term it was given [measured 2026-09-04: 116,011
+%inferences over a 2,000-equation cache, none of which could change anything].
 metta_host_fast_restore_image(Target,
                               metta_fast_image(Spaces0, Tokens0, Rules0,
-                                               Derived0)) :-
+                                               Derived0), Seen) :-
     metta_fast_allocate_space_nodes(Spaces0, Target, NodeSpaces),
-    ord_list_to_assoc(NodeSpaces, IdSpaces),
-    maplist(metta_fast_decode_space(IdSpaces), Spaces0, Spaces),
-    maplist(metta_fast_decode_token(IdSpaces), Tokens0, Tokens),
-    maplist(metta_fast_decode_rule(IdSpaces), Rules0, Rules),
-    maplist(metta_fast_decode_derived(IdSpaces), Derived0, Derived),
+    (   Seen == none
+    ->  Spaces = Spaces0, Tokens = Tokens0,
+        Rules = Rules0, Derived = Derived0
+    ;   ord_list_to_assoc(NodeSpaces, IdSpaces),
+        maplist(metta_fast_decode_space(IdSpaces), Spaces0, Spaces),
+        maplist(metta_fast_decode_token(IdSpaces), Tokens0, Tokens),
+        maplist(metta_fast_decode_rule(IdSpaces), Rules0, Rules),
+        maplist(metta_fast_decode_derived(IdSpaces), Derived0, Derived)
+    ),
     metta_restore_token_snapshot(Tokens, NodeSpaces, TokenRefs),
     forall(member(Ref, TokenRefs), record_source_assertion(Ref)),
     translator_rules:restore_translator_rule_snapshot(Rules, NodeSpaces,
@@ -501,7 +554,10 @@ metta_fast_decode_term(_, Term, Term) :-
 metta_fast_decode_term(IdSpaces, Term, Decoded) :-
     compound_name_arguments(Term, Name, Arguments),
     maplist(metta_fast_decode_term(IdSpaces), Arguments, DecodedArguments),
-    compound_name_arguments(Decoded, Name, DecodedArguments).
+    (   Arguments == DecodedArguments
+    ->  Decoded = Term
+    ;   compound_name_arguments(Decoded, Name, DecodedArguments)
+    ).
 
 %One program-order boundary covers every node. The old scalar loop fired
 %function_call_graph_changed after each equation and rebuilt the growing SCC
