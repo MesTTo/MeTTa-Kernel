@@ -10,7 +10,7 @@ authors:
 repository-code: "https://github.com/MesTTo/MeTTa-Kernel"
 url: "https://mestto.github.io/MeTTa-Kernel/"
 license: MIT
-version: "0.7.0"
+version: "0.7.1"
 keywords:
   - MeTTa
   - Prolog

@@ -6,6 +6,8 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-09-04
+
 ### Fixed
 
 - Restoring a fast cache costs 58% less. The equation-world codec walked every
