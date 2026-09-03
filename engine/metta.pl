@@ -678,9 +678,30 @@ metta_platform_load(Capability, Imports) :-
     ;   metta_engine_module(Into)
     ),
     forall(metta_platform_spec(Requires, Spec),
-           catch(Into:use_module(Spec, Imports),
-                 error(existence_error(source_sink, Spec), _),
-                 metta_platform_lost(Capability, Imports))).
+           metta_platform_admit(Capability, Into, Spec, Imports)).
+
+%An EMPTY import list asks whether the platform HAS the library, and takes no
+%name from it. use_module answers that by compiling and linking the whole
+%thing, which is the most expensive way to learn a yes: library(redis) costs
+%26,939 inferences to load and 2,804 to look up, and the engine imports
+%nothing from it. So the census probes for the presence-only case and loads
+%only where a caller named something it needs.
+metta_platform_admit(Capability, _, Spec, []) :- !,
+    (   exists_source(Spec)
+    ->  true
+    ;   metta_platform_lost(Capability, [])
+    ).
+metta_platform_admit(Capability, Into, Spec, Imports) :-
+    catch(Into:use_module(Spec, Imports),
+          error(existence_error(source_sink, Spec), _),
+          metta_platform_lost(Capability, Imports)).
+
+%A row names one library or several. The walk is this file's own rather than
+%member/2, because the first census directive runs above this file's
+%use_module(library(lists)) and would then need autoload to supply it, which
+%is the one thing the NO_AUTOLOAD=1 lane exists to catch; engine/qlf_boot.pl
+%carries qlf_member/2 for the same reason.
+
 
 %A row names one library or several. The walk is this file's own rather than
 %member/2, because the first census directive runs above this file's

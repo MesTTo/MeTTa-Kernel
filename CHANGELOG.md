@@ -8,6 +8,14 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The platform census answers a presence question with a presence check. An
+  empty import list asks whether the platform HAS a library and takes no name
+  from it, and `use_module` answered that by compiling and linking the whole
+  thing: `library(redis)` costs 26,939 inferences to load and 2,804 to look
+  up, and the engine imports nothing from it. Engine boot falls from 541,743
+  inferences to 540,234. A capability whose caller names what it needs still
+  loads, so nothing else changes.
+
 - Four gate lanes the fast-cache equation-world work left red are green again:
   the `filereader` to `translator_rules` reach a cache image needs is declared
   in the layering contract, a tuple whose two branches disagreed is annotated,
