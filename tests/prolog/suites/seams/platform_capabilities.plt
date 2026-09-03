@@ -38,7 +38,8 @@
 %     git_import_refuses_by_name_when_subprocess_is_absent,
 %     sha_hashing_survives_without_crypto,
 %     crypto_only_operations_refuse_by_name_without_crypto,
-%     redis_import_refuses_by_name_without_redis; commit=WORKTREE]
+%     redis_import_refuses_by_name_without_redis;
+%     commit=59792b524568755a2fbfe1c5f7cdb571bd78a3bf]
 %   - and the same on a build with one further library taken away, one set per
 %     capability: pcre, zlib, and fastrw with memfile
 %     [tested: the_engine_boots_silently_without_pcre,

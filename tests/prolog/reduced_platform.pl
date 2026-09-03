@@ -24,7 +24,7 @@
 %     hashing remains available from library(sha) [tested:
 %     platform_capabilities_reduced:the_census_reports_all_five_absent,
 %     platform_capabilities_reduced:sha_hashing_survives_without_crypto;
-%     commit=WORKTREE]
+%     commit=59792b524568755a2fbfe1c5f7cdb571bd78a3bf]
 % Fails when:
 %   - loaded into a process that then loads the engine expecting a full
 %     platform: nothing here changes THIS process's search paths, but the

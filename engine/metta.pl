@@ -244,7 +244,8 @@
 %     absent through metta_platform/4 and loads without an error. A dependent
 %     operation refuses by name, except the five SHA hashes that library(sha)
 %     still supplies without crypto [tested: platform_capabilities,
-%     platform_capabilities_reduced; commit=WORKTREE]. The original three-row
+%     platform_capabilities_reduced;
+%     commit=59792b524568755a2fbfe1c5f7cdb571bd78a3bf]. The original three-row
 %     census cost between +0.25% and +0.44% instructions:u on a boot, the range
 %     being the
 %     measurement's own layout sensitivity, which an inert padding block that

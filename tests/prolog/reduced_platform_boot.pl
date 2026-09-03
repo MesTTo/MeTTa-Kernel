@@ -25,7 +25,7 @@
 %     mocked: exists_source/1 is false for all five and call_with_time_limit/2
 %     is undefined in this process [tested:
 %     platform_capabilities_reduced:the_census_reports_all_five_absent;
-%     commit=WORKTREE]
+%     commit=59792b524568755a2fbfe1c5f7cdb571bd78a3bf]
 %   - every line it prints begins with one of `platform`, `refusal`, `answer`
 %     or `unexpected`, and the parent reads only those
 %   - a probe for a capability this child HAS must answer and one for a

@@ -46,7 +46,7 @@
 %     census rather than freezing exists_source/1 into a full-platform QLF, so
 %     the reduced seat boots and hashes with library(sha) [tested:
 %     platform_capabilities_reduced:sha_hashing_survives_without_crypto;
-%     commit=WORKTREE].
+%     commit=59792b524568755a2fbfe1c5f7cdb571bd78a3bf].
 %   - Loader diagnostics contain ANSI escapes only on terminal streams
 %     [tested 2026-08-14: filereader_terminal_output].
 %   - A type declaration that cannot type a function the same source defines
