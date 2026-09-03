@@ -8,6 +8,11 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Optional `library(crypto)` and `library(redis)` dependencies now participate
+  in the platform census before their libraries load. Reduced builds retain
+  the five SHA hashes supplied by `library(sha)` and refuse crypto-only or
+  Redis operations by the missing capability's name.
+
 - Translator-rule ownership now includes the execution module's monotone life
   generation, and deferred rule bodies are materialized before invocation.
   Reusing a released context name can no longer address its prior predicate

@@ -239,13 +239,14 @@
 %     (lib/lib_constraints/lib_constraints.pl, lib/lib_memo/lib_memo.pl) [measured 2026-08-18:
 %     interleaved min-of-3, perf stat -e instructions:u, spread under
 %     0.003% within each side].
-%   - library(thread), library(time) and library(process) are optional: a
-%     build without one records the capability absent through
-%     metta_platform/4 and loads without an error, and every form that rests
-%     on it refuses by name saying what the absence costs [tested:
-%     platform_capabilities, platform_capabilities_reduced;
-%     commit=87d998c24278fc7f020ccb0e408ebcd9332b63eb]. Cost: between
-%     +0.25% and +0.44% instructions:u on a boot, the range being the
+%   - library(thread), library(time), library(process), library(crypto) and
+%     library(redis) are optional: a build without one records the capability
+%     absent through metta_platform/4 and loads without an error. A dependent
+%     operation refuses by name, except the five SHA hashes that library(sha)
+%     still supplies without crypto [tested: platform_capabilities,
+%     platform_capabilities_reduced; commit=WORKTREE]. The original three-row
+%     census cost between +0.25% and +0.44% instructions:u on a boot, the range
+%     being the
 %     measurement's own layout sensitivity, which an inert padding block that
 %     neither side executes moves by about the same amount [measured
 %     2026-08-27: 1,062,764,116 -> 1,067,395,694 unpadded, 1,064,396,538 ->
@@ -617,6 +618,20 @@ metta_platform_capability(json, library(json),
                           'converting between MeTTa atoms and JSON text, \c
                            unless engine/json_codec.so was built from \c
                            json_codec.c, which answers the same forms').
+%library(crypto) is not part of swipl-wasm. library(sha) is, and supplies the
+%five SHA algorithms byte-for-byte identically, so losing crypto costs only
+%secure randomness and the algorithms the SHA library does not implement.
+metta_platform_capability(crypto, library(crypto),
+                          'cryptographically secure (crypto-random-hex ...), \c
+                           and non-SHA algorithms of (crypto-hash ...); \c
+                           SHA-1, SHA-224, SHA-256, \c
+                           SHA-384 and SHA-512 still work through library(sha)').
+%library(redis) is absent from swipl-wasm too. Unlike crypto there is no local
+%provider for any part of this library, so its source declares the requirement
+%and the import door refuses before consulting it.
+metta_platform_capability(redis, library(redis),
+                          'lib_redis, so (redis-attach ...), Redis-backed \c
+                           shared spaces and cross-process subscriptions').
 metta_platform_capability('fast-cache', [library(fastrw), library(memfile)],
                           'saving a space in the fast binary format and \c
                            loading one back; every load reads its source \c
@@ -771,6 +786,11 @@ prolog:error_message(metta_platform_required(Form, Capability, Requires,
 %does, and it loads later in this file, so the census row has to be decided
 %here where the rest of the platform's is.
 :- metta_platform_load(subprocess).
+%library(crypto) and library(redis). Neither publishes names into the engine's
+%module at boot; these empty imports only decide their census rows. Their own
+%libraries import what they use into the space module that loads them.
+:- metta_platform_load(crypto, []).
+:- metta_platform_load(redis, []).
 %library(pcre), the HOST TIER re-export the block above this file's imports
 %describes: re_replace/4 and nothing else, so a MeTTa program's
 %(import_prolog_function re_replace) finds a predicate. The import list is

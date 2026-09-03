@@ -1,7 +1,9 @@
-% Purpose: boot the engine in THIS process on a platform where
-%   library(thread), library(time) and library(process) genuinely cannot be
-%   found, then print one transcript line per platform question so the parent
-%   suite can assert on them. Run as a child process by
+% Purpose: boot the engine in THIS process on a platform where the five
+%   provider sets omitted by swipl-wasm, library(thread) with
+%   library(thread_pool), library(time), library(process), library(crypto) and
+%   library(redis), genuinely cannot be found, then print one transcript line
+%   per platform question so the parent suite can assert on them. Run as a
+%   child process by
 %   tests/prolog/reduced_platform.pl; never loaded by a suite directly.
 % Assumes:
 %   - argv carries `reduced-platform=<root>` for the root
@@ -20,8 +22,10 @@
 %   - the four file_search_path/2 clauses that reach SWI's own library tree,
 %     two under the `library` alias and two under `autoload`, are replaced by
 %     the farms before any engine file loads, so absence is real rather than
-%     mocked: exists_source/1 is false for all three and call_with_time_limit/2
-%     is undefined in this process
+%     mocked: exists_source/1 is false for all five and call_with_time_limit/2
+%     is undefined in this process [tested:
+%     platform_capabilities_reduced:the_census_reports_all_five_absent;
+%     commit=WORKTREE]
 %   - every line it prints begins with one of `platform`, `refusal`, `answer`
 %     or `unexpected`, and the parent reads only those
 %   - a probe for a capability this child HAS must answer and one for a
@@ -102,8 +106,8 @@ reduced_platform_report :-
     forall(metta_platform(Capability, Status, Requires, _),
            format("platform ~w ~w ~q~n", [Capability, Status, Requires])),
     answer(plain, "!(+ 1 2)"),
-    %The three capabilities the default withheld set takes away are absent in
-    %EVERY child this harness builds, so each of these five forms is a refusal
+    %The five capabilities the default withheld set takes away are absent in
+    %EVERY child this harness builds, so each corresponding form is a refusal
     %outright rather than a capability_probe/3. The git one
     %has to stay that way: its present-branch would start a clone against the
     %network, which is not something a test may do on a build that can.
@@ -112,6 +116,17 @@ reduced_platform_report :-
     refusal('hyperpose-computed', "!(let $xs ((+ 1 2)) (hyperpose $xs))"),
     refusal(import, "!(import! &self (library lib_thread))"),
     refusal(git, "!(git-import! \"https://example.invalid/x.git\")"),
+    %lib_crypto remains importable because its five SHA algorithms have the
+    %library(sha) provider this reduced seat still carries. Randomness and a
+    %valid non-SHA algorithm need crypto and must name that absence.
+    crypto_sha_probe,
+    refusal('crypto-random',
+            "!(import! &self (library lib_crypto))\n!(crypto-random-hex 16)"),
+    refusal('crypto-non-sha',
+            "!(import! &self (library lib_crypto))\n!(crypto-hash md5 \"hello\")"),
+    %lib_redis has no partial provider. Its metta_requires/1 declaration is
+    %read before consult, so this names the capability instead of source_sink.
+    refusal('redis-library', "!(import! &self (library lib_redis))"),
     %The capabilities a child may or may not have, one probe per guard point.
     %Each says what it expects from the census rather than from the caller, so
     %the same report serves the run that withholds the library and the runs
@@ -139,6 +154,22 @@ reduced_platform_report :-
 child_fixture(Name, Path) :-
     reduced_platform_child_root(Root),
     atomic_list_concat([Root, '/', Name], Path).
+
+%Every algorithm library(sha) and library(crypto) share. One source keeps the
+%five calls in one imported context, and the parent pins every digest rather
+%than accepting any string-shaped answer as a provider fallback.
+crypto_sha_probe :-
+    atomic_list_concat(
+        [ "!(import! &self (library lib_crypto))",
+          "!(crypto-hash sha1 \"hello\")",
+          "!(crypto-hash sha224 \"hello\")",
+          "!(crypto-hash sha256 \"hello\")",
+          "!(crypto-hash sha384 \"hello\")",
+          "!(crypto-hash sha512 \"hello\")"
+        ],
+        '\n',
+        Source),
+    answer('crypto-sha', Source).
 
 %A .gz program, which only a build with the compression capability can read.
 %The parent writes the fixture because writing it needs the library the child

@@ -1,7 +1,8 @@
-% Purpose: build a real SWI installation minus library(thread),
-%   library(time) and library(process), and minus any EXTRA libraries a test
-%   names, boot the engine in a child process on it, and hand the transcript
-%   back to tests/prolog/suites/seams/platform_capabilities.plt.
+% Purpose: build a real SWI installation minus the five provider sets
+%   swipl-wasm omits: library(thread) with library(thread_pool), library(time),
+%   library(process), library(crypto) and library(redis), and minus any EXTRA
+%   libraries a test names; boot the engine in a child process on it and hand
+%   the transcript back to tests/prolog/suites/seams/platform_capabilities.plt.
 % Assumes:
 %   - THIS platform carries the withheld libraries, so there is something to
 %     take away. reduced_platform_buildable/1 answers that for a given extra
@@ -19,6 +20,11 @@
 %     (current_prolog_flag(executable, _)) and the same engine sources
 %   - stdout and stderr go to files rather than pipes, so a child that writes
 %     more than a pipe buffer cannot deadlock the reader
+%   - the default farm reproduces all five Node-seat absences, while SHA
+%     hashing remains available from library(sha) [tested:
+%     platform_capabilities_reduced:the_census_reports_all_five_absent,
+%     platform_capabilities_reduced:sha_hashing_survives_without_crypto;
+%     commit=WORKTREE]
 % Fails when:
 %   - loaded into a process that then loads the engine expecting a full
 %     platform: nothing here changes THIS process's search paths, but the
@@ -68,6 +74,8 @@ reduced_platform_withheld_library(thread).
 reduced_platform_withheld_library(thread_pool).
 reduced_platform_withheld_library(time).
 reduced_platform_withheld_library(process).
+reduced_platform_withheld_library(crypto).
+reduced_platform_withheld_library(redis).
 
 %The default set plus whatever a caller adds. A TEST names extra libraries to
 %withhold; the default set stays what a WebAssembly build is missing, so the

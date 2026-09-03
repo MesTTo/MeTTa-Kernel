@@ -1,7 +1,7 @@
 % Purpose: the platform census and the refusals that read it, checked on this
 %   platform and on real ones without library(thread), library(time),
-%   library(process), library(pcre), library(zlib), or library(fastrw) and
-%   library(memfile) together.
+%   library(process), library(crypto), library(redis), library(pcre),
+%   library(zlib), or library(fastrw) and library(memfile) together.
 % Guarantees:
 %   - every declared capability's recorded status agrees with whether its
 %     platform library resolves, one library or several, so the census cannot
@@ -26,17 +26,19 @@
 %     a_gz_source_round_trips_where_the_capability_is_present,
 %     a_planted_absence_refuses_a_fast_save_by_name,
 %     a_planted_absence_refuses_a_fast_load_by_name]
-%   - on a build without the three WebAssembly libraries the engine loads
+%   - on a build without the five WebAssembly libraries the engine loads
 %     without writing one ERROR line, still evaluates, and every form that
 %     rests on an absent capability refuses by name
-%     [tested: the_engine_boots_silently_without_the_three_libraries,
+%     [tested: the_engine_boots_silently_without_the_five_libraries,
 %     a_reduced_build_still_evaluates,
 %     a_bounded_form_refuses_by_name_when_deadlines_are_absent,
 %     a_pragma_bound_refuses_by_name_when_deadlines_are_absent,
 %     hyperpose_refuses_by_name_when_concurrency_is_absent,
 %     a_library_that_declares_an_absent_capability_never_loads,
-%     git_import_refuses_by_name_when_subprocess_is_absent;
-%     commit=87d998c24278fc7f020ccb0e408ebcd9332b63eb]
+%     git_import_refuses_by_name_when_subprocess_is_absent,
+%     sha_hashing_survives_without_crypto,
+%     crypto_only_operations_refuse_by_name_without_crypto,
+%     redis_import_refuses_by_name_without_redis; commit=WORKTREE]
 %   - and the same on a build with one further library taken away, one set per
 %     capability: pcre, zlib, and fastrw with memfile
 %     [tested: the_engine_boots_silently_without_pcre,
@@ -102,10 +104,11 @@ test(the_census_agrees_with_what_resolves) :-
                        -> Status == present
                        ;  Status == absent )),
              assertion(( atom(Costs), Costs \== '' )) )),
-    % The six the engine's own loads rest on, named so a row that
+    % The nine the engine's own loads rest on, named so a row that
     % disappears is a decision rather than a silence.
     forall(member(Named, [concurrency, deadlines, subprocess, regex,
-                          'compressed-sources', 'fast-cache']),
+                          'compressed-sources', json, crypto, redis,
+                          'fast-cache']),
            assertion(memberchk(Named-_, Rows))).
 
 % A row names one library or a list of them; both have to resolve for the
@@ -167,6 +170,10 @@ test(a_source_declaration_is_read_without_running_the_source) :-
 test(the_regex_library_declares_what_it_rests_on) :-
     metta_source_declarations('../../lib/lib_regex/lib_regex.pl', Declarations),
     assertion(memberchk(requires(regex), Declarations)).
+
+test(the_redis_library_declares_what_it_rests_on) :-
+    metta_source_declarations('../../lib/lib_redis/lib_redis.pl', Declarations),
+    assertion(memberchk(requires(redis), Declarations)).
 
 % The guard points the regex row added, each with the capability planted
 % absent, because this box has pcre and would otherwise take none of them.
@@ -333,19 +340,21 @@ census_reports_absent(Extra, Capability, Library) :-
     format(string(Expected), "platform ~w absent ~w", [Capability, Library]),
     assertion(reduced_line(Extra, Expected, _)).
 
-test(the_engine_boots_silently_without_the_three_libraries,
+test(the_engine_boots_silently_without_the_five_libraries,
      [condition(reduced_platform_buildable)]) :-
     reduced_transcript(_, Err),
     % Not merely "no ERROR": the base engine wrote four ERROR pairs and four
     % Warnings here, and both go when the loads are guarded.
     assertion(Err == []).
 
-test(the_census_reports_all_three_absent,
+test(the_census_reports_all_five_absent,
      [condition(reduced_platform_buildable)]) :-
     forall(member(Capability-Library,
                   [concurrency-'library(thread)',
                    deadlines-'library(time)',
-                   subprocess-'library(process)']),
+                   subprocess-'library(process)',
+                   crypto-'library(crypto)',
+                   redis-'library(redis)']),
            ( format(string(Expected), "platform ~w absent ~w",
                     [Capability, Library]),
              assertion(reduced_line(Expected, _)) )).
@@ -387,6 +396,38 @@ test(git_import_refuses_by_name_when_subprocess_is_absent,
      [condition(reduced_platform_buildable)]) :-
     refusal_names("git", ["git-import!", "subprocess", "library(process)",
                           "starts a program"]).
+
+% Losing OpenSSL does not cost the five SHA algorithms supplied by the
+% smaller library(sha). This control distinguishes a provider fallback from
+% refusing the whole library, which would make the census accurate but the
+% usable surface needlessly smaller.
+test(sha_hashing_survives_without_crypto,
+     [condition(reduced_platform_buildable)]) :-
+    reduced_line("answer crypto-sha ", Line),
+    forall(member(Digest,
+                  [ "aaf4c61ddcc5e8a2dabede0f3b482cd9aea9434d",
+                    "ea09ae9cc6768c50fcee903ed054556e5bfc8347907f12598aa24193",
+                    "2cf24dba5fb0a30e26e83b2ac5b9e29e1b161e5c1fa7425e73043362938b9824",
+                    "59e1748777448c69de6b800d7a33bbfb9ff1b463e44354c3553bcdb9c666fa90125a3c79f90397bdf5f6a13de828684f",
+                    "9b71d224bd62f3785d96d46ad3ea3d73319bfbc2890caadae2dff72519673ca7\c
+                     2323c3d99ba5c11d7c7acc6e14b8c5da0c4663475c2e5c3adef46f73bcdec043"
+                  ]),
+           assertion(sub_string(Line, _, _, _, Digest))).
+
+test(crypto_only_operations_refuse_by_name_without_crypto,
+     [condition(reduced_platform_buildable)]) :-
+    refusal_names("crypto-random",
+                  ["(crypto-random-hex ...)", "crypto", "library(crypto)",
+                   "secure"]),
+    refusal_names("crypto-non-sha",
+                  ["(crypto-hash ...)", "crypto", "library(crypto)",
+                   "non-SHA"]).
+
+test(redis_import_refuses_by_name_without_redis,
+     [condition(reduced_platform_buildable)]) :-
+    refusal_names("redis-library",
+                  ["lib_redis.pl", "redis", "library(redis)",
+                   "Redis-backed"]).
 
 % A source load with no cache in it, which is what every load on a build
 % without the fast cache is. It runs in every child, so the case below that

@@ -42,6 +42,11 @@
 %     platform_capabilities_reduced:a_gz_source_refuses_by_name_when_compression_is_absent,
 %     platform_capabilities_reduced:the_engine_boots_silently_without_the_fast_cache,
 %     platform_capabilities_reduced:both_fast_cache_doors_refuse_by_name_when_it_is_absent].
+%   - source and cache digests select crypto or SHA from the runtime platform
+%     census rather than freezing exists_source/1 into a full-platform QLF, so
+%     the reduced seat boots and hashes with library(sha) [tested:
+%     platform_capabilities_reduced:sha_hashing_survives_without_crypto;
+%     commit=WORKTREE].
 %   - Loader diagnostics contain ANSI escapes only on terminal streams
 %     [tested 2026-08-14: filereader_terminal_output].
 %   - A type declaration that cannot type a function the same source defines
@@ -385,19 +390,29 @@ source_load_assertion(LoadId, Ref) :-
 %is a digest the other reads, and metta_source_changed/1 cannot answer
 %differently because of which library answered
 %[tested: tests/prolog/suites/reader/filereader.plt, both_digest_providers_agree].
-:- if(exists_source(library(crypto))).
-:- use_module(library(crypto), [crypto_data_hash/3]).
-metta_text_digest(Text, Digest) :- crypto_data_hash(Text, Digest, [algorithm(sha256)]).
-metta_octets_digest(Payload, Digest) :-
-    crypto_data_hash(Payload, Digest, [algorithm(sha256), encoding(octet)]).
-:- else.
+%
+%A conditional-compilation branch is the wrong selector here: its answer is
+%stored in the QLF, so a QLF built with crypto keeps the hard import when a
+%reduced runtime loads it. The census load is replayed by the QLF and runtime
+%dispatch asks the status it recorded. SHA is loaded on both seats because it
+%is the complete fallback provider.
+:- metta_platform_load(crypto, [crypto_data_hash/3]).
 :- use_module(library(sha), [sha_hash/3, hash_atom/2]).
-metta_text_digest(Text, Digest) :- sha_hash(Text, Bytes, [algorithm(sha256)]),
-                                   hash_atom(Bytes, Digest).
+
+metta_text_digest(Text, Digest) :-
+    (   metta_platform(crypto, present, _, _)
+    ->  crypto_data_hash(Text, Digest, [algorithm(sha256)])
+    ;   sha_hash(Text, Bytes, [algorithm(sha256)]),
+        hash_atom(Bytes, Digest)
+    ).
 metta_octets_digest(Payload, Digest) :-
-    sha_hash(Payload, Bytes, [algorithm(sha256), encoding(octet)]),
-    hash_atom(Bytes, Digest).
-:- endif.
+    (   metta_platform(crypto, present, _, _)
+    ->  crypto_data_hash(Payload, Digest,
+                         [algorithm(sha256), encoding(octet)])
+    ;   sha_hash(Payload, Bytes,
+                 [algorithm(sha256), encoding(octet)]),
+        hash_atom(Bytes, Digest)
+    ).
 
 %The first digest of a process pays a one-off initialisation, and without this
 %it lands on whichever program loads first and reads as that program's cost
