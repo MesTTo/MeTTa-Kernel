@@ -8,6 +8,14 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The engine no longer probes for `library(crypto)` twice at boot.
+  `engine/filereader.pl` asks for `crypto_data_hash/3` by name, which records
+  the same census status, and every reader of that status runs after it: the
+  two digest providers in that file, and `lib_crypto` on import. Boot falls
+  from 540,234 inferences to 539,537. Redis keeps its probe, because nothing
+  else in the engine mentions it and the census would otherwise be unable to
+  answer for a capability it declares.
+
 - The platform census answers a presence question with a presence check. An
   empty import list asks whether the platform HAS a library and takes no name
   from it, and `use_module` answered that by compiling and linking the whole

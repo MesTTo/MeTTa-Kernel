@@ -811,7 +811,16 @@ prolog:error_message(metta_platform_required(Form, Capability, Requires,
 %library(crypto) and library(redis). Neither publishes names into the engine's
 %module at boot; these empty imports only decide their census rows. Their own
 %libraries import what they use into the space module that loads them.
-:- metta_platform_load(crypto, []).
+%Redis is probed here because NOTHING else in the engine mentions it, so
+%without this the census could not answer for a capability it declares until
+%lib_redis happened to load. Crypto needs no probe of its own: engine/
+%filereader.pl asks for crypto_data_hash/3 by name, which records the same
+%status, and every reader of that status runs after it - the two digest
+%providers in that file and lib_crypto on import. Probing it twice cost 697
+%inferences at every boot for an answer already established
+%[tested: platform_capabilities:sha_hashing_survives_without_crypto,
+%platform_capabilities:crypto_only_operations_refuse_by_name_without_crypto,
+%both on a genuinely reduced build; commit=WORKTREE].
 :- metta_platform_load(redis, []).
 %library(pcre), the HOST TIER re-export the block above this file's imports
 %describes: re_replace/4 and nothing else, so a MeTTa program's
