@@ -47,6 +47,9 @@ Guarantees:
   - source-table counts and reverse corpus-head coverage are derived from the
     files and live vocabulary, with independently planted omissions
     [tested: tests/checks/check_llms_selftest.py; commit=2c376be0bca6f85920288863ac89f09a44e6c0c7]
+  - the library count is attached to the shipped directories rather than a
+    `.metta`-only glob that omits a Prolog-only implementation [tested:
+    tests/checks/check_llms_selftest.py; commit=WORKTREE]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -136,7 +139,7 @@ _ROSTER = re.compile(
     re.DOTALL,
 )
 #: The same count where the sources table states it a second time.
-_TABLE_COUNT = re.compile(r"\|\s*`lib/lib_\*/lib_\*\.metta`\s*\|\s*(?P<count>\d+) MeTTa libraries")
+_TABLE_COUNT = re.compile(r"\|\s*`lib/lib_\*/`\s*\|\s*(?P<count>\d+) MeTTa libraries")
 
 #: Each count is anchored to the table row that makes the claim. A missing
 #: match is itself a finding, so deleting the number cannot disable its check.

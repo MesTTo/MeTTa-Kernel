@@ -8,6 +8,13 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- The generated MeTTa-library reference now derives its roster from the
+  runtime's shared `.metta`/`.pl` discovery rule. Prolog-only `lib_gitimport`
+  appears as an honest zero-documentation coverage row, while a library with
+  both source halves still appears once and takes its docs from MeTTa. The
+  matching `llms.txt` source row now counts library directories instead of
+  claiming all 34 have a `.metta` implementation.
+
 - `KERNEL.md` now has a row for every one of the translator's 59 special
   heads, including `return`, which the original eight-head audit also missed.
   A new runtime-derived gate checks both translator tiers, all six stated

@@ -20,6 +20,7 @@ beside its definitions.
 | lib_dict | 7 | 0 |
 | lib_doc | 0 | 0 |
 | lib_file | 3 | 3 |
+| lib_gitimport | 0 | 0 |
 | lib_he | 0 | 0 |
 | lib_import | 2 | 2 |
 | lib_json | 0 | 0 |

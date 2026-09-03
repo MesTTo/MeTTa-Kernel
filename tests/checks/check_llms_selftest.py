@@ -27,6 +27,9 @@ Guarantees:
   - a wrong source-table count and an omitted corpus-used engine head each
     turn their production checker red independently [tested: this file is its
     own test, run by the gate; commit=2c376be0bca6f85920288863ac89f09a44e6c0c7]
+  - the planted library-table count uses the directory roster that includes
+    both MeTTa and Prolog implementations [tested: this file is its own test,
+    run by the gate; commit=WORKTREE]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -122,7 +125,7 @@ def main() -> int:
         ),
         "a roster count disagreeing with lib/ was NOT reported",
     )
-    table = f"| `lib/lib_*/lib_*.metta` | {len(shipped) - 1} MeTTa libraries loaded with x |"
+    table = f"| `lib/lib_*/` | {len(shipped) - 1} MeTTa libraries loaded with x |"
     expect(
         any("sources table says" in finding for finding in library_findings(SHEET, table)),
         "a sources-table count disagreeing with lib/ was NOT reported",
