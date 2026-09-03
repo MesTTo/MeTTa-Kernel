@@ -8,6 +8,22 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `NO_AUTOLOAD=1` boots the engine again, and refuses loudly when it cannot.
+  `tests/fixtures/no_autoload_boot.pl` reaches `engine/main.pl` by a path
+  relative to its own directory; moving that file into `tests/fixtures/` on
+  2026-08-27 added a directory level and left the path one `..` short, as a
+  pure rename with no changed line to review. The directive then failed, the
+  loader turned that into a warning and carried on, and `swipl` exited 0 having
+  defined nothing. `engine/check.sh`'s `no-autoload` GATE, whose command is
+  `NO_AUTOLOAD=1 sh test.sh`, reported 233 examples OK while executing zero
+  checks, and with stdin open the same boot blocked at the interactive toplevel
+  instead of exiting. The path is corrected and the fixture now halts with
+  status 2, naming itself and what to fix, so the next move of the file is a
+  red lane rather than a silent one. Autoload had not in fact rotted: a serial
+  per-example differential over the corpus is 231 files identical under both
+  boots, 0 differing. Turning autoload off saves 368.7M instructions of boot,
+  33% of it.
+
 - Compiling a head that is not a translator rule costs one indexed lookup
   again. `translate_expr_dl/4` asks about every head it compiles and almost
   none are rules, and the generation guard wrapped the lookup rather than
