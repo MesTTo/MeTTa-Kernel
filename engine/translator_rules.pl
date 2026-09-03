@@ -22,12 +22,14 @@
 %     injectivize and only then invert; the injectivization step is what
 %     embeds a computation's history and is not attempted here].
 % Guarantees:
-%   - translator_rule/3 is the atomic name/declarations/home registry;
+%   - translator_rule/3 is the name/declarations/home registry and every row
+%     owned by an execution module carries that module life's generation;
 %     translator_rule/2, translator_rule/1 and translator_rule_home/2 are its
-%     read projections. A rule registered in one space therefore has one body
-%     module that every compiling space can resolve
+%     read projections. The compiler rejects a stale generation rather than
+%     addressing a recycled module name, while a rule registered in one space
+%     still has one body module that every compiling space can resolve
 %     [tested: translator_rule_module_home;
-%     commit=d1318d20b5d89d33079c49d0e94aa29e12685664].
+%     commit=WORKTREE].
 %   - a bidirectional declaration is ONE declaration: the inverse equation is
 %     derived, added to the space as an ordinary atom, and registered, and
 %     removing the rule removes it again
@@ -92,6 +94,7 @@
             translator_rule/1,
             translator_rule/2,
             translator_rule/3,
+            translator_rule_current/3,
             translator_rule_home/2,
             translator_rule_declaration/2,
             translator_rule_direction/1,
@@ -178,14 +181,59 @@ refuse_protected_core_rule(Name) :-
 %declaration set compare equal and a re-registration that changes nothing is
 %the no-op it always was.
 :- dynamic translator_rule/3.   %translator_rule(Name, Declarations, HomeModule)
+:- dynamic translator_rule_generation/3.
+%translator_rule_generation(Name, HomeModule, ModuleGeneration)
 
 %Read-only projections for tools that ask about declarations, the name set, or
-%the owner independently. Engine hot paths read translator_rule/3 directly so
-%the projection costs nothing per compiled head.
+%the owner independently. Registry consumers that need raw data read
+%translator_rule/3 directly; the compiler takes translator_rule_current/3 so
+%the generation check is paid only for a head already known to be a rule.
 translator_rule(Name, Declarations) :-
     translator_rule(Name, Declarations, _).
 translator_rule(Name) :- translator_rule(Name, _, _).
 translator_rule_home(Name, Home) :- translator_rule(Name, _, Home).
+
+%A raw row remains the public introspection surface, including for Prolog-authored
+%test rules whose home is not an engine-managed execution module. The compiler
+%takes this checked projection. A managed module retains its last generation
+%after release, so both a released home and a new occupant of the same module
+%name compare unequal to the generation stored beside the rule.
+translator_rule_current(Name, Declarations, Home) :-
+    translator_rule(Name, Declarations, Home),
+    translator_rule_life_status(Name, Home, Status),
+    (   Status == current
+    ->  true
+    ;   Status == unmanaged
+    ->  true
+    ;   Status = stale(Stored, Current),
+        throw(error(metta_stale_translator_rule(
+                        Name, Home, Stored, Current),
+                    context(translator_rule_current/3,
+                            'the rule belongs to an earlier life of its \c
+                             execution module')))
+    ).
+
+translator_rule_life_status(Name, Home, Status) :-
+    (   metta_exec_module_known(_, Home)
+    ->  (   metta_exec_module_generation(Home, Current)
+        ->  (   translator_rule_generation(Name, Home, Current)
+            ->  Status = current
+            ;   translator_rule_generation(Name, Home, Stored)
+            ->  Status = stale(Stored, Current)
+            ;   Status = stale(missing, Current)
+            )
+        ;   Status = stale(missing, live_without_generation)
+        )
+    ;   metta_exec_module_generation(Home, Last)
+    ->  (   translator_rule_generation(Name, Home, Stored)
+        ->  true
+        ;   Stored = missing
+        ),
+        Status = stale(Stored, released(Last))
+    ;   translator_rule_generation(Name, Home, Stored)
+    ->  Status = stale(Stored, missing_module_life)
+    ;   Status = unmanaged
+    ).
 
 %The equations a bidirectional declaration wrote into a space, so
 %that removing the rule removes them too. Recording the atom rather than
@@ -331,20 +379,37 @@ translator_rule_extra_variables_exempt(Name, Reason) :-
 
 register_translator_rule(Name, Declarations) :-
     current_metta_module(Home),
-    (   translator_rule(Name, Existing, _)
-    ->  %Variant, not identity: two spellings of one declaration differ only
-        %in the variables their patterns happen to hold, and =@=/2 is the
-        %comparison engine/trs.pl already uses for exactly that reason.
-        (   Existing =@= Declarations
-        ->  true
-        ;   throw(error(metta_duplicate_translator_rule(Name, Existing),
-                        context('add-translator-rule!',
-                                'a rule name identifies one declaration')))
+    (   translator_rule(Name, Existing, ExistingHome)
+    ->  translator_rule_life_status(Name, ExistingHome, Status),
+        (   Status = stale(_, _)
+        ->  forget_translator_rule(Name),
+            install_translator_rule(Name, Declarations, Home)
+        ;   %Variant, not identity: two spellings of one declaration differ
+            %only in the variables their patterns happen to hold, and =@=/2
+            %is the comparison engine/trs.pl already uses for that reason.
+            (   Existing =@= Declarations
+            ->  true
+            ;   throw(error(metta_duplicate_translator_rule(Name, Existing),
+                            context('add-translator-rule!',
+                                    'a rule name identifies one declaration')))
+            )
         )
-    ;   note_translator_rule_override(Name),
-        assertz(translator_rule(Name, Declarations, Home)),
-        note_cost_ordered_rule(Name, Declarations)
+    ;   install_translator_rule(Name, Declarations, Home)
     ).
+
+install_translator_rule(Name, Declarations, Home) :-
+    note_translator_rule_override(Name),
+    %Generation first and the visible registry row second: a concurrent reader
+    %can see no rule or a complete tagged rule, never an untagged managed row.
+    %An interrupted earlier removal can leave its now-invisible tag behind;
+    %discard it before installing the one row this name is allowed to own.
+    retractall(translator_rule_generation(Name, _, _)),
+    (   metta_exec_module_generation(Home, Generation)
+    ->  assertz(translator_rule_generation(Name, Home, Generation))
+    ;   true
+    ),
+    assertz(translator_rule(Name, Declarations, Home)),
+    note_cost_ordered_rule(Name, Declarations).
 
 
 'remove-translator-rule!'(HV, _) :- var(HV), !,
@@ -362,6 +427,7 @@ withdraw_derived_equation(Space, Equation) :-
 
 forget_translator_rule(Name) :-
     retractall(translator_rule(Name, _, _)),
+    retractall(translator_rule_generation(Name, _, _)),
     retractall(translator_rule_override(Name, _)),
     retractall(cost_ordered_translator_rule(Name)),
     translator:metta_rule_gates_refresh.
@@ -675,6 +741,9 @@ add_translator_form_cost(Term, Running, Total) :-
 
 prolog:error_message(metta_duplicate_translator_rule(Name, Existing)) -->
     [ 'translator rule ~w already declares ~w'-[Name, Existing] ].
+prolog:error_message(metta_stale_translator_rule(Name, Home, Stored, Current)) -->
+    [ 'translator rule ~w names stale module ~w generation ~w; current is ~w'-
+      [Name, Home, Stored, Current] ].
 prolog:error_message(metta_repeated_translator_rule_declaration(Kind)) -->
     [ 'the ~w declaration is written more than once'-[Kind] ].
 prolog:error_message(metta_uninvertible_rule(Name, Reason)) -->

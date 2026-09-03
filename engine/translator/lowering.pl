@@ -2,9 +2,11 @@
 % Assumes: engine/translator.pl consults this plain file while its owning module is the load context.
 % Guarantees: every definition retains engine/translator.pl's implementation module and original load order.
 %   apply_translator_rule_dl/7 receives a rule's declarations and owning
-%   module from one translator_rule/3 row and invokes the hook in that module,
-%   so a global rule has the same body from every compiling space
-%   [tested: translator_rule_module_home; commit=d1318d20b5d89d33079c49d0e94aa29e12685664].
+%   module from one generation-checked registry row, explicitly materialises
+%   a deferred body before invoking it, and therefore neither addresses a
+%   recycled module life nor relies on SWI's undefined-predicate hook after a
+%   predicate was abolished [tested: translator_rule_module_home;
+%   commit=WORKTREE].
 %   Typed compilation resolves declarations from the nearest space that binds
 %   the head while type reporting remains additive across visible spaces
 %   [tested: test_an_inherited_arrow_does_not_veto_a_local_definition,
@@ -1028,6 +1030,11 @@ apply_translator_rule_dl(HV, Declarations, RuleModule,
     copy_term_nat(Values, Matched),
     append(Matched, [Expansion], RuleArgs),
     HookCall =.. [HV|RuleArgs],
+    %An abolished predicate leaves SWI with a formerly-defined descriptor.
+    %On a recycled module name the undefined-predicate hook is not entered,
+    %so force the deferred rule through the engine's ordinary materialiser
+    %before calling that descriptor.
+    metta_ensure_compiled(HV),
     call(RuleModule:HookCall),
     %THE RULE MATCHED only if it did not reach back into the call. The body ran
     %on the copy, so subsumes_term/2 rejects a rule that instantiated the
@@ -1088,7 +1095,7 @@ translate_expr_dl(X, Goals, Goals, X) :-
 translate_expr_dl([H|T], Goals0, Goals, Out) :-
         translate_expr_dl(H, Goals0, AfterHead, HV),
         %--- Translator rules ---:
-        ( nonvar(HV), translator_rule(HV, Declarations, RuleModule),
+        ( nonvar(HV), translator_rule_current(HV, Declarations, RuleModule),
           apply_translator_rule_dl(HV, Declarations, RuleModule,
                                    T, AfterHead, Goals, Out)
           -> true

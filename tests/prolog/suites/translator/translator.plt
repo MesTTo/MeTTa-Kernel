@@ -32,8 +32,9 @@
 %     commit=4465fc492071932eab0b2818a4ccd46f01f0d6aa].
 %   - translator rules retain the execution module that owns their body,
 %     compile from sibling spaces, and retire before release-time repair can
-%     re-enter a half-cleared home [tested: translator_rule_module_home;
-%     commit=d1318d20b5d89d33079c49d0e94aa29e12685664].
+%     re-enter a half-cleared home. A recycled module life receives a new
+%     generation and a planted old row is refused [tested:
+%     translator_rule_module_home; commit=WORKTREE].
 %   - bulk and single-atom ingestion apply the same definition-local type mask
 %     while an equation is arriving [tested:
 %     translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask;
@@ -3083,6 +3084,28 @@ test(a_space_with_an_executed_translator_callsite_releases_cleanly,
     metta_release_space('&plunit-tr-release'),
     assertion(\+ metta_exec_module_known('&plunit-tr-release', _)),
     assertion(\+ translator_rule('plunit-tr-release-pick')).
+
+test(a_recycled_rule_home_rejects_its_past_generation,
+     [ setup(quiet_rule_test),
+       cleanup(cleanup_rule_test(
+           'plunit-tr-stale-pick', ['&plunit-tr-stale-home'])) ]) :-
+    Space = '&plunit-tr-stale-home',
+    space_module(Space, FirstHome),
+    metta_exec_module_generation(FirstHome, FirstGeneration),
+    metta_release_space(Space),
+    space_module(Space, SecondHome),
+    metta_exec_module_generation(SecondHome, SecondGeneration),
+    assertion(SecondHome == FirstHome),
+    assertion(SecondGeneration > FirstGeneration),
+    assertz(translator_rules:translator_rule(
+                'plunit-tr-stale-pick', [], SecondHome)),
+    assertz(translator_rules:translator_rule_generation(
+                'plunit-tr-stale-pick', SecondHome, FirstGeneration)),
+    catch(translate_expr(['plunit-tr-stale-pick', value], _, _),
+          Error, true),
+    assertion(Error = error(
+        metta_stale_translator_rule('plunit-tr-stale-pick', SecondHome,
+                                    FirstGeneration, SecondGeneration), _)).
 
 :- end_tests(translator_rule_module_home).
 

@@ -8,6 +8,11 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Translator-rule ownership now includes the execution module's monotone life
+  generation, and deferred rule bodies are materialized before invocation.
+  Reusing a released context name can no longer address its prior predicate
+  identity, while an actually stale registry row is refused by generation.
+
 - Engine-owned `&self` and `&metta` spaces now refuse `clear` and `drop`
   before teardown starts. The refusal directs callers to their own context or
   a named space, while ordinary spaces retain both lifecycle operations.

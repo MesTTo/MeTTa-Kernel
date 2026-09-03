@@ -19,6 +19,10 @@
 %     implementation module in their original order; storage predicates,
 %     provider seams, and lifecycle state retain their existing ownership
 %     [tested: tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d].
+%   - execution-module mappings carry monotone generations whose last value
+%     survives release, so lifecycle consumers can distinguish a recycled
+%     module name from its former occupant [tested: translator_rule_module_home;
+%     commit=WORKTREE].
 %   - Every native space stores its atoms in a private data module that does
 %     not inherit user predicates [tested: spaces_storage_modules].
 %   - subscribe follows the (events ...) declaration rather than what a host
@@ -219,6 +223,7 @@
             metta_space_world_home/1,
             metta_clear_space_for_release/1,
             metta_exec_module_known/2,
+            metta_exec_module_generation/2,
             metta_forget_space_parent/1,
             metta_host_clear_defined/1,
             metta_host_clear_space/1,

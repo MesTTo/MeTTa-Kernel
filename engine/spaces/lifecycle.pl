@@ -12,6 +12,10 @@
 %   outer release after recursive child cleanup, so support repair can mute
 %   only functions that are going away
 %   [tested: translator_rule_module_home; commit=d1318d20b5d89d33079c49d0e94aa29e12685664].
+%   Every execution-module life receives a monotone generation, retained as a
+%   tombstone after release so a registry row from an earlier occupant cannot
+%   address a recycled module name [tested: translator_rule_module_home;
+%   commit=WORKTREE].
 %   The engine-owned &self and &metta roots refuse clear and release before
 %   teardown starts, directing callers to their own context or a named space
 %   [tested: base_space_lifecycle; commit=6229e43cb68cc3685360810d462d992874992f6c].
@@ -218,6 +222,7 @@ metta_exec_module_name(Space, Module) :-
     atom_concat('$metta_param_exec:', Encoded, Module).
 
 :- dynamic metta_exec_module_known/2.
+:- dynamic metta_exec_module_generation/2.
 :- dynamic space_parent/2.
 :- dynamic metta_exec_module_parent/2.
 :- dynamic space_restricted/2.
@@ -274,6 +279,12 @@ ensure_metta_exec_module_locked(Space, Module) :-
     metta_capture_default_imports(Module),
     set_module(Module:base(Base)),
     metta_refresh_repaired_shadow_imports(Module),
+    flag('$metta_exec_module_generation', Previous, Previous + 1),
+    Generation is Previous + 1,
+    retractall(metta_exec_module_generation(Module, _)),
+    assertz(metta_exec_module_generation(Module, Generation)),
+    %Publish the mapping last. A reader that can see a live module can
+    %therefore always see the generation that identifies this life.
     assertz(metta_exec_module_known(Space, Module)),
     %The compile-time declaration tier upgrades with the module only when
     %the space ALREADY stores a ':' row (declarations that arrive later
