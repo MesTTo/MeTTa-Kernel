@@ -28,6 +28,7 @@
 #                                            memory-scale memory-scale-gate
 #                                            shell examples layering
 #                                            generated-artifacts
+#                                            scratch-retention
 #          CHECK_PY=/path/to/python   pick the interpreter
 #          GATE_ONLY=1                skip the REPORT tier
 # Guarantees:
@@ -66,6 +67,9 @@
 #   - generated-artifacts selects ledger, aio-mirror and reference in the order
 #     their remedies converge [tested: tests/checks/check_generated_artifact_group.py;
 #     commit=7d3c883f91d1d4be055fd725463d214f6fbd1438].
+#   - every lane inherits a repository-local scratch directory, and a later
+#     run reclaims one left by SIGKILL without touching a concurrent run
+#     [tested: tests/checks/check_gate_scratch_selftest.py; commit=WORKTREE].
 # Open Obligations:
 #   To Do: None
 #   Hacks: None
@@ -74,6 +78,9 @@
 set -u
 
 HERE=$(cd -- "$(dirname -- "$0")" && pwd)
+. "$HERE/tests/checks/gate_scratch.sh"
+metta_gate_scratch_open "$HERE" || exit $?
+trap 'metta_gate_scratch_close' EXIT
 # The interpreter, and the environment SWI's Janus bridge reads to find the
 # same one. Both live in select-python.sh, sourced by every runner in the tree,
 # because Janus follows VIRTUAL_ENV rather than the executable a script chose:
@@ -99,7 +106,14 @@ FAILED=''
 SUMMARY=$(mktemp "${TMPDIR:-/tmp}/metta-check.XXXXXX")
 MEMORY_SCALE_DATA=$(mktemp "${TMPDIR:-/tmp}/metta-memory-scale.XXXXXX")
 MEMORY_SCALE_STATUS=$(mktemp "${TMPDIR:-/tmp}/metta-memory-scale-status.XXXXXX")
-trap 'rm -f "$SUMMARY" "$MEMORY_SCALE_DATA" "$MEMORY_SCALE_STATUS"' EXIT
+check_cleanup() {
+    status=$?
+    trap - EXIT
+    rm -f "$SUMMARY" "$MEMORY_SCALE_DATA" "$MEMORY_SCALE_STATUS" || status=1
+    metta_gate_scratch_close || status=1
+    exit "$status"
+}
+trap check_cleanup EXIT
 
 # run TIER NAME COMMAND...
 # A GATE failure is recorded; a REPORT failure is printed and forgiven.
@@ -403,6 +417,9 @@ run GATE reference  "$PY" "$HERE/extensions/python/tools/reference.py"
 
 run GATE generated-artifacts-selftest \
     "$PY" "$HERE/tests/checks/check_generated_artifact_group.py"
+
+run GATE scratch-retention \
+    "$PY" "$HERE/tests/checks/check_gate_scratch_selftest.py"
 
 # The MeTTa half of the same promise: metta-libraries.md reproduces each
 # library's own (@doc ...) atoms, and its coverage table is the burn-down

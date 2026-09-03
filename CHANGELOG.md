@@ -8,6 +8,13 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Root gate runs now export a uniquely locked `TMPDIR` beneath
+  `ai-tmp/check-runs`. Normal exits remove their run directory; after SIGKILL,
+  the next invocation reclaims the unlocked orphan while preserving every
+  concurrent run whose lock is still held. Shell `mktemp` fixtures and Python
+  `tempfile` users inherit the same disk-backed lifetime without sixteen
+  per-caller rewrites.
+
 - The generated MeTTa-library reference now derives its roster from the
   runtime's shared `.metta`/`.pl` discovery rule. Prolog-only `lib_gitimport`
   appears as an honest zero-documentation coverage row, while a library with

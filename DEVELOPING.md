@@ -58,6 +58,13 @@ independent, while `aio-mirror` must precede `reference`: `aiogen.py --write`
 rewrites `aio.py`, and `reference.py --write` then publishes that file's
 docstrings. Keeping the checks in remedy order makes one repair pass converge.
 
+Every root gate run places its temporary files under
+`ai-tmp/check-runs/run.*`. An advisory lock distinguishes an active concurrent
+run from a directory orphaned by SIGKILL, OOM termination, or a reaped parent.
+The next invocation removes each unlocked orphan before allocating its own
+directory. Run `sh check.sh scratch-retention` to exercise both concurrency
+and SIGKILL reclamation.
+
 The `ciao-grade` gate applies external `pred` assertions to the live engine's
 removal and translation funnels, runs them with the packaged runtime checker,
 and requires a valid smoke to produce zero `assrchk/1` findings. Install its
