@@ -3,7 +3,7 @@
 % Guarantees:
 %   - clear and release refuse both base spaces before changing their catalog,
 %     typing, or arithmetic state, while ordinary spaces retain both lifecycle
-%     operations [tested: base_space_lifecycle; commit=WORKTREE].
+%     operations [tested: base_space_lifecycle; commit=6229e43cb68cc3685360810d462d992874992f6c].
 % Open Obligations:
 %   To Do: None
 %   Hacks: None

@@ -14,7 +14,7 @@
 %   [tested: translator_rule_module_home; commit=d1318d20b5d89d33079c49d0e94aa29e12685664].
 %   The engine-owned &self and &metta roots refuse clear and release before
 %   teardown starts, directing callers to their own context or a named space
-%   [tested: base_space_lifecycle; commit=WORKTREE].
+%   [tested: base_space_lifecycle; commit=6229e43cb68cc3685360810d462d992874992f6c].
 % Fails when: loaded directly or from another module; internal state and unqualified meta-goals would acquire the wrong owner.
 % [tested: tests/prolog/suites/spaces/spaces.plt, tests/prolog/static_checks.pl; commit=9a116762fb4372d55675e2ef64b7657092bc136d]
 
