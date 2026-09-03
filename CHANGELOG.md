@@ -23,6 +23,13 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Changed
 
+- `llms.txt` names all five extension-seam kinds. It listed four, "(event,
+  ownership, declaration, service)", and the one it dropped is the largest:
+  `host_service` covers 82 of the 199 declared seams. The counts and each
+  kind's provenance are stated now, since `engine/ext_points.pl:270-274` gives
+  every kind its own `clauses_from/2` rule rather than a shared list.
+  `EXTENDING.md` already documented it correctly at its `host_service` section.
+
 - `llms.txt`'s library roster now says what each of the 34 libraries is FOR,
   one clause each, where it had been a bare list of names. A reader choosing
   between `lib_measure` and `lib_soft`, or wondering whether `lib_dict` is a
