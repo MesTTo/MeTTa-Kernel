@@ -46,7 +46,7 @@ Guarantees:
     [tested: tests/checks/check_llms_selftest.py; commit=b089d4309f34b205c5fdaee46960d1fcd9c1ac42]
   - source-table counts and reverse corpus-head coverage are derived from the
     files and live vocabulary, with independently planted omissions
-    [tested: tests/checks/check_llms_selftest.py; commit=WORKTREE]
+    [tested: tests/checks/check_llms_selftest.py; commit=2c376be0bca6f85920288863ac89f09a44e6c0c7]
 Open Obligations:
   To Do: None
   Hacks: None

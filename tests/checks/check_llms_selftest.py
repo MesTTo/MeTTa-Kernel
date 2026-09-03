@@ -26,7 +26,7 @@ Guarantees:
     tests/checks/check_llms_names.py; commit=b089d4309f34b205c5fdaee46960d1fcd9c1ac42]
   - a wrong source-table count and an omitted corpus-used engine head each
     turn their production checker red independently [tested: this file is its
-    own test, run by the gate; commit=WORKTREE]
+    own test, run by the gate; commit=2c376be0bca6f85920288863ac89f09a44e6c0c7]
 Open Obligations:
   To Do: None
   Hacks: None
