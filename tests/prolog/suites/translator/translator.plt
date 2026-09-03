@@ -35,7 +35,8 @@
 %     re-enter a half-cleared home. A recycled module life receives a new
 %     generation and a planted old row is refused. Fast restore reuses an
 %     identical live rule only in the same module, without taking ownership
-%     of it [tested: translator_rule_module_home; commit=WORKTREE].
+%     of it [tested: translator_rule_module_home;
+%     commit=76690d84e47dcd890748646015830e4fa38075e0].
 %   - bulk and single-atom ingestion apply the same definition-local type mask
 %     while an equation is arriving [tested:
 %     translator_head_pattern_notes:bulk_and_single_ingestion_use_the_same_definition_local_mask;

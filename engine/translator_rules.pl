@@ -75,7 +75,7 @@
 %     replacing or later retiring it [tested:
 %     test_fast_cache_restores_translator_rules_and_bound_spaces,
 %     a_fast_restore_reuses_a_matching_live_rule_in_the_same_module;
-%     commit=WORKTREE].
+%     commit=76690d84e47dcd890748646015830e4fa38075e0].
 % Decides:
 %   - a rule read both ways is applied only in the direction that strictly
 %     lowers the form's cost, and cost defaults to the node count. Nothing
