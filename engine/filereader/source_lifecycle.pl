@@ -15,7 +15,7 @@
 %   reconciles program analysis once at the image boundary rather than once
 %   per atom [tested:
 %   test_fast_restore_batches_content_dependent_program_analysis;
-%   commit=WORKTREE];
+%   commit=83412e29ac271669b6ecc17cca1722832df2d892];
 %   a failed load erases its typing rules and recompiles affected retained
 %   clauses under the restored policy [tested:
 %   filereader_source_rollback:a_failed_source_rule_restores_discharged_contracts;
