@@ -8,6 +8,11 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Array constructor registrations now retain a backend's fully qualified
+  module name. Installing NumPy no longer silently retargets an earlier
+  JAX-backed space, and JAX random construction refuses instead of drawing
+  from NumPy's unrelated global random state.
+
 - Translator rules now keep the execution module that owns their body. A rule
   registered in one space therefore compiles calls in every other space, and
   releasing its home retires the global registration before any live
