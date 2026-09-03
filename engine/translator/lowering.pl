@@ -1095,7 +1095,11 @@ translate_expr_dl(X, Goals, Goals, X) :-
 translate_expr_dl([H|T], Goals0, Goals, Out) :-
         translate_expr_dl(H, Goals0, AfterHead, HV),
         %--- Translator rules ---:
-        ( nonvar(HV), translator_rule_current(HV, Declarations, RuleModule),
+        %Lookup FIRST, then the life check, so a head that is not a rule pays
+        %one indexed failing lookup and nothing more. Almost no head here is
+        %a rule.
+        ( nonvar(HV), translator_rule(HV, Declarations, RuleModule),
+          translator_rule_life_check(HV, RuleModule),
           apply_translator_rule_dl(HV, Declarations, RuleModule,
                                    T, AfterHead, Goals, Out)
           -> true

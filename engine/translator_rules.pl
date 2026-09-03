@@ -104,6 +104,7 @@
             translator_rule/2,
             translator_rule/3,
             translator_rule_current/3,
+            translator_rule_life_check/2,
             translator_rule_home/2,
             translator_rule_declaration/2,
             translator_rule_direction/1,
@@ -213,6 +214,16 @@ translator_rule_home(Name, Home) :- translator_rule(Name, _, Home).
 %name compare unequal to the generation stored beside the rule.
 translator_rule_current(Name, Declarations, Home) :-
     translator_rule(Name, Declarations, Home),
+    translator_rule_life_check(Name, Home).
+
+%The check on its own, so a caller on a hot path can put the LOOKUP first and
+%pay this only for a head that turned out to be a rule. translate_expr_dl/4
+%asks about every head it compiles and almost none of them are rules, so
+%wrapping the lookup cost one inference per head for the answer "not a rule",
+%which the lookup had already given: match 338,002 to 338,602 over 600 queries
+%and match-skew 210,482 to 210,502 over 20, exactly one each
+%[measured 2026-09-03 at a5c34eb7 and its parent; command=python engine/bench.py].
+translator_rule_life_check(Name, Home) :-
     translator_rule_life_status(Name, Home, Status),
     (   Status == current
     ->  true

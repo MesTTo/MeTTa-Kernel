@@ -8,6 +8,15 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Compiling a head that is not a translator rule costs one indexed lookup
+  again. `translate_expr_dl/4` asks about every head it compiles and almost
+  none are rules, and the generation guard wrapped the lookup rather than
+  following it, so each head paid an extra call for the answer "not a rule"
+  that the lookup had already given. The match benchmark returns to its 338,002
+  baseline over 600 queries and match-skew to 210,482 over 20, exactly one
+  inference each. The guard itself is unchanged and still refuses a rule from
+  an earlier life of its execution module.
+
 - The source digest asks whether crypto is present instead of reading the whole
   census row for it. `metta_platform/4` is the host's enumerable view and
   unifies a capability's requirements and the sentence describing what its
