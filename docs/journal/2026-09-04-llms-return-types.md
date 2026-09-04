@@ -270,3 +270,40 @@ A first patch attempt corrupted `registry_undo` itself: the replacement pattern
 `    REGISTRY.pop(name, None)` matched inside the new function's own except
 block before reaching `unregister`. Anchoring on the neighbouring
 `_withdraw_purity` line fixed it, and `ast.parse` caught the damage.
+
+## 2026-09-04, a wait that could never end
+
+Reported as "a spawning call blocks inside a transaction", with
+`01-thread_lib.metta` not finishing in 150s where it draws in 10.1.
+
+Reproduced exactly: `(let $f (spawn (inc 41)) (await $f))` answers
+`[Grounded(42)]` in 0.00s and blocks past 90s inside `transaction()`.
+
+Isolated in two steps. `spawn` alone inside a transaction returns
+`Space('&future-1')` immediately, so the launch is fine and the WAIT is the
+problem. Then the visibility A/B: polling the future space every 50ms, the
+worker's answer is visible in 0.00s outside a transaction and NEVER inside one
+in a full second. A transaction reads the database as of its open, so a write
+another thread makes afterwards is invisible for as long as it lasts, which
+makes the awaited condition unreachable rather than slow.
+
+Surveyed the other blocking families rather than fixing only `await`.
+`space_await` is worse than a hang: with a two-second timeout it answers `(job
+1)` outside a transaction and `[]` after the full two seconds inside, reporting
+absence for an atom that was written. Channels are NOT affected and are NOT
+guarded, measured: `(let $c (channel) (let $_ (send $c hello) (recv $c)))`
+answers hello in both places, because a message queue is not database state.
+
+Decided: refuse at the two database-backed funnels, `future_settle_` through
+`thread_await` and `space_wait_` for both the await and take modes, using
+`current_transaction/1` which is a builtin that fails outside a transaction.
+Refusing is the honest answer because the condition cannot be reached, and a
+caller waiting on it has no way to learn that.
+
+Control: removing the guard from `thread_await` turns the new test into a
+45-second timeout, which is the defect itself.
+
+One full-suite run showed
+`test_a_landing_observer_can_await_another_async_future` failing. It passes
+alone, passes with its whole chapter, and passes in a repeat full run at load
+18.3; the box was carrying another workload at 344% CPU throughout.

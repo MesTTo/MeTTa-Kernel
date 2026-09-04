@@ -8,6 +8,16 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A cross-thread wait inside a transaction refuses instead of hanging. A
+  transaction reads the database as it was when it opened, so a write another
+  thread makes while it runs cannot become visible inside it, and every
+  blocking wait waits for exactly such a write. `(let $f (spawn (inc 41))
+  (await $f))` answers 42 immediately and never returned inside a transaction;
+  the same spawn under a two-second `space_await` answered nothing after the
+  full two seconds, which is a wrong answer rather than a slow one. Both now
+  refuse at once, naming the reason and the remedy. A channel is unaffected and
+  is not guarded, because its queue is not database state.
+
 - A registration rolled back with its transaction no longer leaves the registry
   claiming it. `transaction()` unwinds engine state, and the operation registry
   is the library's own mirror of that state rather than the caller's Python
