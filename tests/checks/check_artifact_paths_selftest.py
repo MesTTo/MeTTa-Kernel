@@ -1,5 +1,4 @@
-"""Purpose: prove check_artifact_paths.py finds a stale path and spares three
-things that are not one.
+"""Purpose: prove check_artifact_paths.py finds a stale path and spares three that are not.
 
 Running the pass on THIS repository proves the repository resolves. It says
 nothing about whether the pass can find a stale path at all, and nothing about

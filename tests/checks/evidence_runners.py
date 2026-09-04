@@ -1,6 +1,7 @@
-"""Purpose: say which files this repository's runners execute, and in which
-tier, so a tested claim can be checked against the gate rather than against
-the tree alone.
+"""Purpose: say which files this repository's runners execute, and in which tier.
+
+A tested claim can then be checked against the gate rather than against the
+tree alone.
 
 check_evidence_tags.py used to ask only whether a cited name existed. A name
 can exist in a file nothing runs, which is how engine/translator.pl came to cite
@@ -104,7 +105,8 @@ RUNNERS = (
     "test.sh",
     ".github/workflows/checks.yml",
     ".github/workflows/ci.yml",
-) + _component_runners()
+    *_component_runners(),
+)
 
 
 def gate_scripts() -> tuple[Path, ...]:
@@ -421,11 +423,15 @@ def executed() -> tuple[dict[Path, Execution], list[str]]:
             # $HERE to its own folder and enters it, so extensions/node/test.sh
             # `cd "$HERE" && npm run test` resolves against extensions/node and
             # not against the root the root gate's $HERE means.
-            directories = (ROOT, (ROOT / runner).parent) + tuple(
-                candidate
-                for target in CD.findall(lane_text)
-                if (spent := _literal(target)) is not None
-                and (candidate := ROOT / spent).is_dir()
+            directories = (
+                ROOT,
+                (ROOT / runner).parent,
+                *(
+                    candidate
+                    for target in CD.findall(lane_text)
+                    if (spent := _literal(target)) is not None
+                    and (candidate := ROOT / spent).is_dir()
+                ),
             )
             for token in PATHISH.findall(lane_text):
                 spent = _literal(token)
@@ -505,10 +511,10 @@ def executed() -> tuple[dict[Path, Execution], list[str]]:
         )
         return runs, problems
     section = configuration.read_text().partition("[tool.pytest.ini_options]")[2]
-    for key in PYTEST_DISCOVERY_KEYS:
-        if re.search(rf"^{key}\s*=", section.partition("\n[")[0], re.MULTILINE):
-            problems.append(
-                f"extensions/python/pyproject.toml sets pytest's {key}, so the collectors above "
-                f"model a discovery this project no longer uses"
-            )
+    problems.extend(
+        f"extensions/python/pyproject.toml sets pytest's {key}, so the collectors above "
+        f"model a discovery this project no longer uses"
+        for key in PYTEST_DISCOVERY_KEYS
+        if re.search(rf"^{key}\s*=", section.partition("\n[")[0], re.MULTILINE)
+    )
     return runs, problems

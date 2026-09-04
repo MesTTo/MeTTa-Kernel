@@ -1,6 +1,7 @@
-"""Purpose: derive FIXED / OPEN / UNKNOWN for every P<phase>.<n> item in
-ai-spec-execution.md by asking the tree, not by reading ai-review-log.md's
-prose. P9.3's whole point: the spec's item tables carry an id, an item, an
+r"""Purpose: derive FIXED / OPEN / UNKNOWN for every spec item by asking the tree.
+
+The items are ai-spec-execution.md's `P<phase>.<n>` rows, and the tree is asked
+rather than ai-review-log.md's prose read. P9.3's whole point: the spec's item tables carry an id, an item, an
 evidence column and an acceptance criterion, and NO status column; completion
 is recorded separately, in prose, in ai-review-log.md. The two documents can
 disagree and nothing notices: three already-landed items (P0.4, P0.5, P0.6)
@@ -81,10 +82,10 @@ Assumes:
     arbiter corpus one directory above THAT, per this workspace's own
     standing layout [source: the workspace CLAUDE.md, "Ledgers"
     and "the arbiter corpus", LeaTTa] [assumed 2026-08-18]
-  - GFM table cells split on `|`, except one escaped as `\\|` or one that
+  - GFM table cells split on `|`, except one escaped as `\|` or one that
     falls inside a matched run of backticks, which is how three of this
-    spec's own rows carry a literal `|` (`shim.pl:92`'s `[F\\|Args]`, the
-    MeTTa `\\|->` operator twice) without breaking their row's column count
+    spec's own rows carry a literal `|` (`shim.pl:92`'s `[F\|Args]`, the
+    MeTTa `\|->` operator twice) without breaking their row's column count
     [source: https://github.github.com/gfm/#tables-extension-]
   - a cited `name/arity` or bare identifier's mere existence in this
     repository's own source is NOT decisive in either direction (see the
@@ -168,9 +169,10 @@ from evidence_runners import COLLECTORS, LANE, ROOT, Execution, executed, gate_s
 
 
 def _main_checkout(here: Path) -> Path:
-    """The repository's PRIMARY checkout, even when `here` is a git-worktree
-    copy of it (an isolated agent's own worktree, per this workspace's own
-    convention: see the workspace CLAUDE.md and worktree.sh). A
+    """The repository's PRIMARY checkout, even when `here` is a worktree copy of it.
+
+    An isolated agent's own worktree is such a copy, per this workspace's own
+    convention: see the workspace CLAUDE.md and worktree.sh. A
     worktree's `.git` is a FILE, not a directory, reading
     `gitdir: <main>/.git/worktrees/<name>`; three parents up from that path
     is `<main>`, the same fact `worktree.sh` derives via `git worktree list`
@@ -207,10 +209,11 @@ ITEM_ID = re.compile(r"^P\d+\.\d+[a-z]?$")
 
 
 def split_table_row(inner: str) -> list[str]:
-    """Cells of one GFM table row, `inner` being the text between the outer
-    pipes. A `|` counts as a delimiter unless it is escaped `\\|` or sits
-    inside a run of backticks matched by an equal-length closing run, per
-    the CommonMark table extension and code-span rules.
+    r"""Cells of one GFM table row, `inner` being the text between the outer pipes.
+
+    A `|` counts as a delimiter unless it is escaped `\|` or sits inside a run
+    of backticks matched by an equal-length closing run, per the CommonMark
+    table extension and code-span rules.
     """
     cells: list[str] = []
     current: list[str] = []
@@ -247,9 +250,10 @@ def split_table_row(inner: str) -> list[str]:
 
 @dataclass(frozen=True)
 class SpecRow:
-    """One item row: its id, source line, and its "item"/"acceptance"-shaped
-    cell texts. `evidence_text` is kept for display only and never mined for
-    anchors (see module docstring).
+    """One item row: its id, source line, and its "item"/"acceptance"-shaped cell texts.
+
+    `evidence_text` is kept for display only and never mined for anchors (see
+    module docstring).
     """
 
     id: str
@@ -349,10 +353,11 @@ def orphan_rows(text: str) -> list[str]:
 
 
 def parse_items(text: str) -> tuple[dict[str, list[SpecRow]], list[str]]:
-    """Every `P<phase>.<n>` item the spec's tables define, keyed by id (more
-    than one entry means the spec itself defines that id more than once),
-    plus structural warnings (a row whose cell count does not match its
-    table's header, which this tool skips rather than misaligns).
+    """Every `P<phase>.<n>` item the spec's tables define, keyed by id.
+
+    More than one entry means the spec itself defines that id more than once.
+    Structural warnings come with them: a row whose cell count does not match
+    its table's header, which this tool skips rather than misaligns.
     """
     items: dict[str, list[SpecRow]] = {}
     warnings: list[str] = []
@@ -432,8 +437,10 @@ class Anchor:
 
 
 def classify_token(token: str) -> str | None:
-    """Which anchor kind a backtick span names, or None for prose, an
-    operator symbol, a MeTTa runtime expression, or a variable.
+    """Which anchor kind a backtick span names, or None.
+
+    None covers prose, an operator symbol, a MeTTa runtime expression, and a
+    variable.
     """
     token = token.strip()
     if not token or any(c.isspace() for c in token):
@@ -455,8 +462,9 @@ def classify_token(token: str) -> str | None:
 
 
 def extract_anchors(row: SpecRow) -> list[Anchor]:
-    """Every checkable anchor named in `row`'s item and acceptance text, in
-    that order, deduplicated by (kind, token).
+    """Every checkable anchor named in `row`'s item and acceptance text, in that order.
+
+    Deduplicated by (kind, token).
 
     An earlier version of this function also inverted an anchor's polarity
     on a negation cue ("stops being", "no longer" next to the name), on the
@@ -491,16 +499,19 @@ def extract_anchors(row: SpecRow) -> list[Anchor]:
 
 
 def extract_code_spans(row: SpecRow) -> list[str]:
-    """Every backtick span in `row`'s item/acceptance text that looks like
-    Prolog or Python code rather than a name. Unlike `Anchor`, a code span
-    carries no provenance: `resolve_code_span` treats an item- and an
+    """Every backtick span in `row`'s item/acceptance text that looks like code.
+
+    Prolog or Python code, that is, rather than a name. Unlike `Anchor`, a code
+    span carries no provenance: `resolve_code_span` treats an item- and an
     acceptance-column snippet identically, so there is nothing to carry.
     """
     spans = []
     for source in (row.item_text, row.acceptance_text):
-        for span in BACKTICK.findall(source):
-            if classify_token(span) is None and CODE_SHAPED.search(span) and len(span) >= 6:
-                spans.append(span)
+        spans.extend(
+            span
+            for span in BACKTICK.findall(source)
+            if classify_token(span) is None and CODE_SHAPED.search(span) and len(span) >= 6
+        )
     return spans
 
 
@@ -523,9 +534,11 @@ WHITESPACE = re.compile(r"\s+")
 
 
 def _read_paren_arity(text: str, open_idx: int) -> int:
-    """Argument count of the `(...)` starting at `text[open_idx]`, skipping
-    nested brackets and quoted atoms/strings so a comma inside `'a,b'` is
-    not counted. Returns -1 if the group never closes (truncated file).
+    """Argument count of the `(...)` starting at `text[open_idx]`.
+
+    Nested brackets and quoted atoms/strings are skipped, so a comma inside
+    `'a,b'` is not counted. Returns -1 if the group never closes (truncated
+    file).
     """
     depth, arity, i, n, quote = 0, 1, open_idx, len(text), None
     while i < n:
@@ -623,8 +636,10 @@ def _lane_tiers() -> dict[str, str]:
 
 @dataclass(frozen=True)
 class TreeFacts:
-    """Everything gathered from the repository once, up front, and handed to
-    every `resolve_*` function; nothing below this point reads a file.
+    """Everything gathered from the repository once, up front.
+
+    It is handed to every `resolve_*` function; nothing below this point reads
+    a file.
     """
 
     lanes: dict[str, str]
@@ -638,6 +653,7 @@ class TreeFacts:
 
 def gather_tree_facts() -> TreeFacts:
     """Everything the verdict engine asks the repository for, computed once.
+
     Every piece here is a plain read: file globs, regex scans, and the two
     sibling modules' own (also read-only) `executed()`/`gather()`.
     """
@@ -721,14 +737,16 @@ SEARCH_ROOTS = (ROOT, WORKSPACE, WORKSPACE.parent)
 
 
 def _locate_file(token: str) -> list[Path]:
-    """Where a cited path actually lives. Checked literally against each of
-    SEARCH_ROOTS in turn. A BARE filename with no `/` -- P0.2a's `shim.pl`,
-    meaning `extensions/python/metta/shim.pl` -- is resolved by searching the TREE
-    (ROOT only; WORKSPACE and its siblings are not this tool's to walk) for
-    that exact basename, because the spec cites many files by their last
-    path component only, and checking only `ROOT / token` reported
-    `shim.pl` as absent when `extensions/python/metta/shim.pl` was sitting right there
-    [measured 2026-08-18].
+    """Where a cited path actually lives.
+
+    Checked literally against each of SEARCH_ROOTS in turn. A BARE filename
+    with no `/` -- P0.2a's `shim.pl`, meaning `extensions/python/metta/shim.pl`
+    -- is resolved by searching the TREE (ROOT only; WORKSPACE and its siblings
+    are not this tool's to walk) for that exact basename, because the spec
+    cites many files by their last path component only, and checking only `ROOT
+    / token` reported `shim.pl` as absent when
+    `extensions/python/metta/shim.pl` was sitting right there [measured
+    2026-08-18].
     """
     for root in SEARCH_ROOTS:
         candidate = root / token
@@ -751,15 +769,17 @@ _TRANSIENT = frozenset({".git", "__pycache__", ".claude", "ai-tmp", "build", ".v
 
 
 def _transient(parts: tuple[str, ...]) -> bool:
-    """Whether a path lies in a directory that is a COPY of the tree or
-    scratch beside it, rather than the tree itself.
+    """Whether a path lies in a COPY of the tree, or in scratch beside it.
+
+    Rather than in the tree itself.
     """
     return any(part in _TRANSIENT for part in parts)
 
 
 def _shown_path(location: Path) -> str:
-    """`location` relative to whichever SEARCH_ROOTS entry contains it, so
-    a report line never leaks this machine's absolute layout.
+    """`location` relative to whichever SEARCH_ROOTS entry contains it.
+
+    A report line then never leaks this machine's absolute layout.
     """
     for label, root in (("", ROOT), ("WORKSPACE/", WORKSPACE), ("WORKSPACE/../", WORKSPACE.parent)):
         if location.is_relative_to(root):
@@ -768,14 +788,15 @@ def _shown_path(location: Path) -> str:
 
 
 def _file_outcome(path: Path, facts: TreeFacts) -> tuple[str | None, str]:
-    """(status, why) for a file this tool located. FIXED needs a
-    test/example-shaped path, GATE tracking, AND a lane that names it
-    LITERALLY rather than sweeping it in by a blanket pytest/plunit/example
-    glob (see COLLECTOR_RUNNER_LABELS above); a test-shaped, literally-named
-    path that only a REPORT lane reaches is OPEN (named but not yet gated,
-    per this project's own V1: not done until the gate is green); anything
-    under an implementation root, blanket-swept, or untracked by any
-    runner, is neutral.
+    """(status, why) for a file this tool located.
+
+    FIXED needs a test/example-shaped path, GATE tracking, AND a lane that
+    names it LITERALLY rather than sweeping it in by a blanket
+    pytest/plunit/example glob (see COLLECTOR_RUNNER_LABELS above); a
+    test-shaped, literally-named path that only a REPORT lane reaches is OPEN
+    (named but not yet gated, per this project's own V1: not done until the
+    gate is green); anything under an implementation root, blanket-swept, or
+    untracked by any runner, is neutral.
     """
     if path.is_dir():
         return None, "exists as a directory"
@@ -818,7 +839,9 @@ def resolve_file(anchor: Anchor, facts: TreeFacts) -> Verdict:
 
 
 def resolve_lane(anchor: Anchor, facts: TreeFacts) -> Verdict | None:
-    """check.sh lane names are a small, deliberately-curated, enumerable
+    """Whether a check.sh lane name resolves, and why that answer runs both ways.
+
+    check.sh lane names are a small, deliberately-curated, enumerable
     set (unlike a bare predicate or Python name), so a hit or a miss here
     stays fully bidirectional -- there is no "pre-existing lane that
     happens to share this name" risk the way there is for `swrite` or
@@ -861,7 +884,9 @@ def resolve_lane(anchor: Anchor, facts: TreeFacts) -> Verdict | None:
 
 
 def resolve_predicate(anchor: Anchor, facts: TreeFacts) -> Verdict:
-    """A `name/arity` indicator is informational ONLY: most of this spec's
+    """What a `name/arity` indicator is worth, which is never a verdict.
+
+    A `name/arity` indicator is informational ONLY: most of this spec's
     citations name a predicate the ENGINE ALREADY HAS (P2.5's `swrite/2`,
     P2.8's `fun/1`), so existence alone is true before the item's fix as
     often as after it [measured 2026-08-18, same run noted on
@@ -897,19 +922,19 @@ def _identifier_targets(name: str, facts: TreeFacts) -> list[str]:
 
 
 def resolve_identifier(anchor: Anchor, facts: TreeFacts) -> Verdict:
-    """Two tiers, matching `resolve_predicate`'s reasoning. A name
-    `check_evidence_tags` already knows as a real pytest/plunit/example
-    name is a NARROW, ENUMERABLE universe (every test this tree ships), so
-    a hit or a miss THERE stays bidirectional. A name only found by this
-    tool's own broad "does it appear as a def/class/predicate/equation
-    head anywhere" scan is informational only, for the same reason
-    `resolve_predicate` is: `register_op`, `Expr`, `m.eval`'s `eval` and
-    most other names in this spec already existed before the item that
-    cites them, and for a RENAME item (P10.4, P10.5) finding the OLD name
-    still defined is not even weak evidence of progress, it is what
-    "not yet renamed" looks like [measured 2026-08-18: the earlier version
-    called P10.5 FIXED because `m.space_name` -- the name being RETIRED --
-    was still findable, which is backwards].
+    """Two tiers, matching `resolve_predicate`'s reasoning.
+
+    A name `check_evidence_tags` already knows as a real pytest/plunit/example
+    name is a NARROW, ENUMERABLE universe (every test this tree ships), so a
+    hit or a miss THERE stays bidirectional. A name only found by this tool's
+    own broad "does it appear as a def/class/predicate/equation head anywhere"
+    scan is informational only, for the same reason `resolve_predicate` is:
+    `register_op`, `Expr`, `m.eval`'s `eval` and most other names in this spec
+    already existed before the item that cites them, and for a RENAME item
+    (P10.4, P10.5) finding the OLD name still defined is not even weak evidence
+    of progress, it is what "not yet renamed" looks like [measured 2026-08-18:
+    the earlier version called P10.5 FIXED because `m.space_name` -- the name
+    being RETIRED -- was still findable, which is backwards].
 
     Within `check_evidence_tags`'s own universe, "prolog"-kind targets are
     excluded from the bidirectional path and folded into the informational
@@ -985,7 +1010,9 @@ def resolve_identifier(anchor: Anchor, facts: TreeFacts) -> Verdict:
 
 
 def resolve_code_span(snippet: str, facts: TreeFacts) -> Verdict:
-    """Asymmetric on purpose: a long, structured code fragment (an actual
+    """What a quoted code fragment is worth, on a match and on a miss.
+
+    Asymmetric on purpose: a long, structured code fragment (an actual
     clause body, not a bare name) matching verbatim after whitespace is
     stripped is unlikely to be a coincidence, so a MATCH is real FIXED-
     leaning evidence. A miss proves nothing (formatting drift, a renamed
@@ -1006,7 +1033,8 @@ def resolve_anchor(anchor: Anchor, facts: TreeFacts) -> Verdict:
     if anchor.kind == "identifier":
         lane = resolve_lane(anchor, facts)
         return lane if lane is not None else resolve_identifier(anchor, facts)
-    raise AssertionError(f"unhandled anchor kind {anchor.kind!r}")
+    msg = f"unhandled anchor kind {anchor.kind!r}"
+    raise AssertionError(msg)
 
 
 # ------------------------------------------------------------------ items
@@ -1022,9 +1050,11 @@ class ItemStatus:
 
 
 def _evaluate_ambiguous(rows: list[SpecRow], facts: TreeFacts) -> ItemStatus:
-    """The spec itself defines this id more than once (Phase 4's own
-    P4.1-P4.7 duplication): report each row's own leaning for a human to
-    disambiguate, but never guess which row governs.
+    """The verdict when the spec itself defines this id more than once.
+
+    Phase 4's own P4.1-P4.7 duplication is the case. Each row's own leaning is
+    reported for a human to disambiguate, and which row governs is never
+    guessed.
     """
     per_row = []
     for row in rows:
@@ -1035,15 +1065,17 @@ def _evaluate_ambiguous(rows: list[SpecRow], facts: TreeFacts) -> ItemStatus:
         rows[0].id, "UNKNOWN",
         (f"ambiguous id: the spec defines {rows[0].id} {len(rows)} times with different "
          f"content ({'; '.join(per_row)}); this tool refuses to guess which row governs",),
-        True, 0,
+        ambiguous=True,
+        anchors_considered=0,
     )
 
 
 def _evaluate_single(row: SpecRow, facts: TreeFacts) -> ItemStatus:
-    """OPEN if any anchor is OPEN, else FIXED if any is FIXED, else UNKNOWN
-    -- naming whether any anchor was found at all, since that distinction
-    (no anchor named vs. anchors named but all inconclusive) is itself part
-    of this tool's honesty about what it can decide.
+    """OPEN if any anchor is OPEN, else FIXED if any is FIXED, else UNKNOWN.
+
+    The reason names whether any anchor was found at all, since that
+    distinction (no anchor named versus anchors named but all inconclusive) is
+    itself part of this tool's honesty about what it can decide.
     """
     anchors = extract_anchors(row)
     verdicts = [(a, resolve_anchor(a, facts)) for a in anchors]
@@ -1054,23 +1086,36 @@ def _evaluate_single(row: SpecRow, facts: TreeFacts) -> ItemStatus:
     ]
     considered = len(anchors) + len(code_verdicts)
     if opens:
-        return ItemStatus(row.id, "OPEN", tuple(opens), False, considered)
+        return ItemStatus(
+            row.id, "OPEN", tuple(opens), ambiguous=False, anchors_considered=considered
+        )
     if fixeds:
-        return ItemStatus(row.id, "FIXED", tuple(fixeds), False, considered)
+        return ItemStatus(
+            row.id, "FIXED", tuple(fixeds), ambiguous=False, anchors_considered=considered
+        )
     if considered:
         inconclusive = [v.detail for _, v in verdicts] + [v.detail for _, v in code_verdicts]
-        return ItemStatus(row.id, "UNKNOWN", tuple(inconclusive), False, considered)
+        return ItemStatus(
+            row.id,
+            "UNKNOWN",
+            tuple(inconclusive),
+            ambiguous=False,
+            anchors_considered=considered,
+        )
     return ItemStatus(
         row.id, "UNKNOWN",
         ("acceptance criterion (and item text) name no file, predicate, lane, or "
          "identifier this tool can check",),
-        False, 0,
+        ambiguous=False,
+        anchors_considered=0,
     )
 
 
 def evaluate_item(rows: list[SpecRow], facts: TreeFacts) -> ItemStatus:
-    """One id's verdict: `_evaluate_ambiguous` if the spec defines the id
-    more than once, otherwise `_evaluate_single`.
+    """One id's verdict.
+
+    `_evaluate_ambiguous` if the spec defines the id more than once, otherwise
+    `_evaluate_single`.
     """
     if len(rows) > 1:
         return _evaluate_ambiguous(rows, facts)
@@ -1084,9 +1129,10 @@ def _phase_key(item_id: str) -> tuple[int, str]:
 
 # --------------------------------------------------------------------- CLI
 def _select_ids(statuses: dict[str, ItemStatus], phase: str | None, only_id: str | None) -> list[str]:
-    """Every id to report, sorted by phase then number, narrowed by
-    --phase/--id. Raises `KeyError(only_id)` if --id names an unknown id,
-    for `main` to turn into a clean error rather than an empty report.
+    """Every id to report, sorted by phase then number, narrowed by --phase/--id.
+
+    Raises `KeyError(only_id)` if --id names an unknown id, for `main` to turn
+    into a clean error rather than an empty report.
     """
     selected = sorted(statuses, key=_phase_key)
     if phase:
@@ -1101,8 +1147,10 @@ def _select_ids(statuses: dict[str, ItemStatus], phase: str | None, only_id: str
 
 def _json_payload(spec: Path, items: dict[str, list[SpecRow]], warnings: list[str],
                    statuses: dict[str, ItemStatus], selected: list[str]) -> dict:
-    """The --json shape: enough for a script (or check_spec_status_selftest.py)
-    to assert on exact verdicts without parsing the human-readable report.
+    """The --json shape.
+
+    Enough for a script, or for check_spec_status_selftest.py, to assert on
+    exact verdicts without parsing the human-readable report.
     """
     return {
         "spec": str(spec),
@@ -1122,9 +1170,12 @@ def _json_payload(spec: Path, items: dict[str, list[SpecRow]], warnings: list[st
     }
 
 
-def _print_report(statuses: dict[str, ItemStatus], selected: list[str], verbose: bool) -> None:
-    """One line per item (`id  STATUS  reason`), or full detail under
-    --id/--phase (`verbose`): every reason on its own line.
+def _print_report(
+    statuses: dict[str, ItemStatus], selected: list[str], *, verbose: bool
+) -> None:
+    """One line per item (`id  STATUS  reason`), or full detail under --id/--phase.
+
+    Full detail (`verbose`) puts every reason on its own line.
     """
     for item_id in selected:
         s = statuses[item_id]
@@ -1140,8 +1191,10 @@ def _print_report(statuses: dict[str, ItemStatus], selected: list[str], verbose:
 
 
 def _print_summary(items: dict[str, list[SpecRow]], warnings: list[str], statuses: dict[str, ItemStatus]) -> None:
-    """The closing tally: how many ids, how many duplicated, and -- the
-    number this task asked for -- how many of them this tool can decide.
+    """The closing tally.
+
+    How many ids, how many duplicated, and, the number this task asked for, how
+    many of them this tool can decide.
     """
     for warning in warnings:
         print(f"WARNING (spec table): {warning}")
@@ -1168,8 +1221,10 @@ def _print_summary(items: dict[str, list[SpecRow]], warnings: list[str], statuse
 
 
 def main(argv: list[str] | None = None) -> int:
-    """CLI entry point: parse the spec, ask the tree, print one line per
-    item (or one item's full detail under --id), then a summary.
+    """CLI entry point.
+
+    Parse the spec, ask the tree, print one line per item (or one item's full
+    detail under --id), then a summary.
     """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--spec", type=Path, default=SPEC_DEFAULT, help="path to ai-spec-execution.md")

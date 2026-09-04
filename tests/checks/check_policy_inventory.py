@@ -1,6 +1,7 @@
-"""Purpose: derive MeTTa's policy inventory from the running ``&metta``
-catalog, join every row to its implementation seam, and reject closed policy
-lists that bypass both the catalog and the four explicit exemption reasons.
+"""Purpose: derive MeTTa's policy inventory from the running ``&metta`` catalog.
+
+Every row is joined to its implementation seam, and a closed policy list that
+bypasses both the catalog and the four explicit exemption reasons is rejected.
 
 Assumes:
   - ``swipl`` is on PATH and ``engine/metta.pl`` boots from the repository
@@ -210,24 +211,28 @@ def runtime_inventory(
     )
     if completed.returncode != 0:
         detail = completed.stderr.strip() or completed.stdout.strip() or "no diagnostic"
-        raise RuntimeError(f"swipl policy query exited {completed.returncode}: {detail}")
+        msg = f"swipl policy query exited {completed.returncode}: {detail}"
+        raise RuntimeError(msg)
     try:
         payload = json.loads(completed.stdout)
     except json.JSONDecodeError as exc:
-        raise RuntimeError(
-            f"swipl policy query did not emit JSON: {exc}: {completed.stdout!r}"
-        ) from exc
+        msg = f"swipl policy query did not emit JSON: {exc}: {completed.stdout!r}"
+        raise RuntimeError(msg) from exc
     if not isinstance(payload, dict):
-        raise RuntimeError(f"swipl policy query emitted a non-inventory payload: {payload!r}")
+        msg = f"swipl policy query emitted a non-inventory payload: {payload!r}"
+        raise TypeError(msg)
     policies = payload.get("policies")
     laws = payload.get("algebra_laws")
     semirings = payload.get("semirings")
     if not isinstance(policies, list) or not all(isinstance(row, dict) for row in policies):
-        raise RuntimeError(f"swipl policy query emitted invalid policy rows: {policies!r}")
+        msg = f"swipl policy query emitted invalid policy rows: {policies!r}"
+        raise RuntimeError(msg)
     if not isinstance(laws, list) or not all(isinstance(row, dict) for row in laws):
-        raise RuntimeError(f"swipl policy query emitted invalid algebra law rows: {laws!r}")
+        msg = f"swipl policy query emitted invalid algebra law rows: {laws!r}"
+        raise RuntimeError(msg)
     if not isinstance(semirings, list) or not all(isinstance(item, str) for item in semirings):
-        raise RuntimeError(f"swipl policy query emitted invalid semiring values: {semirings!r}")
+        msg = f"swipl policy query emitted invalid semiring values: {semirings!r}"
+        raise RuntimeError(msg)
     return policies, laws, semirings
 
 
@@ -247,8 +252,10 @@ def validate_policy_rows(root: Path, rows: list[dict[str, str]]) -> list[str]:
             findings.append(f"&metta: missing policy axis {axis}")
         elif counts[axis] != 1:
             findings.append(f"&metta: policy axis {axis} has {counts[axis]} rows, expected one")
-    for axis in sorted(set(axes) - POLICY_SEAMS.keys()):
-        findings.append(f"&metta: unexpected policy axis {axis}")
+    findings.extend(
+        f"&metta: unexpected policy axis {axis}"
+        for axis in sorted(set(axes) - POLICY_SEAMS.keys())
+    )
 
     for row in rows:
         axis = str(row.get("axis", ""))
@@ -308,10 +315,14 @@ def validate_algebra_laws(
                 findings.append(
                     f"&metta: semiring {semiring} has {counts[law]} claims for law {law}"
                 )
-        for law in sorted(set(laws) - required):
-            findings.append(f"&metta: semiring {semiring} has unexpected law {law}")
-    for semiring in sorted(set(observed) - REQUIRED_ALGEBRA_LAWS.keys()):
-        findings.append(f"&metta: unexpected algebra law claims for semiring {semiring}")
+        findings.extend(
+            f"&metta: semiring {semiring} has unexpected law {law}"
+            for law in sorted(set(laws) - required)
+        )
+    findings.extend(
+        f"&metta: unexpected algebra law claims for semiring {semiring}"
+        for semiring in sorted(set(observed) - REQUIRED_ALGEBRA_LAWS.keys())
+    )
 
     path, pattern = ALGEBRA_LAW_SEAM
     source = root / path

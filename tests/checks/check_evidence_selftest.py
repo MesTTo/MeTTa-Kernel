@@ -1,6 +1,7 @@
-"""Purpose: prove check_evidence_tags.py catches the things it claims to, by
-building a small tree where each of them is planted on purpose and running the
-real checker over it.
+"""Purpose: prove check_evidence_tags.py catches the things it claims to.
+
+Each of them is planted on purpose in a small tree, and the real checker runs
+over it.
 
 Running the checker on THIS repository proves the repository is clean. It says
 nothing about whether the checker can see a violation, which is the same
@@ -279,6 +280,7 @@ def build(root: Path, pytest_anchor: str) -> dict[str, int]:
 
 
 def run(root: Path) -> list[str]:
+    """Run the real checker over one fixture tree and answer its report lines."""
     finished = subprocess.run(
         [sys.executable, str(root / "tools/checks/check_evidence_tags.py")],
         capture_output=True,
@@ -286,7 +288,8 @@ def run(root: Path) -> list[str]:
         check=False,
     )
     if finished.returncode not in (0, 1):
-        raise SystemExit(f"the checker crashed on the fixture tree:\n{finished.stderr}")
+        msg = f"the checker crashed on the fixture tree:\n{finished.stderr}"
+        raise SystemExit(msg)
     return finished.stdout.splitlines()
 
 
@@ -408,6 +411,7 @@ def commit_pin_complaints() -> list[str]:
 
 
 def main() -> int:
+    """Plant every fault, run the real checker over each, and report what it missed."""
     complaints = []
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)
@@ -425,9 +429,11 @@ def main() -> int:
         # Nothing else may be said about a tree this file wrote, so a model
         # that has drifted from the runners cannot hide behind the count.
         expected = {f"engine/fixture.pl:{at[names]}:" for accepted, names, _ in CITATIONS}
-        for line in output[:-1]:
-            if not any(line.startswith(marker) for marker in expected):
-                complaints.append(f"reported something the fixture did not plant: {line}")
+        complaints.extend(
+            f"reported something the fixture did not plant: {line}"
+            for line in output[:-1]
+            if not any(line.startswith(marker) for marker in expected)
+        )
 
     with tempfile.TemporaryDirectory() as directory:
         root = Path(directory)

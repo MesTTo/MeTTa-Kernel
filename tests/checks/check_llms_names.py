@@ -351,7 +351,8 @@ def _receivers(sheet: Path) -> tuple[dict[str, tuple[object, str]], list[str]]:
     if python_path not in sys.path:
         sys.path.insert(0, python_path)
     try:
-        import metta as package  # noqa: PLC0415  -- imported only when the lane runs
+        # Imported here, not at the top, so the lane costs nothing until it runs.
+        import metta as package
     except ImportError as absent:
         # The package is IN THIS TREE, so failing to import it is a finding
         # rather than a skip: returning "nothing to check" would take this
@@ -644,15 +645,15 @@ def library_findings(sheet: Path, text: str) -> list[str]:
     if roster is not None:
         named = set(re.findall(r"`(lib_\w+)`", roster.group("names")))
         line = _line_of(text, roster.start())
-        for missing in sorted(shipped - named):
-            findings.append(
-                f"{sheet.relative_to(REPO)}:{line}: the roster omits `{missing}`, which lib/ ships"
-            )
-        for absent in sorted(named - shipped):
-            findings.append(
-                f"{sheet.relative_to(REPO)}:{line}: the roster names `{absent}`, "
-                f"which lib/ does not ship"
-            )
+        findings.extend(
+            f"{sheet.relative_to(REPO)}:{line}: the roster omits `{missing}`, which lib/ ships"
+            for missing in sorted(shipped - named)
+        )
+        findings.extend(
+            f"{sheet.relative_to(REPO)}:{line}: the roster names `{absent}`, "
+            f"which lib/ does not ship"
+            for absent in sorted(named - shipped)
+        )
         stated = int(roster.group("count"))
         if stated != len(shipped):
             findings.append(
@@ -669,7 +670,7 @@ def library_findings(sheet: Path, text: str) -> list[str]:
     return findings
 
 
-class EngineUnavailable(Exception):
+class EngineUnavailableError(Exception):
     """swipl is not installed, which is a skip; anything else is a finding."""
 
 
@@ -689,7 +690,7 @@ def _query_vocabulary(disjunction: str) -> set[str]:
             check=False,
         )
     except FileNotFoundError as absent:
-        raise EngineUnavailable from absent
+        raise EngineUnavailableError from absent
     if finished.returncode != 0:
         detail = (finished.stderr or finished.stdout).strip().splitlines()
         tail = detail[-1] if detail else "no output"
@@ -701,7 +702,7 @@ def _query_vocabulary(disjunction: str) -> set[str]:
 def engine_vocabulary() -> set[str]:
     """Every head the forward documentation check accepts.
 
-    Raises EngineUnavailable only when swipl is not installed at all. An
+    Raises EngineUnavailableError only when swipl is not installed at all. An
     engine that RAN and failed is a finding, never a skip: returning the
     absent-toolchain answer for both would let a broken engine take this
     half of the lane quietly green, which is the fail-open shape a gate
@@ -814,7 +815,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         known = engine_vocabulary()
         corpus_known = engine_corpus_vocabulary()
-    except EngineUnavailable:
+    except EngineUnavailableError:
         known = None
         corpus_known = None
     except RuntimeError as broken:

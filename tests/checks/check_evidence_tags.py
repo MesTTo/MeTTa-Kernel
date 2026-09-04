@@ -1,9 +1,10 @@
-"""Purpose: check that the evidence tags in obligation headers are backed by
-something. A tested claim asserts that running what it names demonstrates the
-guarantee above it, and thirteen of them named tests that had never existed in
-the tree's history, including all four cited by the engine pool's Guarantees
-block. A claim with nothing behind it is indistinguishable from the many that
-are real, which is what makes it corrosive rather than untidy.
+"""Purpose: check that the evidence tags in obligation headers are backed by something.
+
+A tested claim asserts that running what it names demonstrates the guarantee
+above it, and thirteen of them named tests that had never existed in the tree's
+history, including all four cited by the engine pool's Guarantees block. A
+claim with nothing behind it is indistinguishable from the many that are real,
+which is what makes it corrosive rather than untidy.
 
 Reads only. No engine, no imports from the package, so this runs on a tree
 that does not boot and finishes in well under a second.
@@ -848,6 +849,7 @@ def gate_command_problems(body: str, known: Evidence) -> list[str] | None:
 
 
 def tested_problems(body: str, known: Evidence, where: Path | None = None) -> list[str]:
+    """What is wrong with one `tested` tag, or nothing when every name it gives holds up."""
     command = gate_command_problems(body, known)
     if command is not None:
         return command
@@ -875,6 +877,7 @@ def tested_problems(body: str, known: Evidence, where: Path | None = None) -> li
 
 
 def measured_problems(body: str, known: Evidence, where: Path | None = None) -> list[str]:
+    """What is wrong with one `measured` tag, which needs a date so it can go stale."""
     problems = []
     if not DATE.search(body):
         problems.append("carries no YYYY-MM-DD date, so the claim cannot go stale")
@@ -889,6 +892,7 @@ def measured_problems(body: str, known: Evidence, where: Path | None = None) -> 
 
 
 def source_problems(body: str) -> list[str]:
+    """What is wrong with one `source` tag, which needs a date, a reference or a name."""
     if DATE.search(body) or REFERENCE.search(body) or len(body.split()) >= 3:
         return []
     return ["carries neither a date, a reference, nor a named document"]
@@ -938,8 +942,10 @@ def commit_problems(sites: list[tuple[Path, int, str, str]]) -> tuple[list[str],
         )
         for oid, answer in zip(wanted, result.stdout.splitlines(), strict=False):
             if " commit " not in f" {answer} ":
-                for site in wanted[oid]:
-                    problems.append(f"{site}: commit={oid} does not resolve to a commit")
+                problems.extend(
+                    f"{site}: commit={oid} does not resolve to a commit"
+                    for site in wanted[oid]
+                )
     if placeholders and os.environ.get("RELEASE") == "1":
         problems.append(
             f"{placeholders} evidence tag(s) still say commit={PLACEHOLDER}; a release "
@@ -961,6 +967,7 @@ def provenance_sites() -> list[tuple[Path, int, str, str]]:
 
 
 def claim_sites() -> list[tuple[Path, int, str, str]]:
+    """Every evidence tag the tree carries, as (path, line, kind, body)."""
     sites: list[tuple[Path, int, str, str]] = []
     for glob in SOURCES:
         for path in sorted(ROOT.glob(glob)):
@@ -1008,6 +1015,7 @@ def untagged_guarantees() -> list[str]:
 
 
 def main() -> int:
+    """Report every tag with nothing behind it, and say how many were read."""
     known, findings = gather()
     findings += untagged_guarantees()
     sites = claim_sites()

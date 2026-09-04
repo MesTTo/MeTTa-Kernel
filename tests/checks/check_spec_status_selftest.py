@@ -1,5 +1,6 @@
-"""Purpose: prove check_spec_status.py discriminates FIXED from OPEN from
-UNKNOWN, by building a small, synthetic workspace where each verdict is
+"""Purpose: prove check_spec_status.py discriminates FIXED from OPEN from UNKNOWN.
+
+It does so by building a small, synthetic workspace where each verdict is
 planted on purpose, running the real checker over it, and asserting the
 exact result -- plus the sharpest form of the discrimination proof this
 task asked for: build one item FIXED, delete the file it depends on, show
@@ -238,19 +239,23 @@ def run(root: Path) -> dict:
         check=False,
     )
     if finished.returncode != 0:
-        raise SystemExit(
+        msg = (
             f"the checker exited {finished.returncode} on the fixture tree:\n"
             f"stdout:\n{finished.stdout}\nstderr:\n{finished.stderr}"
         )
+        raise SystemExit(msg)
     try:
         return json.loads(finished.stdout)
     except json.JSONDecodeError as exc:
-        raise SystemExit(f"the checker's --json output did not parse: {exc}\n{finished.stdout}") from exc
+        msg = f"the checker's --json output did not parse: {exc}\n{finished.stdout}"
+        raise SystemExit(msg) from exc
 
 
 def main() -> int:
-    """Build the fixture tree(s), run the real checker, and diff its output
-    against every planted case; this function's assertions ARE the test.
+    """Build the fixture trees, run the real checker, and diff its output.
+
+    The diff is against every planted case; this function's assertions ARE the
+    test.
     """
     complaints: list[str] = []
 

@@ -1,5 +1,6 @@
-"""Purpose: performance parity with upstream PeTTa over the examples corpus:
-every example the pinned upstream checkout can run, this tree must run in no
+"""Purpose: performance parity with upstream PeTTa over the examples corpus.
+
+Every example the pinned upstream checkout can run, this tree must run in no
 more real work. Two lanes, because the two questions differ:
 
 - Cross-engine, the gate the corpus exists for: instructions:u net of each
@@ -118,7 +119,8 @@ def _perf(command: list[str]) -> tuple[int, subprocess.CompletedProcess]:
         if ",instructions:u" in line:
             instructions = int(line.split(",")[0])
     if instructions is None:
-        raise RuntimeError(f"perf reported no instruction count: {completed.stderr[-300:]}")
+        msg = f"perf reported no instruction count: {completed.stderr[-300:]}"
+        raise RuntimeError(msg)
     return instructions, completed
 
 
@@ -126,6 +128,7 @@ def _perf(command: list[str]) -> tuple[int, subprocess.CompletedProcess]:
 #process. Requiring the marker is what turns a silent misconfiguration into a
 #failure instead of a number.
 def boot_cost(engine_root: pathlib.Path) -> int:
+    """One engine's boot in instructions, min-of-RUNS, so a run's cost nets it out."""
     costs = []
     for _ in range(RUNS):
         count, completed = _perf(["swipl", str(BOOT_DRIVER), str(engine_root)])
@@ -140,8 +143,9 @@ def boot_cost(engine_root: pathlib.Path) -> int:
 
 
 def measure(engine_root: pathlib.Path, example: pathlib.Path, boot: int) -> dict:
-    """One engine, one example: min-of-RUNS net instructions, plus the
-    inference count, which must agree across the runs to count at all.
+    """One engine, one example: min-of-RUNS net instructions, plus the inference count.
+
+    The inference count must agree across the runs to count at all.
     """
     instructions = []
     inferences = set()
@@ -172,10 +176,12 @@ def measure(engine_root: pathlib.Path, example: pathlib.Path, boot: int) -> dict
 
 
 def corpus() -> list[pathlib.Path]:
+    """Every example the parity lanes measure, in a stable order."""
     return sorted((REPO / "examples").rglob("*.metta"))
 
 
 def build_baseline() -> dict:
+    """Measure both engines over the whole corpus and answer a fresh baseline."""
     upstream_boot = boot_cost(UPSTREAM)
     our_boot = boot_cost(REPO)
     entries = {
@@ -374,7 +380,8 @@ WAIVERS = {
 }
 
 
-def verdicts(baseline: dict, remeasure: bool) -> int:
+def verdicts(baseline: dict, *, remeasure: bool) -> int:
+    """Judge this tree against the baseline, remeasuring it first unless frozen."""
     our_boot = boot_cost(REPO)
     cross, drift = [], []
     waived = []
@@ -429,6 +436,7 @@ def verdicts(baseline: dict, remeasure: bool) -> int:
 
 
 def main() -> int:
+    """Report the parity verdicts, rebuilding the baseline under --rebaseline."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--rebaseline", action="store_true")
     parser.add_argument(

@@ -382,3 +382,53 @@ this tree would close. The structural remedy is one line, adding the two globs
 to `check_component_python`, and it can only land once the findings are clean.
 Deliberately not bundled with this release: it is a large diff in the gate's
 own checkers, and a broken checker breaks every lane.
+
+## 2026-09-04, the gate's own code, gated
+
+Supersedes this thread's earlier "RUFF OVER THE GATE'S OWN CODE" note, which
+recorded the measurement and deliberately left the work out of the release.
+The user asked for all of it, so all 135 findings are closed and the two
+directories are gated.
+
+None of the 135 was suppressed to make a lane green. The split, by what the
+finding actually was:
+
+- 50 D205, a summary wrapping to a second line. Twelve were a clean first
+  sentence and were restructured mechanically; the other 38 needed a summary
+  written. The house style decided the approach rather than preference:
+  measured, `metta/` carries 347 D205 suppressions across about 1,325
+  docstrings, so 74% have a one-line summary and the rest carry one canonical
+  reason. Every one of the 38 got the summary.
+- 24 D103, a missing docstring, each written from what the function does.
+- 28 TRY003/EM102, closed with the `msg = ...` convention this tree already
+  uses everywhere else.
+- 10 PERF401, converted to `extend`, because `metta/` has zero PERF401
+  suppressions: the house answer is to convert.
+- 3 D301, r-prefixed AND unescaped in the same edit, so the rendered text is
+  unchanged: under an r-string a source `\\|` prints two backslashes.
+- 5 FBT003 and 1 FBT001 on `ItemStatus`, closed by naming the fields at every
+  construction rather than suppressing.
+- The rest one at a time, with the house reason where the house has one.
+
+Tried: a script that rewrote each flagged docstring wholesale -> it flattened
+`check_evidence_tags.py`'s module docstring, lists and sub-blocks into one
+paragraph. Reverted immediately. The second version touches only the FIRST
+paragraph and leaves everything after the docstring's first blank line
+byte-identical.
+
+Tried: adding `../../tests/checks` to the burn-down's existing flat path list
+-> `metta/__init__.py` reported eight PTH findings that are configured away.
+Ruff picks ONE project root per invocation, so naming a path outside
+extensions/python moved every file onto the repository config and the package's
+own per-file ignore stopped matching. Decided: one invocation per (working
+directory, paths) pair, which is what the lanes already do.
+
+Found by extending the audit: `tools/` was already carrying 30 D suppressions,
+1 TRY and 2 FBT that no lane linted and no ledger counted, and tests/checks a
+further 1 FBT and 2 ARG. The D ceiling moves 2201 -> 2231 and TRY 24 -> 25 to
+record them, which is the point of scanning a directory rather than the cost of
+this change: nothing was added, 36 pre-existing suppressions simply became
+visible.
+
+Also found: a bare `# noqa: ARG005` with no reason, which the canonical-form
+half of the audit rejects. It has one now.

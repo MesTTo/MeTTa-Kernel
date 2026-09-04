@@ -559,7 +559,7 @@ run REPORT snippets    "$PY" "$HERE/website/scripts/audit_snippets.py"
 # tracks is the answer to what the repository is responsible for.
 check_component_python() {
     found=$(cd "$HERE" && git ls-files -- 'engine/*.py' 'extensions/*/*.py' \
-                'extensions/*/*/*.py' 'examples/ch19-*/*.py' |
+                'extensions/*/*/*.py' 'examples/ch19-*/*.py' 'tests/checks/*.py' |
             grep -v '^extensions/python/')
     [ -n "$found" ] || return 0
     # shellcheck disable=SC2086  -- the list is newline-separated paths this

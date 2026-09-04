@@ -82,7 +82,7 @@ def main() -> int:
     """Plant one fault per check and require each to be caught."""
     failures: list[str] = []
 
-    def expect(condition: bool, message: str) -> None:
+    def expect(condition: bool, message: str) -> None:  # noqa: FBT001  -- the boolean IS the claim being asserted, and every call reads as one sentence
         if not condition:
             failures.append(message)
 
@@ -171,11 +171,12 @@ def main() -> int:
 
     # The engine half must not fail OPEN: a swipl that ran and failed is a
     # finding, where a swipl that is not installed is a skip.
-    import check_llms_names as lane  # noqa: PLC0415  -- patched for one case
+    # Imported here, not at the top: this is the one case that patches it.
+    import check_llms_names as lane
 
     original = lane.subprocess.run
     try:
-        lane.subprocess.run = lambda *a, **k: type(  # noqa: ARG005
+        lane.subprocess.run = lambda *a, **k: type(  # noqa: ARG005  -- the stub answers the same failure whatever it is called with
             "Result", (), {"returncode": 1, "stdout": "", "stderr": "boom"}
         )()
         broke = False
@@ -183,7 +184,7 @@ def main() -> int:
             lane.engine_vocabulary()
         except RuntimeError:
             broke = True
-        except lane.EngineUnavailable:
+        except lane.EngineUnavailableError:
             broke = False
         expect(broke, "an engine that RAN and failed was treated as absent")
     finally:

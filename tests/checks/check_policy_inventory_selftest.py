@@ -1,5 +1,6 @@
-"""Purpose: prove the policy-inventory lane discriminates an undeclared
-closed list from each valid exemption and from the catalog-owned forms.
+"""Purpose: prove the policy-inventory lane discriminates an undeclared closed list.
+
+It is told apart from each valid exemption and from the catalog-owned forms.
 
 Guarantees:
   - a planted unannotated list is reported with its file, line and values
