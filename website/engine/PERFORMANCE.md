@@ -10,7 +10,7 @@ Assumes: the page carries the source file's own name, the way the four beside it
 Guarantees: the page is exactly the committed PERFORMANCE.md, whose figures come
   from tests/data/upstream-parity-baseline.json and are compared on every push by
   check.sh's parity-perf lane
-  [tested: test_every_site_include_resolves; commit=WORKTREE]
+  [tested: test_every_site_include_resolves; commit=0087e27e4563f86a0801dce85e75606f9a640925]
 -->
 
 <!--@include: ../../PERFORMANCE.md-->
