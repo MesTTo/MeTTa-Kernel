@@ -846,7 +846,7 @@ async def cast(self, value: Any, type_: Any = ..., /) -> Any:
 ### `AsyncMeTTa.trace`
 
 ```python
-async def trace(self, source: Atom | str, max_events: int | None = None):
+async def trace(self, source: Atom | str, max_events: int | None = None) -> Trace:
 ```
 
 > Run a TERM, or source, under the engine's reduction trace and
@@ -863,7 +863,7 @@ async def trace(self, source: Atom | str, max_events: int | None = None):
 ### `AsyncMeTTa.lint`
 
 ```python
-async def lint(self):
+async def lint(self) -> list[Finding]:
 ```
 
 > Diagnose this space for the silently-wrong class: declared

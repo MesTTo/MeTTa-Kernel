@@ -10,7 +10,7 @@ and say so in two places for three days without a red lane [measured
 
 A cheat sheet is the one document read by something that cannot notice a stale
 claim, so the file that asserts its own gate and has none is worse off than one
-admitting it is hand-kept. Five checks cover both directions of each promise:
+admitting it is hand-kept. Six checks cover both directions of each promise:
 
   PATHS       every backticked token that names a file or directory resolves,
               a glob resolving to at least one match. This is the "real file
@@ -28,6 +28,10 @@ admitting it is hand-kept. Five checks cover both directions of each promise:
   USED HEADS  every engine-known call head exercised by the example corpus is
               named somewhere in the root cheat sheet. This is the reverse
               question HEADS did not ask.
+  RETURNS     every documented `-> Type` agrees with the live return
+              annotation, compared by HEAD name so a sheet may be more precise
+              than the signature is. A method the annotation says nothing about
+              is skipped rather than guessed at.
 
 Assumes:
   - swipl is on PATH; without it the HEADS half is skipped aloud rather than
@@ -51,6 +55,10 @@ Guarantees:
     `.metta`-only glob that omits a Prolog-only implementation [tested:
     tests/checks/check_llms_selftest.py;
     commit=1bfad3db85807fff774cad370ff8e57f7400ae99]
+  - a documented return type the live annotation contradicts is reported, while
+    a prose tail, a module qualifier, an omitted parameter, a positional tuple
+    and a sheet more precise than the signature are not [tested:
+    tests/checks/check_llms_selftest.py; commit=WORKTREE]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -59,6 +67,7 @@ Open Obligations:
 
 from __future__ import annotations
 
+import inspect
 import re
 import subprocess
 import sys
@@ -329,12 +338,14 @@ def _python_blocks(sheet: Path, text: str) -> str:
     return "\n".join(kept)
 
 
-def method_findings(sheet: Path, text: str) -> list[str]:
-    """Every taught Python method absent from its documented receiver.
+def _receivers(sheet: Path) -> tuple[dict[str, tuple[object, str]], list[str]]:
+    """The documented receiver names bound to the live classes they stand for.
 
-    The check reads classes rather than instances, so it costs one import and
-    never boots an engine. The root sheet binds ``m`` to ``Space``; the Python
-    extension sheet binds it to ``MeTTa``. Named spaces always use ``Space``.
+    The second element carries the import failure and is empty when the
+    package loaded. The bindings read classes rather than instances, so they
+    cost one import and never boot an engine. The root sheet binds ``m`` to
+    ``Space``; the Python extension sheet binds it to ``MeTTa``. Named spaces
+    always use ``Space``.
     """
     python_path = str(REPO / "extensions" / "python")
     if python_path not in sys.path:
@@ -345,13 +356,13 @@ def method_findings(sheet: Path, text: str) -> list[str]:
         # The package is IN THIS TREE, so failing to import it is a finding
         # rather than a skip: returning "nothing to check" would take this
         # half green on exactly the tree where the doors moved.
-        return [
+        return {}, [
             f"{sheet.relative_to(REPO)}: the metta package under "
             f"extensions/python did not import, so no method was checked: {absent}"
         ]
 
     m_class = package.Space if sheet == _ROOT_SHEET else package.MeTTa
-    receivers = {
+    return {
         "m": (m_class, m_class.__name__),
         "context": (package.MeTTa, "MeTTa"),
         "ctx": (package.MeTTa, "MeTTa"),
@@ -359,7 +370,14 @@ def method_findings(sheet: Path, text: str) -> list[str]:
         "space": (package.Space, "Space"),
         "store": (package.Space, "Space"),
         "metta": (package, "the metta package"),
-    }
+    }, []
+
+
+def method_findings(sheet: Path, text: str) -> list[str]:
+    """Every taught Python method absent from its documented receiver."""
+    receivers, failure = _receivers(sheet)
+    if failure:
+        return failure
     findings: list[str] = []
     # Only Python blocks teach Python calls. Prose can deny that a name exists,
     # and another language can correctly expose a different method set.
@@ -377,12 +395,112 @@ def method_findings(sheet: Path, text: str) -> list[str]:
                     f"teaches `{whole}`, but {label} has no `{via}` property"
                 )
                 continue
-            target, label = package.Space, "Space"
+            target, label = receivers["kb"]
         if method in dir(target):
             continue
         findings.append(
             f"{sheet.relative_to(REPO)}:{_line_of(code, match.start())}: teaches "
             f"`{whole}`, but {label} has no `{method}` method"
+        )
+    return findings
+
+
+#: A DOCUMENTED SIGNATURE: a receiver call carrying a return annotation. The
+#: `->` is what makes this safe to read as a declaration. A signature line has
+#: one and a call example never does, which keeps the check off the twenty-odd
+#: `kw=value` lines in these sheets that PASS a value rather than state a
+#: default.
+#:
+#: Checking those defaults was tried and abandoned. `m.trace`'s live default is
+#: None, with the real 10,000 bound resolved in the body, so it is textually
+#: identical to `m.limits(inferences=10_000)` passing a value: no rule
+#: separates the one stale line from five correct ones [measured 2026-09-04,
+#: 28 documented keyword arguments across the five sheets, 23 of them
+#: call-example values]. pydoclint reaches the same split, checking return
+#: types as DOC203 while documenting that it will not read argument defaults
+#: [source: https://jsh9.github.io/pydoclint/violation_codes.html].
+_RETURN = re.compile(
+    r"\b(?P<receiver>" + "|".join(sorted(_RECEIVERS)) + r")\.(?:(?P<via>self)\.)?"
+    r"(?P<method>\w+)\((?P<args>[^()]*(?:\([^()]*\)[^()]*)*)\)\s*->\s*(?P<returns>[^\n#]+)"
+)
+
+
+def _head_type(written: str) -> str:
+    """The head name of a written type expression, prose tail removed.
+
+    Both sides of the comparison are TEXT. `from __future__ import annotations`
+    leaves a live annotation as its source string rather than an object, which
+    is why nothing here evaluates one.
+
+    The head is compared instead of the whole string because these sheets
+    decorate a type four ways that are not disagreements: prose after it
+    (`int   (atomic, fsynced)`), a module qualifier (`_ops_module.EffectPlan`),
+    a parameter the sheet omits (`Answers` for a live `Answers[Any]`), and a
+    positional tuple (`(groups, EngineProfile)` for `tuple[...]`). Comparing
+    whole strings reported all four. The head survives them and is the part
+    carrying the promise: `list` where the live type is `Trace` tells a reader
+    the result is an ordinary list, which is the claim that hid
+    `Trace.truncated` through two releases.
+    """
+    text = written.strip()
+    depth = 0
+    for index, character in enumerate(text):
+        if character in "([{":
+            depth += 1
+        elif character in ")]}":
+            depth -= 1
+        elif depth == 0 and (character in ",;" or text[index : index + 2] == "  "):
+            text = text[:index]
+            break
+    text = text.strip()
+    if text.startswith("("):
+        return "tuple"
+    head = re.match(r"[A-Za-z_][\w.]*", text)
+    # A module qualifier says where the type lives, not which type it is.
+    return text if head is None else head.group(0).rsplit(".", 1)[-1]
+
+
+def return_findings(sheet: Path, text: str) -> list[str]:
+    """Every documented return type the live annotation contradicts.
+
+    A live signature that says nothing is skipped rather than guessed at: an
+    unannotated method and a bare `Any` have no claim to disagree with. A sheet
+    is also allowed to be MORE precise than the annotation, so `list[Derivation]`
+    against a live `list[Any]` agree on `list`, which is all this asks.
+    """
+    receivers, failure = _receivers(sheet)
+    if failure:
+        # method_findings reports the import failure; saying it twice per sheet
+        # would only make one fact look like two.
+        return []
+    findings: list[str] = []
+    code = _python_blocks(sheet, text)
+    for match in _RETURN.finditer(code):
+        target, label = receivers[match.group("receiver")]
+        if match.group("via") is not None:
+            target, label = receivers["kb"]
+        name = match.group("method")
+        door = getattr(target, name, None)
+        if door is None:
+            continue  # method_findings owns the name half of this promise.
+        try:
+            live = inspect.signature(door).return_annotation
+        except (TypeError, ValueError):
+            continue
+        if live is inspect.Signature.empty:
+            continue
+        live_head = _head_type(
+            live if isinstance(live, str) else getattr(live, "__name__", str(live))
+        )
+        if live_head in {"Any", "object"}:
+            continue
+        documented = _head_type(match.group("returns"))
+        if documented == live_head:
+            continue
+        findings.append(
+            f"{sheet.relative_to(REPO)}:{_line_of(code, match.start())}: teaches "
+            f"`{match.group('receiver')}.{name}(...) -> {documented}`, but "
+            f"{label}.{name} answers {live_head}"
         )
     return findings
 
@@ -710,6 +828,7 @@ def main(argv: list[str] | None = None) -> int:
         findings.extend(library_findings(sheet, text))
         findings.extend(count_findings(sheet, text))
         findings.extend(method_findings(sheet, text))
+        findings.extend(return_findings(sheet, text))
         if known is not None:
             assert corpus_known is not None
             findings.extend(head_findings(sheet, text, known))

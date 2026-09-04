@@ -480,8 +480,9 @@ m.events("at-most-once"|"at-least-once"|"per-write-exactly",
 ## Observability
 
 ```
-m.trace(src, max_events=1_000_000) -> list[TraceEvent(depth, kind, term, answer)]
+m.trace(src, max_events=10_000) -> Trace of TraceEvent(depth, kind, term, answer)
         kinds "call" and "exit"; a reduction that fails leaves a call with no exit
+        Trace is a list; .truncated is True when max_events cut the recording
 m.derivation(target, depth=None, *, timeout=, inferences=) -> list[Derivation]
         proof trees in MeTTa terms: .rules, .facts, .complete, .truncations
 m.why(pattern) -> str            one empty match explained in words

@@ -5,7 +5,7 @@ cheat sheet claimed a gate that did not exist and drifted for three days
 behind the claim, so this file plants exactly the drift each half is supposed
 to catch and fails when the checker reports it green.
 
-The checker's five parts are pure functions over (sheet, text), so each
+The checker's six parts are pure functions over (sheet, text), so each
 fault is planted in TEXT rather than by writing a broken llms.txt into the
 tree: a selftest that edited the shipped sheet would race the lane reading it.
 The engine half takes its vocabulary as an argument for the same reason, and
@@ -30,6 +30,9 @@ Guarantees:
   - the planted library-table count uses the directory roster that includes
     both MeTTa and Prolog implementations [tested: this file is its own test,
     run by the gate; commit=1bfad3db85807fff774cad370ff8e57f7400ae99]
+  - a documented return type is checked against the live annotation, with the
+    four decorations that are not disagreements planted beside the one that
+    is [tested: this file is its own test, run by the gate; commit=WORKTREE]
 Open Obligations:
   To Do: None
   Hacks: None
@@ -54,6 +57,7 @@ from check_llms_names import (  # noqa: E402  -- HERE must be on the path first
     method_findings,
     omitted_head_findings,
     path_findings,
+    return_findings,
 )
 
 SHEET = REPO / "llms.txt"
@@ -300,9 +304,47 @@ def main() -> int:
         "valid methods were reported on the Python sheet's context and Space",
     )
 
+    # RETURNS: a documented `-> Type` against the live annotation. The stale
+    # line this check was built for said `-> list[TraceEvent(...)]` while the
+    # method answered a Trace, so a reader had no way to learn that
+    # `.truncated` exists or that a cut trace looks exactly like a whole one.
+    expect(
+        any(
+            "answers Trace" in finding
+            for finding in return_findings(
+                SHEET, "```python\nm.trace(src) -> list[TraceEvent(depth, kind)]\n```"
+            )
+        ),
+        "a documented return type the method contradicts was NOT reported",
+    )
+    expect(
+        return_findings(
+            SHEET, "```python\nm.trace(src) -> Trace of TraceEvent(depth, kind)\n```"
+        )
+        == [],
+        "the true return type was reported",
+    )
+    expect(
+        return_findings(SHEET, "```python\nm.match(query) -> Answers\n```") == [],
+        "a live `Any` was read as a disagreement rather than as silence",
+    )
+    expect(
+        return_findings(SHEET, "```python\nm.derivation(t) -> list[Derivation]\n```") == [],
+        "a sheet more precise than the annotation was reported",
+    )
+    expect(
+        return_findings(SHEET, "```python\nm.save(path) -> int   (atomic, fsynced)\n```")
+        == [],
+        "a prose tail after the type was read as part of the type",
+    )
+    expect(
+        return_findings(SHEET, "```python\nm.limits(inferences=10_000)\n```") == [],
+        "a call example with no `->` was read as a signature",
+    )
+
     for failure in failures:
         print(failure, file=sys.stderr)
-    print(f"llms selftest: 31 planted case(s), {len(failures)} failure(s)")
+    print(f"llms selftest: 37 planted case(s), {len(failures)} failure(s)")
     return 1 if failures else 0
 
 

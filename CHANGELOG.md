@@ -6,6 +6,22 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- `trace` and `lint` declare what they answer. Both were wrappers that dropped
+  the return annotation their implementation carries, so a checker typed
+  `m.trace(...)` as `Any` and `llms.txt` was free to describe it as a plain
+  `list` of events. It is a `Trace`, which is a list that also carries
+  `truncated`, and a caller reading it as a list cannot tell a whole trace from
+  one the event bound cut short. The sheet also still named the pre-0.7.1
+  default of 1,000,000 events rather than the 10,000 that now applies.
+- The `llms` gate reads documented return types. It checked that every taught
+  name exists but not what any of them answers, which is why the `trace` line
+  described a superseded type for two releases without a red lane. A
+  documented `-> Type` is now compared against the live annotation by head
+  name, so a sheet may stay more precise than a signature (`list[Derivation]`
+  against a live `list[Any]`) while a contradiction fails the run.
+
 ## [0.7.1] - 2026-09-04
 
 ### Fixed

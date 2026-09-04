@@ -484,7 +484,7 @@ def cast(self, value: Any, type_: Any = ..., /) -> Any:
 ### `Space.trace`
 
 ```python
-def trace(self, source: Atom | str, max_events: int | None = None):
+def trace(self, source: Atom | str, max_events: int | None = None) -> Trace:
 ```
 
 > Run a TERM, or source, under the engine's reduction trace and
@@ -501,7 +501,7 @@ def trace(self, source: Atom | str, max_events: int | None = None):
 ### `Space.lint`
 
 ```python
-def lint(self):
+def lint(self) -> list[Finding]:
 ```
 
 > Diagnose this space for the silently-wrong class: declared
@@ -3095,7 +3095,7 @@ def speculate(self) -> ScopedExecution:
 ### `MeTTa.trace`
 
 ```python
-def trace(self, source: Atom | str, max_events: int | None = None):
+def trace(self, source: Atom | str, max_events: int | None = None) -> Trace:
 ```
 
 > Run a TERM, or source, under the engine's reduction trace and
