@@ -116,3 +116,47 @@ kwarg is what `_limits` overrides the scope with.
 
 Control: reverting the limits argument to `None` and clearing `__pycache__`
 turns the new test red with `DID NOT RAISE InferenceLimitError`.
+
+## 2026-09-04, the scoped get-doc miss
+
+Reported as "scoped Space.doc misses documentation stored in its receiver",
+with one stored row, one unary answer, and an EngineError from `space.doc`.
+
+Four reproduction attempts missed: a plain symbol, a named space, a dotted
+name, and each of the four storage paths (`run`, `add`, `+=`, `add(parse)`) all
+answered correctly. The trigger is the TYPE. With `(: name (-> Number Number))`
+present, `get-doc-single-atom` commits the name to `get-doc-function`, which
+matches only `['@doc', Name, Desc, ['@params', _], _]`; a three-part portable
+document fails it and the whole branch fails with no fallback, while
+`get-doc-atom` has a fallback in the other direction. The reporter's 47
+subjects are all arrow-typed callables, which is why it looked space-scoped.
+
+Arbiter: LeaTTa's `stdlib.md` says `get-doc-function` "returns documentation on
+a function if it exists or default documentation with no description
+otherwise", and its `stdlib_docs_help.metta` conformance test covers the full
+shape, the no-type route and a plain typed atom, but not a function-typed name
+with a short document. So the arbiter requires only that the helper not fail.
+
+Rejected: making `get-doc-function` answer a default for every input. Two
+things forbid it. `get_doc_function_on_a_non_space_answers_nothing` requires it
+to fail for a non-space, and `Space.doc` documents and tests that a subject
+with NO documentation raises. Revisit if the Python door's raise-on-absent
+contract is reconsidered.
+
+Rejected: delegating the short shape to `get-doc-atom`. It answers
+`(@kind atom)`, and for an arrow-typed name `function` is what the name IS.
+
+Decided: the arrow branch chooses by the SHAPE of the stored document. The
+four-field shape keeps going to `get-doc-function` exactly as the arbiter pins
+it; the short shape answers `(@kind function)` with the arrow type and the
+description the author wrote, which upstream's default would have dropped.
+`formal_doc_atom` stays the only reader, so a non-space still acquires nothing
+and multiplicity is preserved.
+
+Control: reverting the branch turns the new plunit test red with
+`prelude_docs:get_doc_answers_an_arrow_typed_name_documented_without_parameters:
+failed` while the undocumented-name test stays green.
+
+The Python test first used `undocumented` as its never-documented subject and
+did not raise: that is engine vocabulary and resolves from the prelude doc
+register, which is `get-doc`'s documented fallback rather than a miss.

@@ -428,12 +428,33 @@ doc_type_error(['Error'|_]).
 
 'get-doc-single-atom'(Space, _, _) :- var(Space), !,
                                       refuse_unbound_input('get-doc-single-atom', 1).
+%A function's document does not have to carry the parameter block.
+%get-doc-function builds the four-field shape and matches only
+%['@doc', Name, Desc, ['@params', _], _], so committing an arrow-typed name to
+%it made the whole branch FAIL for a portable ['@doc', Name, ['@desc', _]]:
+%the door answered nothing and the Python doc() raised, while the unary
+%get-doc answered the same document from the same space. A downstream
+%integration documents 47 arrow-typed callables that way and every one of them
+%was invisible [measured 2026-09-04, one stored row, one unary answer, and
+%EngineError from the scoped door].
+%
+%The short shape keeps the description it carries and says @kind function,
+%which is what the name IS; get-doc-atom would answer it as an atom. A name
+%with NO document still fails here, so doc() keeps raising for one that was
+%never written, and formal_doc_atom stays the only reader so a non-space
+%acquires no documentation and two stored documents remain two answers.
 'get-doc-single-atom'(Space, Atom, Doc) :-
     'get-type-space'(Space, Atom, Type),
     (   doc_type_error(Type)
     ->  Doc = Type
     ;   Type = [->|_]
-    ->  'get-doc-function'(Space, Atom, Type, Doc)
+    ->  (   \+ \+ formal_doc_atom(Space, Atom,
+                                  ['@doc', Atom, _, ['@params', _], _])
+        ->  'get-doc-function'(Space, Atom, Type, Doc)
+        ;   formal_doc_atom(Space, Atom, ['@doc', Atom, Description]),
+            Doc = ['@doc-formal', ['@item', Atom], ['@kind', function],
+                   ['@type', Type], Description]
+        )
     ;   'get-doc-atom'(Space, Atom, Doc)
     ).
 

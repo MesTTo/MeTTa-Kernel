@@ -8,6 +8,19 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A function documented without a parameter block is visible to the scoped
+  `get-doc` again. `get-doc-function` builds the four-field formal shape and
+  matches only `(@doc name desc (@params ...) (@return ...))`, and every
+  arrow-typed name was committed to it, so a portable
+  `(@doc name (@desc "..."))` made the whole branch fail: `space.doc(subject)`
+  raised `EngineError` while the unary `(get-doc subject)` answered the same row
+  from the same space. A downstream integration documents 47 arrow-typed
+  callables that way and every one of them was invisible. The short shape now
+  answers with the description it carries, `(@kind function)` and the real arrow
+  type. A name with no documentation at all still raises, so `doc()` keeps
+  saying so rather than inventing a placeholder, and two stored documents for
+  one name remain two answers.
+
 - `m.limits(inferences=)` and `m.limits(timeout=)` bound a trace. `trace` passed
   no limits to the engine at all, so a bound that stopped `run` on the same
   program left the traced run to finish: measured on `!(loop 2000)` under

@@ -288,6 +288,35 @@ test(the_formal_doc_family_uses_the_selected_space,
     doc_eval("(get-doc-single-atom &plunit-doc-formal plunit-doc-scoped)",
              [Doc]).
 
+%A portable document on an arrow-typed name. get-doc-function matches only
+%the four-field shape, so committing every arrow type to it left this
+%answering nothing while the unary get-doc answered the same row.
+test(get_doc_answers_an_arrow_typed_name_documented_without_parameters,
+     [setup(( metta_add_atom('&plunit-doc-short', [':', 'short-fn',
+                                                   [->, 'Number', 'Number']], _),
+              metta_add_atom('&plunit-doc-short',
+                             ['@doc', 'short-fn', ['@desc', "Portable"]], _) )),
+      cleanup(( metta_remove_atom('&plunit-doc-short',
+                                  ['@doc', 'short-fn', _], _),
+                metta_remove_atom('&plunit-doc-short',
+                                  [':', 'short-fn', _], _) ))]) :-
+    doc_eval("(get-doc &plunit-doc-short short-fn)", [Doc]),
+    %The description survives, the kind is what the name IS, and the arrow
+    %type is carried rather than replaced by the atom branch's re-read.
+    assertion(Doc ==
+              ['@doc-formal', ['@item', 'short-fn'], ['@kind', function],
+               ['@type', [->, 'Number', 'Number']], ['@desc', "Portable"]]),
+    doc_eval("(get-doc-single-atom &plunit-doc-short short-fn)", [Doc]).
+
+%The same name with NO document still answers nothing, so a scoped doc() keeps
+%raising for documentation that was never written rather than inventing a
+%placeholder for it.
+test(get_doc_answers_nothing_for_an_undocumented_arrow_typed_name,
+     [setup(metta_add_atom('&plunit-doc-none', [':', 'undocumented-fn',
+                                                [->, 'Number', 'Number']], _)),
+      cleanup(metta_remove_atom('&plunit-doc-none', [':', 'undocumented-fn', _], _))]) :-
+    doc_eval("(get-doc &plunit-doc-none undocumented-fn)", []).
+
 test(get_doc_atom_keeps_every_selected_document,
      [setup(( metta_add_atom('&plunit-doc-many', [':', 'many-docs', 'T'], _),
               metta_add_atom('&plunit-doc-many',
