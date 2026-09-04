@@ -1,5 +1,5 @@
 <!--
-Purpose: route readers to the four engine-level documents the repository keeps
+Purpose: route readers to the five engine-level documents the repository keeps
   at its root and this section publishes.
 Assumes: each page here includes its root document rather than copying it, so
   this index describes documents whose text lives one directory up from the site.
@@ -9,10 +9,11 @@ Guarantees: every document named here has a page in this section
 
 # The engine
 
-The rest of this site is written from the Python surface looking in. These four
+The rest of this site is written from the Python surface looking in. These five
 pages are written from the engine looking out: what its extension points are and
 what each costs, which forms it gives meaning to and why, the wire every atom
-crosses on, and how to work on the repository itself.
+crosses on, what it costs against upstream PeTTa, and how to work on the
+repository itself.
 
 Each page is the repository document of the same name, published here rather
 than copied, so the version you read is the committed one.
@@ -30,6 +31,10 @@ than copied, so the version you read is the committed one.
   has to say what the fusion buys, with numbers.
 - [The wire codec](./codec) is the tagged form every atom crosses in, and
   what a new binding in a new language has to implement.
+- [Performance](./performance) is what this engine costs against upstream PeTTa
+  over the example corpus, measured in retired instructions net of each engine's
+  boot: the median program, the boot this engine pays for what it loads, and the
+  programs where it is dearer, named with their causes.
 - [Developing](./developing) is the contributor side: the interpreter and
   SWI-Prolog versions, `check.sh` and what its two tiers mean, and the
   measurement rules that decide whether a performance claim is evidence.

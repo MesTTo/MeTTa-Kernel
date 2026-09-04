@@ -679,6 +679,8 @@ beside it is the way to say it. They go deeper than this page can:
 
 ## Documentation
 
+- [PERFORMANCE.md](PERFORMANCE.md), measured against upstream PeTTa over the
+  example corpus, including where this engine is dearer.
 - [EXTENDING.md](EXTENDING.md), nine extension points ordered by measured cost.
 - [KERNEL.md](KERNEL.md), which forms the translator gives meaning to, and why.
 - [CODEC.md](CODEC.md), the wire every atom crosses on.

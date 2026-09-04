@@ -41,7 +41,7 @@ export default defineConfig({
   // localhost examples in docstrings are unreachable at build time by nature
   ignoreDeadLinks: [/^https?:\/\/localhost/],
   cleanUrls: true,
-  // The four engine pages carry their source documents' own file names, so the
+  // The five engine pages carry their source documents' own file names, so the
   // relative links those documents write between themselves (EXTENDING.md's
   // closing table links CODEC.md) resolve here with no edit to the sources.
   // The published URL follows this site's spelling instead of the repository's.
@@ -50,6 +50,7 @@ export default defineConfig({
     "engine/KERNEL.md": "engine/kernel.md",
     "engine/CODEC.md": "engine/codec.md",
     "engine/DEVELOPING.md": "engine/developing.md",
+    "engine/PERFORMANCE.md": "engine/performance.md",
   },
   markdown: {
     languages: [mettaLanguage],
@@ -232,6 +233,7 @@ export default defineConfig({
           { text: "Extending the engine", link: "/engine/extending" },
           { text: "The kernel", link: "/engine/kernel" },
           { text: "The wire codec", link: "/engine/codec" },
+          { text: "Performance", link: "/engine/performance" },
           { text: "Developing", link: "/engine/developing" },
           {
             text: "Language surfaces",
