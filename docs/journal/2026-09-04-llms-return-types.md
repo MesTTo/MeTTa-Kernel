@@ -432,3 +432,35 @@ visible.
 
 Also found: a bare `# noqa: ARG005` with no reason, which the canonical-form
 half of the audit rejects. It has one now.
+
+## 2026-09-04, the two benchmark rows the gate stopped on
+
+The full gate ran 98 lanes with two failures, both benchmarks. They turned out
+to be different things, which is why each needed its own measurement.
+
+BOOT, the C seat. Real. Three identical inference samples at 1,485,362 against
+a 1,484,575 pin, and inferences are deterministic, so load is not a reading
+here. That pin sees the CONSULT, and engine/ grew by the get-doc arrow branch
+in engine/metta/runtime.pl and the message-rendering change across
+engine/metta/registration.pl and the four engine/spaces units.
+
+Attributed with one arm per side: engine/ at c5a11c00 reads 1,484,569 and HEAD
+reads 1,485,363, three identical samples each way, which puts the whole +794 in
+engine/ and leaves the pre-change tree six inferences under the old pin.
+Re-pinned inferences only; the instruction minimum sits inside its 0.1% band
+and replacing a pin that did not move would lose the better measurement.
+
+Tried first, and wrong: reverting engine/ and measuring straight away. Both
+arms read 3.28M, more than double. `git checkout -- engine/` resets source
+mtimes, the loaders purge the whole .qlf set, and every boot then recompiles
+from source. The arms above rebuild the set with one
+`swipl -g true -t halt engine/main.pl` before measuring. Worth recording that
+the contaminated arms still differed by +794, the same number, because both sat
+in the same regime.
+
+MORK-WINDOW-FLOOR. Not real. 29,404 against a 28,952 pin plus 1%, measured
+inside the gate at loadavg 9.52 with every other lane running. Re-measured on a
+quieter box: 29,030, 29,020, 29,020 across three consecutive runs, all inside
+the band, and the whole mork lane exits 0. The row is the perf window handshake
+that bench.py's own docstring says "moves for its own reasons", not a workload,
+so 452 instructions on 29,000 is the environment. Nothing re-pinned.
