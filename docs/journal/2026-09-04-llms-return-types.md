@@ -564,3 +564,48 @@ IS: the perf window handshake that every other row subtracts, not a workload, so
 its cost tracks the machine rather than the tree, and a structural change to a
 handshake would be tens of percent rather than one. The c-seat baseline set a
 band from a measured excursion the same way for its own bimodal row.
+
+## 2026-09-04, findings 13 and 18, answered by mechanism rather than reproduced
+
+Earlier in this thread these two were recorded as not reproducing, with the
+counters to show it. That was true and not enough: it said what did not happen
+and nothing about what does. Reading the reporter's own `_undone/2` gave the
+missing piece, and the mechanism is now measured.
+
+Every analysis channel runs inside `space.transaction(...)` that RAISES on
+purpose to force the rollback. So "the rolled-back run" is a transaction
+rollback, and a transaction discards the engine's answer table along with the
+writes. Measured on `(fib 18)`, three engines, one workload each:
+
+  cold                              20,220 inferences
+  kept, answer table warm              637          0.032x
+  after a rolled-back transaction   18,058          0.893x
+  after a speculative run           18,068          0.894x
+
+So a kept run is 31x cheaper than a cold one, and an isolated run leaves the
+next one cold. A pipeline that isolates every channel therefore pays the cold
+cost once per channel instead of paying it once. That is the cost their draw
+sees; it is not poisoning, and the rolled-back run is not "worse than cold", it
+IS cold.
+
+Checked and ruled out along the way. A definition made inside a rolled-back
+transaction leaves nothing behind: zero equations, `is-function` False, the call
+does not reduce, and redefining works, so there is no receipt outliving its
+payload here. And `speculative()` really does discard its write; an earlier
+count of one was `compilefib`'s own definition, not the equation it added.
+
+`speculative()` is per-RUN by contract, "run each source against a snapshot", so
+a program spread over several `run` calls cannot see its own earlier writes,
+which is exactly why the reporter uses a transaction instead. A CALLABLE
+speculative door, the symmetric twin of `transaction(callable)`, was the obvious
+fix and is NOT worth building: it loses the answer table to the same degree
+(0.894x against the transaction's 0.893x), because the loss comes from isolating
+the run at all rather than from which door does the isolating.
+
+What that leaves is a real limit rather than a defect: an isolated evaluation
+cannot inherit the engine's answers, in either mechanism. A consumer that needs
+both isolation and speed has to cache the ANALYSIS rather than the evaluation.
+The reporter's 1.44s cold against a rolled-back run past 120s is a larger factor
+than anything measured here, so their specific program still needs an input we
+do not have; the mechanism above is what any explanation now has to sit on top
+of.
