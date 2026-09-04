@@ -39,12 +39,27 @@ class Trace(list):
 ## `trace`
 
 ```python
-def trace(space, source: Atom | str, max_events: int | None = None) -> Trace:
+def trace(
+    space,
+    source: Atom | str,
+    max_events: int | None = None,
+    *,
+    timeout: float | None = None,
+    inferences: int | None = None,
+) -> Trace:
 ```
 
 > Run a term, or source, in this space under the engine's reduction trace.
 >
-> max_events bounds the recording. Past it the recording STOPS and the
+> max_events bounds the RECORDING. Past it the recording STOPS and the
 > result's `truncated` is True, so what was already recorded is answered
 > rather than discarded: through 2026-09-03 the bound raised, which threw
 > away every event and charged the full memory of the bound for no answer.
+>
+> timeout and inferences bound the RUN, the same pair every evaluating door
+> takes and the same scoped `m.limits()` default behind them. The two bounds
+> are independent because they stop different things: a program can retire
+> millions of inferences inside a handful of recorded events, and through
+> 0.7.1 this door passed no limits at all, so `with m.limits(inferences=100)`
+> let a traced program run 209,322 of them to completion
+> .

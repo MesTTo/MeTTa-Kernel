@@ -89,3 +89,30 @@ hit.
 The repository's ruff gate caught two conventions on the first pass, EM102 and
 TRY003 on the raises and B018 on the test's bare attribute read. The local
 convention is `msg = ...` then `raise AttributeError(msg)`, which clears both.
+
+## 2026-09-04, the trace run bound
+
+A downstream renderer reported `limits(inferences=)` not bounding `trace`,
+evidenced as 0.11s against 0.10s at a hundredfold tighter limit. Wall clock at
+that scale is noise on this box, so it was re-measured on the engine's own
+counter, where the answer is not marginal: on `!(loop 2000)` under
+`inferences=100`, `run` stopped at 1,685 inferences with an
+InferenceLimitError and `trace` retired 209,322 and completed.
+
+Cause: `_trace.trace` passed a literal `None` as `_controlled_run`'s limits
+argument, so it took the unlimited `rt.apply_must` path and never consulted the
+`_SCOPED_LIMITS` ContextVar that `m.limits()` sets.
+
+Surveyed all 18 `_controlled_run` call sites by AST before fixing the one.
+Four pass `None`: `metta_py_function_shape` is a metadata read, and the two
+cursor opens are inert by construction with their pulls carrying limits at
+`_space_execution.py:716` and `_space_objects.py:759`. Only the trace runs the
+program, so the fix is one call site rather than a policy change.
+
+Decided: give `trace` the `*, timeout=None, inferences=None` pair every other
+evaluating door takes, rather than only reading the ambient scope. `derivation`
+is the nearest sibling and already has exactly that shape, and the per-call
+kwarg is what `_limits` overrides the scope with.
+
+Control: reverting the limits argument to `None` and clearing `__pycache__`
+turns the new test red with `DID NOT RAISE InferenceLimitError`.

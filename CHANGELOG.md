@@ -8,6 +8,16 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- `m.limits(inferences=)` and `m.limits(timeout=)` bound a trace. `trace` passed
+  no limits to the engine at all, so a bound that stopped `run` on the same
+  program left the traced run to finish: measured on `!(loop 2000)` under
+  `inferences=100`, `run` stopped at 1,685 inferences with an
+  `InferenceLimitError` while `trace` retired 209,322 and completed. `trace` now
+  takes the same `timeout=` and `inferences=` its sibling doors take and reads
+  the same scoped default. The two bounds stay independent, because they stop
+  different things: `max_events` bounds the RECORDING, and a program can retire
+  millions of inferences inside a handful of recorded events.
+
 - A context asked for a Space door says where the door is. `MeTTa` carries the
   evaluation doors and `Space` owns storage and introspection, a real split
   that is invisible at a call site: an installer written as `install(m)`
