@@ -8,6 +8,17 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A registration rolled back with its transaction no longer leaves the registry
+  claiming it. `transaction()` unwinds engine state, and the operation registry
+  is the library's own mirror of that state rather than the caller's Python
+  bookkeeping, so a failed installer left `registered()` answering True for an
+  operation whose reflection rows and type declarations were gone and whose call
+  no longer reduced. An installer's own "already installed" check then skipped
+  reinstalling a name that stayed dead for the life of the process. Registry
+  changes now unwind with the transaction that made them: a replaced
+  registration comes back as it was, and an inner commit dies with the outer
+  rollback, which is the nesting rule the engine already follows.
+
 - An error carrying an opaque host value no longer replaces itself with a
   complaint about rendering that value. Every `prolog:message//1` clause
   rendered its subject through `swrite/2`, the round-trip writer, which refuses

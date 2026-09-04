@@ -17,6 +17,19 @@ class EffectPlan:
 
 > Named operations reachable from one target and their lattice join.
 
+## `registry_undo`
+
+```python
+def registry_undo() -> Iterator[None]:
+```
+
+> Undo this block's registry changes when it does not complete.
+>
+> Frames nest the way SWI's transactions do: an inner block that completes
+> hands its records to its parent, so an outer rollback discards inner work
+> too. This is the undo log a savepoint keeps, and it exists because an
+> engine rollback cannot reach a Python dict.
+
 ## `class_declarations`
 
 ```python

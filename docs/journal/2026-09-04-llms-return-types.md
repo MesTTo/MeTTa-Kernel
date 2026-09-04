@@ -230,3 +230,43 @@ failing while rendering the renderer's own failure.
 The first scan of message clauses missed two sites in
 `engine/spaces/segment_matching.pl` because a COMMENT line ending in a full
 stop looked like the end of a clause. A comment-aware rescan found them.
+
+## 2026-09-04, a rollback the library's own mirror did not follow
+
+Reported as "integration installation is not transactional", narrowed by the
+reporter to "fact rolls back, operation does not".
+
+First reproduction attempts used `atomic()` and showed neither rolling back.
+`atomic()` makes each RUN a committing transaction; `transaction()` is the
+all-or-nothing door. With the right door the reporter's numbers reproduce
+exactly: fact absent, operation still registered.
+
+It is worse than "still registered". Measured: `registered()` answered True
+while `&metta`'s reflection rows were gone, the space's type declarations were
+gone, and `!(installed-op 4)` no longer reduced. The mirror claimed an
+operation the engine had forgotten, so an installer's own idempotence check
+skips reinstalling a name that is dead for the rest of the process.
+
+`transaction()` documents that Python-side state is the caller's to undo, and
+that is right for a list appended or a file written. REGISTRY is not that: it
+is the library's own mirror of engine state, and no caller can be asked to
+repair the library's bookkeeping.
+
+Decided: a nested undo log, the shape a savepoint keeps. A frame records what
+REGISTRY held for each name BEFORE the frame changed it, first record wins so a
+re-registration inside one transaction cannot overwrite the pre-frame value,
+and a completing inner frame hands its records to its parent so an outer
+rollback discards inner work. `transaction()` opens a frame; `transactional()`
+delegates to it and needs no change.
+
+Control: replacing the frame with a null context turns both new tests red on
+`assert "rolled-back-op" not in ops.registered()` and the nested one.
+
+Checked and left alone: `speculative()` does NOT discard a registration, but it
+leaves the engine clauses too, so the two agree and there is no split reading.
+Whether speculation should cover registration is a separate design question.
+
+A first patch attempt corrupted `registry_undo` itself: the replacement pattern
+`    REGISTRY.pop(name, None)` matched inside the new function's own except
+block before reaching `unregister`. Anchoring on the neighbouring
+`_withdraw_purity` line fixed it, and `ast.parse` caught the damage.
