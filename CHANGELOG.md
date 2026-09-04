@@ -8,6 +8,21 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- A context asked for a Space door says where the door is. `MeTTa` carries the
+  evaluation doors and `Space` owns storage and introspection, a real split
+  that is invisible at a call site: an installer written as `install(m)`
+  reached for `m.is_function` and got Python's bare `'MeTTa' object has no
+  attribute 'is_function'`, with nothing to suggest `m.self.is_function` one
+  attribute away. All 85 storage doors now name the `m.self` spelling, derived
+  from `Space`'s own surface so a door it grows is covered the day it lands.
+  The refusal stays an ordinary `AttributeError`, so `hasattr` still answers
+  False and `getattr(m, name, default)` still returns the default, and it is
+  hidden from type checkers so mypy keeps reporting `m.atoms` as
+  `attr-defined` rather than typing it away.
+- The Python cheat sheet said "most doors exist on both" of the context and its
+  space. Twenty-eight of `Space`'s 113 do. It now names which family lives
+  where.
+
 - `trace` and `lint` declare what they answer. Both were wrappers that dropped
   the return annotation their implementation carries, so a checker typed
   `m.trace(...)` as `Any` and `llms.txt` was free to describe it as a plain

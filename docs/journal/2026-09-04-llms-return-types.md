@@ -55,3 +55,37 @@ nothing. `ruff-drivers` covers `engine/`, `extensions/*/` and `examples/ch19-*/`
 and excludes both. Measured 2026-09-04: 97 findings in the first, 38 in the
 second. The gate's own checkers and generators are the code least well placed
 to be ungated.
+
+## 2026-09-04, the context/space door split
+
+A downstream integration reported `metta.arrays.install(m)` failing with
+`AttributeError: 'MeTTa' object has no attribute 'is_function'`, and cited the
+Python sheet's "most doors exist on both" as the reason it wrote `install(m)`.
+
+Measured: `Space` has 113 public doors, `MeTTa` has 34, and 28 are shared. So
+25% exist on both, not most. The 28 are the evaluation and session family
+(`run`, `eval`, `match`, `add`, `define`, `op`, `transaction`, `limits`,
+`stats`, `trace`) plus the collection protocols; the 85 that are not are
+storage and introspection (`atoms`, `type`, `digest`, `is_function`, `arities`,
+`builtins`, `space_names`). The split is coherent, only described wrongly.
+
+Rejected: forwarding the 85 doors from the context. `MeTTa` owns runtime
+context and `Space` owns storage is a tested guarantee in the package header,
+and forwarding would erase the distinction the two classes exist to draw.
+Revisit if the context/space split is itself reconsidered.
+
+Decided: refuse loudly with the remedy, from `dir(Space)` rather than a list,
+so a door Space grows is covered without an edit. `hasattr` still answers False
+and `getattr(m, name, default)` still returns the default, because the refusal
+stays an ordinary AttributeError.
+
+Tried: writing it as a plain `def __getattr__(self, name) -> Never` -> mypy
+stopped reporting unknown attributes. `reveal_type(m.totally_made_up)` became
+`Never` and `x: int = m.atoms` type-checked clean, trading a static error for a
+runtime one. Decided: define it under `if not TYPE_CHECKING:`, after which
+mypy reports `attr-defined` for both, including the exact `m.atoms` the report
+hit.
+
+The repository's ruff gate caught two conventions on the first pass, EM102 and
+TRY003 on the raises and B018 on the test's bare attribute read. The local
+convention is `msg = ...` then `raise AttributeError(msg)`, which clears both.
