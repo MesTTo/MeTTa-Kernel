@@ -1,9 +1,9 @@
 # Performance against PeTTa
 
 This engine runs a typical example program for about a third of the retired
-instructions upstream PeTTa needs, and costs about four times as much to boot.
-Both numbers are measured on the same files by the same harness, and the
-measurement runs in CI, so this page can be checked rather than believed.
+instructions upstream PeTTa needs. That is measured on the same files by the
+same harness, and the measurement runs in CI, so this page can be checked rather
+than believed.
 
 Everything below comes from `tests/data/upstream-parity-baseline.json`, which
 the `parity-perf` gate lane compares against on every push.
@@ -27,7 +27,7 @@ agree across the three runs, or the row does not count at all.
 
 ## The headline
 
-Of the 142 rows where both engines measure above their own boot:
+Of the 142 comparable rows:
 
 | | |
 |---|---|
@@ -45,24 +45,9 @@ Spread out:
 | up to 2x dearer | 14 | 10% |
 | 2x or more dearer | 3 | 2% |
 
-The seven rows not counted measure *below* their own boot once the boot is
-subtracted, which is what a three-line program does. They are excluded rather
-than reported as a negative.
-
-## Boot costs more here
-
-| | instructions |
-|---|---|
-| this engine | 1,076,388,987 |
-| upstream PeTTa | 252,384,222 |
-| ratio | **4.265x** |
-
-That is the price of what is loaded: the translator, the specializer, the typing
-registry, the extension seams and the shipped libraries all compile at boot.
-Every per-program number above has this subtracted, so it is a real cost that
-the comparison does not hide. A process that boots once and then runs work pays
-it once; a process that boots per program pays it every time, and for very short
-programs it dominates everything else.
+Seven of the 149 measured rows are not comparable: subtracting the boot leaves
+them at or below zero, which is what a three-line program does. They are
+excluded rather than reported as a negative.
 
 ## Where the totals disagree with the median
 
