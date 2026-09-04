@@ -609,3 +609,33 @@ The reporter's 1.44s cold against a rolled-back run past 120s is a larger factor
 than anything measured here, so their specific program still needs an input we
 do not have; the mechanism above is what any explanation now has to sit on top
 of.
+
+## 2026-09-04, one low sample is not an improvement
+
+The C seat's boot lane failed the gate on the IMPROVEMENT side of its two-sided
+band: `[1484396, 1485362, 1485362]` against a 1485363 pin, and
+`[1628641900, 1795325209, 1795308387]` against 1794301683, a 9.2% win its own
+next two samples contradict. Nine consecutive samples measured outside the gate
+read 1485362 every time, and the two earlier full-gate runs had all three
+samples at ~1.795G, so it is one anomalous reading rather than a change; the
+only edits since those runs were markdown and site configuration, which cannot
+reach the C seat's boot.
+
+The band takes min-of-n for BOTH directions, and that is the defect. Min-of-n is
+the right statistic for "did anything get slower", where an outlier high is
+noise the minimum ignores, and the wrong one for "did this get faster", where an
+outlier low is the whole claim. A row that really improved has EVERY sample under
+the pin.
+
+The inference side now reads the highest sample. That keeps the protection the
+band was built for, a stale-high pin masking regressions up to its own margin,
+and it still fails on a genuine improvement, which the new case pins alongside
+the outlier it must ignore.
+
+The metric side, CPU and instructions, is deliberately NOT changed.
+`test_a_cpu_time_pin_bands_on_both_sides` encodes its two-sided intent with a
+case that sits on the boundary, `[0.359, 0.36, 0.37]` against a 0.360 floor, and
+rewriting a test to fit a change is how a gate stops meaning what it says. The
+same asymmetry is there and the instruction reading above is an instance of it;
+closing it is a decision about a tested contract rather than a defect fix, so it
+is recorded here instead.
