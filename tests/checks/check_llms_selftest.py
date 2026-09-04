@@ -32,7 +32,7 @@ Guarantees:
     run by the gate; commit=1bfad3db85807fff774cad370ff8e57f7400ae99]
   - a documented return type is checked against the live annotation, with the
     four decorations that are not disagreements planted beside the one that
-    is [tested: this file is its own test, run by the gate; commit=WORKTREE]
+    is [tested: this file is its own test, run by the gate; commit=4ef96c94579db405fafed8fdaab20e33901a2298]
 Open Obligations:
   To Do: None
   Hacks: None
