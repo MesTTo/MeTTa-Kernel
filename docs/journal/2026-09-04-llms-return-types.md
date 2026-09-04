@@ -542,3 +542,25 @@ designed against the engine's clause-change funnel, which recompiles a
 predicate rather than asserting to a dynamic one. Revisit with that as the
 subject. The five modes, the two-hook translation and both failure shapes are
 recorded here so the next attempt starts from them rather than from scratch.
+
+## 2026-09-04, a band that could not survive a busy box
+
+`mork-window-floor` failed the gate twice, at loadavg 9.52 and 11.88, both
+reading 29,404 against a 28,952 pin plus 1%. The first time I re-measured it
+alone, saw 29,030/29,020/29,020, and called it a load artifact and moved on.
+That was half an answer: a lane that goes red whenever the box is busy is a lane
+that cries wolf, and leaving it is not the same as explaining it.
+
+Two facts, both measured. The pin moved for the reason this row's own comment
+already gives, that it "moves with the .qlf regeneration state", and this
+session rebuilt that set while attributing the C seat's boot row; the quiet
+reading is 29,020. And its 1% band cannot survive load: five runs at loadavg
+10.6 put the minimum-of-three at 29,404, 29,414, 29,336, 29,336 and 27,953, a
+5.2% spread whose highest minimum is 1.60% above the old pin.
+
+Re-pinned to the quiet 29,020 and the band widened to 2.0%, which clears every
+observed minimum with headroom. The width is defensible because of what this row
+IS: the perf window handshake that every other row subtracts, not a workload, so
+its cost tracks the machine rather than the tree, and a structural change to a
+handshake would be tens of percent rather than one. The c-seat baseline set a
+band from a measured excursion the same way for its own bimodal row.
