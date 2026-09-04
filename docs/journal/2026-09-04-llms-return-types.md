@@ -497,3 +497,48 @@ every runtime lane is unmoved, and each change this pass made sits off the
 evaluation path (a `get-doc` guard, an error-rendering writer, a
 `current_transaction/1` check in front of a blocking wait, a reflection lookup,
 a ContextVar read per transaction).
+
+## 2026-09-04, mode-directed tabling: built, measured, reverted
+
+A downstream note records that a mode-directed table over an incremental
+predicate must itself be declared incremental or nothing invalidates it, and
+that it compiles and runs either way. Our own `(tabled ...)` door cannot make
+that mistake, `metta_tabling_install_table/3` marks every read incremental, but
+the door has no mode-directed FORM, so a caller wanting `min` answer subsumption
+drops to raw Prolog and inherits the obligation. That gap is what this tried to
+close.
+
+Verified first, in bare SWI: `table(path(_,_,min) as incremental)` is accepted
+and invalidates correctly, min distance 2 before a direct edge and 1 after. The
+modes SWI takes for a scalar answer are exactly min, max, sum, first and last;
+`count` and a bare `lattice` are refused with `domain_error(tabled_mode, _)`
+[measured 2026-09-04, one `table/1` call each]. An earlier reading that accepted
+`count` was an artifact of `atom_to_term` leaving the mode as a variable.
+
+Built: `(tabled (cost $x) min)` on the result position, the five modes validated
+by name with the list in the refusal, threaded through the held-declaration
+replay so a declaration made before its function exists comes back with its
+mode.
+
+It worked, until the data moved. In one process with no other tabling, every
+mode aggregated correctly (5,2,9 reading 2, 9, 16, 5, 9 for min, max, sum,
+first, last) and mode changes worked once the answer trie was cleared through
+the two hooks SWI's own `library(tables)` uses, which is lib_memo's
+`reset_exact_memo_table/3` pattern [source: SWI-Prolog/swipl-devel
+f49d28558b5f1ade8348f254b5583117e773b2bb, library/tables.pl:get_calls/3];
+`untable/1` alone leaves the trie and the next declaration meets it wearing the
+wrong shape, dying in `trie_gen/2` with `Type error: trie expected, found
+<clause>`.
+
+Then, in isolated processes: adding an EQUATION after the moded table was built
+crashes with that same trie type error, and adding a FACT the body reads leaves
+the table answering nothing at all where it had answered 5. Both are the moded
+trie failing to survive a change the engine makes to what it tables, and neither
+is reachable through the plain door.
+
+Reverted. A door that crashes when its data changes is worse than the gap it
+closes, and the fix is not a patch: it needs SWI's answer-subsumption lifecycle
+designed against the engine's clause-change funnel, which recompiles a
+predicate rather than asserting to a dynamic one. Revisit with that as the
+subject. The five modes, the two-hook translation and both failure shapes are
+recorded here so the next attempt starts from them rather than from scratch.
