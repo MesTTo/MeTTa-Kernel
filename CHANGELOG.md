@@ -6,6 +6,18 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `origin-of` names engine-generated equations. Evaluating a higher-order call
+  makes the specializer store a generated equation under a name like
+  `twice_Spec_[inc]`, and those atoms save and digest like any other, so a tool
+  showing a program what it holds had no way to tell them from source: 19 of the
+  238 example programs hold them, 40 of `ch08/15-roman.metta`'s 85 atoms among
+  them. `(origin-of twice_Spec_[inc])` now answers `(specialization twice)`,
+  naming both the engine as author and the function being specialized, where it
+  used to answer `(equation <module>)` exactly as the function it specializes
+  did. Every other tier is unchanged.
+
 ### Fixed
 
 - A cross-thread wait inside a transaction refuses instead of hanging. A

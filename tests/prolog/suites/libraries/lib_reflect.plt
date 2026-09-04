@@ -174,6 +174,30 @@ test(every_tier_names_itself,
     metta_self_module(Self),
     assertion(Equation == [equation, Self]).
 
+%The tier that says the ENGINE wrote the equation. Specializations save and
+%digest like any other atom, so a tool showing a program what it holds
+%presented them as source; they answered (equation <module>) exactly as the
+%function they specialize did.
+test(a_specialization_names_the_engine_as_its_author,
+     [ setup(( 'add-atom'('&self', [=, ['plunit-spec-inc', X], [+, X, 1]], _),
+               'add-atom'('&self', [=, ['plunit-spec-twice', F, Y],
+                                    [F, [F, Y]]], _) )),
+       cleanup(( 'remove-atom'('&self', [=, ['plunit-spec-inc', _], _], _),
+                 'remove-atom'('&self', [=, ['plunit-spec-twice', _, _], _], _) )) ]) :-
+    %The specialization exists only once a higher-order call has been made.
+    forall(eval(['plunit-spec-twice', 'plunit-spec-inc', 1], _), true),
+    metta_self_module(Self),
+    (   specializer:ho_specialization(Self, 'plunit-spec-twice', Generated)
+    ->  'engine-origin'(Generated, Origin),
+        assertion(Origin == [specialization, 'plunit-spec-twice']),
+        %And the name it specializes still reads as the program's own.
+        'engine-origin'('plunit-spec-twice', Base),
+        assertion(Base == [equation, Self])
+    ;   %No specialization was built, so there is nothing to name and the
+        %test states that rather than passing on an absent subject.
+        assertion(fail)
+    ).
+
 test(a_name_the_engine_does_not_know_has_no_origin) :-
     \+ 'engine-origin'(plunit_reflect_absent, _).
 

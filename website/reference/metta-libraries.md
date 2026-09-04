@@ -257,7 +257,7 @@ Returns: True or False
 
 ### `extension-points`
 
-*lib_reflect.metta:66*
+*lib_reflect.metta:74*
 
 Every extension point the engine declares, as (name arity kind), one per solution
 
@@ -265,7 +265,7 @@ Returns: (name arity kind)
 
 ### `surface-counts`
 
-*lib_reflect.metta:71*
+*lib_reflect.metta:79*
 
 How many builtins, special forms, functions and user functions
 
@@ -273,7 +273,7 @@ Returns: ((key count) ...)
 
 ### `surface-json`
 
-*lib_reflect.metta:78*
+*lib_reflect.metta:86*
 
 The engine's whole surface as a JSON string, for external tools
 

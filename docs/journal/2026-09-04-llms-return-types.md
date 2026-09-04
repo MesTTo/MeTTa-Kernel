@@ -307,3 +307,33 @@ One full-suite run showed
 `test_a_landing_observer_can_await_another_async_future` failing. It passes
 alone, passes with its whole chapter, and passes in a repeat full run at load
 18.3; the box was carrying another workload at 344% CPU throughout.
+
+## 2026-09-04, naming what the engine wrote
+
+Requested as "nothing published names a generated function", with the reporter
+reaching past the published service list into `specializer:ho_specialization/3`
+because there was nothing on the list to reach instead.
+
+Reproduced: after `!(twice inc 1)` the space holds
+`(= (twice_Spec_[inc] $_ $_) (inc (inc $_)))`, and `(origin-of ...)` answers
+`(equation $metta_exec:&pyspace_1)` for that name and for `inc` alike.
+
+Rejected: a separate `(generated? $name)` predicate. `origin-of` already exists
+to say where a name came from and its tiers are ordered by AUTHOR, so a
+specialization is a tier rather than a second question. One door, one more
+face.
+
+Decided: a `specialization` tier above `equation`, carrying the name being
+specialized as its detail, so `(origin-of twice_Spec_[inc])` answers
+`(specialization twice)`. The reader learns both facts at once, and
+`ho_specialization/3` is already exported from the specializer module for
+engine/spaces.pl, so nothing new is published to read it.
+
+Control: removing the tier turns the new plunit test red on its assertion.
+
+Two generated artifacts had to follow the library's own doc comment:
+`libdoc.py --write` for the libraries page, and the ruff gate caught a
+duplicate `EngineError` import in the new concurrency test, which was already
+imported further down the same block. That last one had shipped in the
+preceding commit because the chapter suite was run before committing and the
+gate-completeness lane was not; it is folded back into that commit.
