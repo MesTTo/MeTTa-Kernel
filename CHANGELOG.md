@@ -6,6 +6,8 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.7.2] - 2026-09-04
+
 ### Added
 
 - `origin-of` names engine-generated equations. Evaluating a higher-order call

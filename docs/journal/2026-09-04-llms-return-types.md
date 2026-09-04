@@ -464,3 +464,36 @@ quieter box: 29,030, 29,020, 29,020 across three consecutive runs, all inside
 the band, and the whole mork lane exits 0. The row is the perf window handshake
 that bench.py's own docstring says "moves for its own reasons", not a workload,
 so 452 instructions on 29,000 is the environment. Nothing re-pinned.
+
+## 2026-09-04, a benchmark failure that was my own leftovers
+
+The second gate run failed one lane, `benchmarks`, on `space-name`: minimum
+4,200,421 against a 4,200,416 pin with a four-inference allowance, over by one.
+The samples were byte-identical run to run, so it read as deterministic work.
+
+It was not. Reverting engine/, lib/, the package and bridge.pl to the
+pre-session tip reproduced 4,200,421 exactly, which already said it was not this
+branch's. The cause was stale `__pycache__` and a purged `.qlf` set left by the
+BOOT attribution experiments earlier in the same session: `git checkout --` of
+engine/ resets source mtimes, the loaders purge every .qlf, and the reverts left
+bytecode behind that Python reused. Clearing `__pycache__` and rebuilding the
+.qlf set returns `space-name` to green, three runs over, and the whole 35-case
+lane exits 0. Nothing was re-pinned.
+
+Two things worth keeping from it. An A/B whose two arms agree is evidence about
+the ARMS, not about the tree: both of mine were contaminated the same way and
+agreed, which is exactly what made the reading look solid. And a benchmark
+harness that reads a Python package needs its bytecode cleared for the same
+reason a Prolog one needs its .qlf rebuilt; this session found both hazards on
+the same afternoon and only recognised the second after the first.
+
+The BOOT re-pin stands: measured again from the clean state it reads 1,485,361,
+inside its new pin's allowance and still ~786 above the old one, and its two
+attribution arms were both taken with the .qlf rebuilt.
+
+Ruling recorded (user, 2026-09-04): "boot time is fine, runtime is not". The
++794 this pass added is a one-time consult, which is what the boot pin measures;
+every runtime lane is unmoved, and each change this pass made sits off the
+evaluation path (a `get-doc` guard, an error-rendering writer, a
+`current_transaction/1` check in front of a blocking wait, a reflection lookup,
+a ContextVar read per transaction).
