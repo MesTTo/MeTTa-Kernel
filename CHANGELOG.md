@@ -6,6 +6,18 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- A column missed because of the underscore-to-hyphen map names the two doors.
+  `V.head_word` builds `$head-word` and `V["head_word"]` builds `$head_word`,
+  which is the ladder working as designed: attribute access takes Python's
+  convention to MeTTa's, and the bracket door stays exact so a head outside
+  identifier grammar is still reachable. Mixing them in one pattern therefore
+  builds two variables, and the miss used to surface a call or more later as a
+  bare "no column". Every door that can miss, `rows[name]`, `row.name` and
+  `row[name]`, now says which spelling exists and why the two differ. A name
+  that is nobody's twin keeps the ordinary wording.
+
 ## [0.7.2] - 2026-09-04
 
 ### Added
