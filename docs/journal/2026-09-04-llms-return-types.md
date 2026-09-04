@@ -337,3 +337,48 @@ duplicate `EngineError` import in the new concurrency test, which was already
 imported further down the same block. That last one had shipped in the
 preceding commit because the chapter suite was run before committing and the
 gate-completeness lane was not; it is folded back into that commit.
+
+## 2026-09-04, what this pass did not close
+
+Two reported items did not reproduce here, and one is a gap rather than a
+defect. Recording the measurements so the next attempt starts from them.
+
+ROLLBACK POISONING. Reported as a rolled-back transaction leaving a later
+evaluation far worse than cold, at 1.44s cold against a rolled-back run that
+did not finish in 120s. On this tree, with the same workload run three ways and
+measured on inferences: no prior run 19,851, a kept run 17,677, a ROLLED BACK
+run 17,689. The rolled-back and kept runs are within 0.07% of each other and
+both below the cold baseline, which is the first-compile cost. The reporter's
+own harness (`ai-tmp/probe_perturb.py`) answers 0.00s for every channel on
+every input available here, including the one their finding names, so the work
+it timed is not being reached. A reproducing input would settle it.
+
+DERIVATION IN A COPY. Reported as a derivation inside a `Space.copy` slowing
+later derivations. Measured, three derivations after each prelude: no prior
+derivation-in-copy 14,870 inferences, after a derivation inside a copy 15,214,
+after a derivation in the space itself 15,212. In-copy and in-place are within
+0.02%. The related channel asymmetry their notes describe, a derivation writing
+to the root `&self` while other channels write to the scratch, does not
+reproduce either: `eval`, `run` and `derivation` each wrote to the selected
+space and none to the root.
+
+MODE-DIRECTED TABLING. A downstream note records that a mode-directed table
+over an incremental predicate must itself be declared incremental or it is
+never invalidated. That is true of hand-written Prolog and is not a defect
+here: `metta_tabling_install_table/3` marks every read `dynamic(... as
+incremental)` and declares the table `as (incremental, shared)`, so the MeTTa
+door cannot make that mistake. The gap is that the door has no mode-directed
+form at all, so a caller wanting `min` answer subsumption drops to raw Prolog
+and inherits the obligation. Worth closing by extending `(tabled ...)`, not by
+warning about it.
+
+RUFF OVER THE GATE'S OWN CODE. `tests/checks/*.py` and
+`extensions/python/tools/*.py` are linted by nothing: `ruff-drivers` covers
+`engine/`, `extensions/*/` and `examples/ch19-*/` and excludes both. Measured
+2026-09-04 with each file under its own resolved configuration: 97 findings in
+the first and 38 in the second, dominated by 50 D205, 24 D103, and 28
+TRY003/EM102 sites that the `msg = ...` convention already used elsewhere in
+this tree would close. The structural remedy is one line, adding the two globs
+to `check_component_python`, and it can only land once the findings are clean.
+Deliberately not bundled with this release: it is a large diff in the gate's
+own checkers, and a broken checker breaks every lane.
