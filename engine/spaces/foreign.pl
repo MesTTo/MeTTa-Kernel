@@ -1203,7 +1203,7 @@ throw_builtin_redefinition(Module, Clause) :-
 %methods a provider has, so no protocol can derive it and the message has to
 %say how to opt in [tested: test_a_space_without_rules_says_how_to_hold_one].
 prolog:error_message(metta_foreign_space_holds_no_rules(Space, Term)) -->
-    { swrite(Term, TermText) },
+    { sdisplay(Term, TermText) },
     [ '~w does not hold rules, so ~w was refused rather than stored where it \c
        could never fire'-[Space, TermText], nl,
       '  a foreign space holds DATA unless it says otherwise; declare the \c

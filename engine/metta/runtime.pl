@@ -85,7 +85,7 @@ prolog:error_message(metta_extension_api_mismatch(Name, Wanted, Ours)) -->
 %through swrite/2 so the author sees the MeTTa they wrote rather than its
 %Prolog list.
 prolog:error_message(metta_untypable_declaration(Name, Type)) -->
-    { swrite(Type, Written) },
+    { sdisplay(Type, Written) },
     [ '(: ~w ~w) is not an arrow, so it types the symbol ~w and not a call \c
        to it: every (~w ...) compiles with no check at all, and a wrong \c
        argument surfaces wherever it finally breaks instead of here. Write \c

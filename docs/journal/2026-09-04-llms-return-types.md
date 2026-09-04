@@ -191,3 +191,42 @@ Control: restoring the whole-set release turns the new test red with
 The repository's D205 burn-down caught the first version of the new helper's
 docstring: a `# noqa: D205` took the suppression count from 2201 to 2202 and the
 ceiling is there to fall, so the docstring was written to comply instead.
+
+## 2026-09-04, an error report that destroyed its own error
+
+Reported as "host exceptions with opaque arguments fail during rendering": an
+operation taking `G(object())` and raising `MettaError("clean")` surfaced a
+`PrologError` carrying a `swrite/2` complaint and no `clean`.
+
+A four-cell matrix located it exactly. Opaque argument with a succeeding
+operation answers normally, plain argument with a raising operation gives
+`EngineError: Python MettaError in (probe plain)` with `clean` intact, and only
+opaque-plus-raising fails. So the defect is in rendering the CALL, not in
+passing the value or in raising.
+
+Cause: `extensions/python/bridge.pl`'s `prolog:message//1` calls
+`swrite(Call, CallText)`. `swrite/2` is the round-trip writer and refuses any
+value whose printed form would read back as something else, which
+`metta_unwritable_symbol/2` documents as covering opaque host values. The throw
+escapes the message renderer, so the refusal replaces the error being rendered.
+This is the error-handler-that-errors shape, and the general answer is the one
+`logging.Handler.handleError` takes: formatting a report has to be total.
+
+Surveyed every `prolog:message//1` and `prolog:error_message//1` clause in the
+shipped tree: thirteen call sites across eight files had the same hazard, each
+rendering a user-supplied term. Fixing only the reported one would have left
+twelve.
+
+Measured before substituting, because these renderings are pinned by tests:
+`sdisplay/2` and `swrite/2` produce byte-identical strings for every term
+`swrite` can write (`(a b)`, `"text"`, `3.5`, `-0.0`, `Foo`, `()`, `prime?`)
+and differ only where `swrite` refuses, where `sdisplay` renders (`(foo 1)`,
+`a b`, `inf`). So the substitution changes no existing message.
+
+Control: restoring `swrite` in the bridge clause turns the new test red as
+`janus_swi.janus.PrologError: <exception str() failed>`, which is the renderer
+failing while rendering the renderer's own failure.
+
+The first scan of message clauses missed two sites in
+`engine/spaces/segment_matching.pl` because a COMMENT line ending in a full
+stop looked like the end of a clause. A comment-aware rescan found them.

@@ -873,7 +873,7 @@ metta_route_cap_apply(Space, Pattern, Class0, Class) :-
 
 :- multifile prolog:error_message//1.
 prolog:error_message(metta_route_capped(Space, Pattern, Why)) -->
-    { swrite(Pattern, PatternText) },
+    { sdisplay(Pattern, PatternText) },
     [ 'a route advisor refuses ~w for ~w: ~w. The cap rides \c
        seam:route_cap/4; remove the advisor''s reason or its declaration \c
        to route again'-[Space, PatternText, Why] ].

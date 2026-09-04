@@ -8,6 +8,17 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- An error carrying an opaque host value no longer replaces itself with a
+  complaint about rendering that value. Every `prolog:message//1` clause
+  rendered its subject through `swrite/2`, the round-trip writer, which refuses
+  a value whose printed form would read back as something else. An opaque host
+  handle is exactly such a value, so reporting a failed call threw out of the
+  renderer: an operation raising `MettaError("clean")` on a `G(object())`
+  argument surfaced `swrite/2: cannot write <py_Box>(0x...) as MeTTa text` with
+  no trace of `clean`. Rendering a message is display rather than round-trip, so
+  the thirteen message clauses now use `sdisplay/2`, which answers identically
+  for every term `swrite` can write and renders the ones it refuses.
+
 - Registering one typed operation in a second space keeps the first space's
   contract. Operation implementations are process-global and the registry is
   keyed by name, but the `(: ...)` and `(annotation ...)` rows an annotated

@@ -373,12 +373,12 @@ metta_seq_refuse(Left, Right, Mixed, Reason) :-
 
 :- multifile prolog:error_message//1.
 prolog:error_message(metta_seq_outside_fragment(Left, Right, Mixed, Reason)) -->
-    { swrite(Left, LeftText),
+    { sdisplay(Left, LeftText),
       %A space match classifies its pattern before it has seen a candidate, so
       %the other side is genuinely open there and naming it as a variable would
       %read like a mistake in the program.
-      ( var(Right) -> RightText = 'any atom' ; swrite(Right, RightText) ),
-      ( Mixed == [] -> MixedText = none ; swrite(Mixed, MixedText) ) },
+      ( var(Right) -> RightText = 'any atom' ; sdisplay(Right, RightText) ),
+      ( Mixed == [] -> MixedText = none ; sdisplay(Mixed, MixedText) ) },
     [ 'gap unification of ~w against ~w is outside the proved finitary \c
        fragment (~w, mixed-roles: ~w). General sequence unification is \c
        INFINITARY (Kutsia, Journal of Symbolic Computation 42(3), 2007, \c

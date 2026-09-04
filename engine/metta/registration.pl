@@ -462,7 +462,7 @@ metta_error_context(Context, Operation, Detail) :-
 
 prolog:message(error(type_error(Expected, Culprit), Context)) -->
     { metta_error_context(Context, Operation, 'invalid MeTTa operation argument'),
-      swrite(Culprit, CulpritText) },
+      sdisplay(Culprit, CulpritText) },
     [ '~w: ~w expected, found ~w'-[Operation, Expected, CulpritText] ].
 %The ISO formal stays existence_error(procedure, Name), so a program can catch
 %it the standard way; only the wording changes, because SWI's default renders

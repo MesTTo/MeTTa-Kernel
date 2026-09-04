@@ -1235,9 +1235,9 @@ metta_probe_chain([Probe|Probes], (Probe -> true ; Chain)) :-
 :- multifile prolog:error_message//1.
 prolog:error_message(metta_declaration_malformed(Term, Position, Expected)) -->
     { Term = [Head|_],
-      swrite(Term, TermText),
+      sdisplay(Term, TermText),
       (   is_list(Expected)
-      ->  swrite(Expected, ExpectedText)
+      ->  sdisplay(Expected, ExpectedText)
       ;   ExpectedText = Expected
       ) },
     [ 'the declaration ~w does not fit its declared kind: argument ~w \c
@@ -1245,7 +1245,7 @@ prolog:error_message(metta_declaration_malformed(Term, Position, Expected)) -->
        shape, or remove the kind row and redeclare it to widen the \c
        kind'-[TermText, Position, ExpectedText, Head] ].
 prolog:error_message(metta_duplicate_declaration(Space, Second, First)) -->
-    { swrite(Second, SecondText), swrite(First, FirstText) },
+    { sdisplay(Second, SecondText), sdisplay(First, FirstText) },
     [ 'the declaration ~w is a duplicate in ~w; the first declaration is ~w'-
       [SecondText, Space, FirstText] ].
 
