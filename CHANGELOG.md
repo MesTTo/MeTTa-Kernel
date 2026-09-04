@@ -6,6 +6,8 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-09-04
+
 ### Fixed
 
 - A column missed because of the underscore-to-hyphen map names the two doors.
