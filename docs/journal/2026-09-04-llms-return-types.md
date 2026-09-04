@@ -160,3 +160,34 @@ failed` while the undocumented-name test stays green.
 The Python test first used `undocumented` as its never-documented subject and
 did not raise: that is engine vocabulary and resolves from the prelude doc
 register, which is `get-doc`'s documented fallback rather than a miss.
+
+## 2026-09-04, declarations moving between spaces
+
+Reported as "re-registering a typed operation moves declarations between
+spaces", three rows in A before and zero after. Reproduced on the first
+attempt with the reporter's exact numbers.
+
+Cause: `REGISTRY` is keyed by name alone because an implementation is
+process-global, so registering the same name in space B replaces A's entry, and
+`_retire_previous` released `previous.declarations` from `previous.space`. The
+`_DECLARATION_REFS` refcount is already keyed by `(space, declaration)`, so the
+two spaces' rows were never shared; A's were simply released.
+
+Rejected: releasing only when `previous.space == space`. It fixes the reported
+case but leaks on register-A, register-B, register-A: `previous` is then B's
+entry, nothing of A's is released, and a changed signature leaves A holding both
+signatures' rows.
+
+Decided: the Operation records `holdings`, one `(space, declarations)` entry per
+space it has declared into. A registration releases only the entry for the space
+it is registering into; `unregister` releases every entry. No special case, and
+the four properties hold together: A keeps its rows when B registers, B gets its
+own, re-registering in A with a changed signature replaces only A's, and
+unregistering clears both.
+
+Control: restoring the whole-set release turns the new test red with
+`assert [] == ['(: two-space-op ...']`, which is the reported three-to-zero.
+
+The repository's D205 burn-down caught the first version of the new helper's
+docstring: a `# noqa: D205` took the suppression count from 2201 to 2202 and the
+ceiling is there to fall, so the docstring was written to comply instead.

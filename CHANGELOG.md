@@ -8,6 +8,16 @@ All notable user-facing changes to MeTTa are recorded here. The format follows
 
 ### Fixed
 
+- Registering one typed operation in a second space keeps the first space's
+  contract. Operation implementations are process-global and the registry is
+  keyed by name, but the `(: ...)` and `(annotation ...)` rows an annotated
+  signature derives are space-local, so the second registration retired the
+  first space's declarations: three rows in space A before, zero after, with
+  both operations still reducing and only the last registration site keeping
+  its types. An operation now records what it declared in each space, so a
+  registration replaces its OWN space's rows, leaves every other space's
+  standing, and unregistering clears all of them.
+
 - A function documented without a parameter block is visible to the scoped
   `get-doc` again. `get-doc-function` builds the four-field formal shape and
   matches only `(@doc name desc (@params ...) (@return ...))`, and every
